@@ -1,12 +1,11 @@
+use lexer::lex;
+use lexer::Token;
 use std::env;
 use std::fs;
+use std::fs::File;
+use std::io::prelude::*;
 
-#[derive(Debug)]
-enum Token {
-    Return,
-    IntLit(i32),
-    SemiColon,
-}
+mod lexer;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -17,35 +16,29 @@ fn main() {
 
     let source = fs::read_to_string(&args[1]).unwrap();
 
-    lexer(source);
+    output(lex(source));
 }
 
-fn lexer(source: String) {
-    let mut tokens: Vec<Token> = Vec::new();
+fn output(tokens: Vec<Token>) {
+    let mut buffer = String::new();
+    let mut file = File::create("a.out").unwrap();
 
-    if &source[0..6] == "return" {
-        tokens.push(Token::Return);
+    buffer.push_str("global _start\n_start:");
+
+    if tokens.len() == 3
+        && tokens[0] == Token::Return
+        && matches!(tokens[1], Token::Integer(..))
+        && tokens[2] == Token::SemiColon
+    {
+        buffer.push_str("    mov rax, 60\n    mov rdi, ");
+        if let Token::Integer(string) = &tokens[1] {
+            buffer.push_str(&string);
+        }
+        buffer.push_str("\n    syscall");
+    } else {
+        panic!("Syntax Error");
     }
 
-    let mut i = 0;
-    let mut j = 0;
-
-    while j != tokens.len() {
-        tokens.push();
-    }
-
-    dbg!(tokens);
-}
-
-fn get_token(string: &str) -> Option<Token> {
-    match string.parse() {
-        Ok(num) => return Some(Token::IntLit(num)),
-        Err(_) => {}
-    };
-
-    match string {
-        "return" => Some(Token::Return),
-        ";" => Some(Token::SemiColon),
-        _ => None,
-    }
+    file.write_all(&buffer.into_bytes()).unwrap();
+    println!("Successfully compiled");
 }
