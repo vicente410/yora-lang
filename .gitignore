@@ -1,1 +1,2 @@
-**/yora-compiler/target/
+**/target/
+**/cargo.lock
