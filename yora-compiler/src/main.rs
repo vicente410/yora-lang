@@ -30,7 +30,7 @@ fn main() {
     output(lex(source), filename, flags);
 }
 
-fn output(tokens: Vec<Token>, filename: String, flags: HashMap<Flag, String>) {
+fn output(tokens: Vec<Token>, filename: String, flags: HashMap<Flag, Option<String>>) {
     let mut buffer = String::new();
     let mut output = filename.clone();
 
@@ -68,7 +68,9 @@ fn output(tokens: Vec<Token>, filename: String, flags: HashMap<Flag, String>) {
     }
 
     if flags.contains_key(&Flag::Output) {
-        output = flags[&Flag::Output].clone();
+        if let Some(string) = &flags[&Flag::Output] {
+            output = string.to_string();
+        }
     }
 
     Command::new("ld")
@@ -84,23 +86,26 @@ fn output(tokens: Vec<Token>, filename: String, flags: HashMap<Flag, String>) {
     println!("Successfully compiled");
 }
 
-fn parse_args(args: &mut Vec<String>) -> (String, HashMap<Flag, String>) {
-    let mut flags: HashMap<Flag, String> = HashMap::new();
+fn parse_args(args: &mut Vec<String>) -> (String, HashMap<Flag, Option<String>>) {
+    let mut flags: HashMap<Flag, Option<String>> = HashMap::new();
     let mut i = 1;
     let filename = args.pop().unwrap();
 
     while i < args.len() {
         flags.insert(
             match args[i].as_str() {
-                "-o" | "--output" => {
-                    i += 1;
-                    Flag::Output
-                }
+                "-o" | "--output" => Flag::Output,
                 "-s" | "--assembly" => Flag::Assembly,
                 "-t" | "--tokens" => Flag::Tokens,
                 _ => panic!("Incorrect usage"),
             },
-            args[i].clone(), // TODO: Change this to an option.
+            match args[i].as_str() {
+                "-o" | "--output" => {
+                    i += 1;
+                    Some(args[i].clone())
+                }
+                _ => None,
+            }, // TODO: Change this to an option.
         );
 
         i += 1;
