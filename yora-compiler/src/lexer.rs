@@ -18,7 +18,7 @@ pub fn lex(source: String) -> Vec<Token> {
                 tokens.push(get_token(buffer.clone()));
                 buffer.clear();
             }
-            if c != ' ' && c != '\n' && c != '\t' {
+            if !c.is_whitespace() {
                 tokens.push(get_token(c.to_string()));
             }
         }

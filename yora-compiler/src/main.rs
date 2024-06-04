@@ -4,6 +4,7 @@ use std::env;
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
+use std::process::Command;
 
 mod lexer;
 
@@ -21,9 +22,10 @@ fn main() {
 
 fn output(tokens: Vec<Token>) {
     let mut buffer = String::new();
-    let mut file = File::create("a.out").unwrap();
 
     buffer.push_str("global _start\n_start:");
+
+    dbg!(&tokens);
 
     if tokens.len() == 3
         && tokens[0] == Token::Return
@@ -39,6 +41,23 @@ fn output(tokens: Vec<Token>) {
         panic!("Syntax Error");
     }
 
+    let mut file = File::create("a.asm").unwrap();
     file.write_all(&buffer.into_bytes()).unwrap();
+
+    Command::new("nasm")
+        .args(["-f elf64", "a.asm"])
+        .output()
+        .expect("Failed to execute Nasm");
+
+    Command::new("ld")
+        .args(["a.o"])
+        .output()
+        .expect("Failed to execute Ld");
+
+    Command::new("rm")
+        .args(["a.o"])
+        .output()
+        .expect("Failed to remove a.o");
+
     println!("Successfully compiled");
 }
