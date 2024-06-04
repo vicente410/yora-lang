@@ -9,18 +9,19 @@ pub enum Token {
 pub fn lex(source: String) -> Vec<Token> {
     let mut tokens: Vec<Token> = Vec::new();
     let mut buffer: String = String::new();
+    let mut iter = source.chars().peekable();
 
-    for c in source.chars() {
+    while let Some(c) = iter.next() {
         if c.is_alphanumeric() {
             buffer.push(c);
-        } else {
-            if !buffer.is_empty() {
-                tokens.push(get_token(buffer.clone()));
-                buffer.clear();
+            if let Some(c) = iter.peek() {
+                if !c.is_alphanumeric() {
+                    tokens.push(get_token(buffer.clone()));
+                    buffer.clear();
+                }
             }
-            if !c.is_whitespace() {
-                tokens.push(get_token(c.to_string()));
-            }
+        } else if !c.is_whitespace() {
+            tokens.push(get_token(c.to_string()));
         }
     }
 
