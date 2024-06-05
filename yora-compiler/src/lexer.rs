@@ -1,6 +1,6 @@
 #[derive(Debug, PartialEq)]
 pub enum Token {
-    Return,
+    Exit,
     Integer(String),
     SemiColon,
     Identifier(String),
@@ -34,7 +34,7 @@ fn get_token(string: String) -> Token {
     }
 
     match string.as_str() {
-        "return" => Token::Return,
+        "exit" => Token::Exit,
         ";" => Token::SemiColon,
         _ => Token::Identifier(string),
     }
