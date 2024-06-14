@@ -26,14 +26,24 @@ enum DebugOptions {
 
 fn main() {
     let mut args: Vec<String> = env::args().collect();
-
     let (filename, flags) = parse_args(&mut args);
 
     let source = fs::read_to_string(&format!("{}.yr", filename)).unwrap();
+    let assembly = compile(source, &flags);
 
-    let ast = compile(source, &flags);
+    let (asm_name, obj_name, exec_name) = get_filenames(filename, &flags);
 
-    output(ast, filename, flags);
+    let mut asm_file = File::create(&asm_name).unwrap();
+    asm_file.write_all(&assembly.into_bytes()).unwrap();
+
+    if flags.contains_key(&Flag::Assembly) {
+        process::exit(0);
+    }
+
+    assemble(&asm_name, &obj_name);
+    link(&obj_name, &exec_name);
+
+    remove_tmpfiles(asm_name, obj_name, flags);
 }
 
 fn parse_args(args: &mut Vec<String>) -> (String, HashMap<Flag, Option<String>>) {
@@ -75,7 +85,7 @@ fn parse_args(args: &mut Vec<String>) -> (String, HashMap<Flag, Option<String>>)
     (filename, flags)
 }
 
-fn compile(source: String, flags: &HashMap<Flag, Option<String>>) -> Vec<Statement> {
+fn compile(source: String, flags: &HashMap<Flag, Option<String>>) -> String {
     let tokens = lex(source);
 
     if flags.contains_key(&Flag::Debug(DebugOptions::Tokens)) {
@@ -90,51 +100,96 @@ fn compile(source: String, flags: &HashMap<Flag, Option<String>>) -> Vec<Stateme
         process::exit(0);
     }
 
-    ast
+    let assembly = codegen(ast);
+
+    assembly
 }
 
-fn output(ast: Vec<Statement>, filename: String, flags: HashMap<Flag, Option<String>>) {
-    let mut buffer = String::new();
-    let mut output = filename.clone();
-
-    if flags.contains_key(&Flag::Output) {
-        if let Some(string) = &flags[&Flag::Output] {
-            output = string.to_string();
+fn get_filenames(
+    filename: String,
+    flags: &HashMap<Flag, Option<String>>,
+) -> (String, String, String) {
+    let asm_name = if flags.contains_key(&Flag::Assembly) {
+        if flags.contains_key(&Flag::Output) {
+            if let Some(string) = &flags[&Flag::Output] {
+                string.clone()
+            } else {
+                panic!();
+            }
+        } else {
+            format!("{}.asm", filename)
         }
-    }
+    } else {
+        get_tmpfile_path()
+    };
 
-    buffer.push_str("global _start\n_start:\n");
+    let obj_name = get_tmpfile_path();
 
+    let exec_name = if flags.contains_key(&Flag::Output) {
+        if let Some(string) = &flags[&Flag::Output] {
+            string.clone()
+        } else {
+            panic!();
+        }
+    } else {
+        filename
+    };
+
+    (asm_name, obj_name, exec_name)
+}
+
+fn assemble(asm_name: &String, obj_name: &String) {
+    Command::new("nasm")
+        .args(["-felf64", "-o", &obj_name, &asm_name])
+        .output()
+        .expect("Failed to execute \"nasm\"");
+}
+
+fn link(obj_name: &String, exec_name: &String) {
+    Command::new("ld")
+        .args(["-o", &exec_name, &obj_name])
+        .output()
+        .expect("Failed to execute \"ld\"");
+}
+
+fn codegen(ast: Vec<Statement>) -> String {
+    let mut assembly = String::new();
+
+    assembly.push_str("global _start\n_start:\n");
     for statement in ast {
         let Statement::Exit(Expression::Literal(string)) = statement;
 
-        buffer.push_str(&format!(
+        assembly.push_str(&format!(
             "    mov rax, 60\n    mov rdi, {}\n    syscall\n",
             &string
         ));
     }
 
-    let mut file = File::create(format!("{}.asm", filename)).unwrap();
-    file.write_all(&buffer.into_bytes()).unwrap();
+    assembly
+}
 
-    if flags.contains_key(&Flag::Assembly) {
-        process::exit(0);
+fn get_tmpfile_path() -> String {
+    String::from_utf8(
+        Command::new("mktemp")
+            .output()
+            .expect("Failed to create temporary file.")
+            .stdout,
+    )
+    .unwrap()
+    .trim()
+    .to_string()
+}
+
+fn remove_tmpfiles(asm_name: String, obj_name: String, flags: HashMap<Flag, Option<String>>) {
+    remove_file(obj_name);
+    if !flags.contains_key(&Flag::Assembly) {
+        remove_file(asm_name);
     }
+}
 
-    Command::new("nasm")
-        .args(["-f elf64", &format!("{}.asm", filename)])
-        .output()
-        .expect("Failed to execute \"nasm\"");
-
-    Command::new("ld")
-        .args(["-o", &output, &format!("{}.o", filename)])
-        .output()
-        .expect("Failed to execute \"ld\"");
-
+fn remove_file(filename: String) {
     Command::new("rm")
-        .args([format!("{}.o", filename), format!("{}.asm", filename)])
+        .args([filename])
         .output()
-        .expect("Failed to remove object file");
-
-    println!("Successfully compiled");
+        .expect("Failed to remove file");
 }
