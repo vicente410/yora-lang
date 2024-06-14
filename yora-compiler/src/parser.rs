@@ -3,6 +3,7 @@ use crate::lexer::Token;
 #[derive(Debug, PartialEq)]
 pub enum Statement {
     Exit(Expression),
+    Print(Expression),
     Assignment(Expression, Expression),
     /*Declaration(Identifier, Option<Expression>),
     IfBlock(Expression, Vec<Statement>),
@@ -55,6 +56,12 @@ fn get_statement(buffer: &Vec<Token>) -> Statement {
             (Token::Exit, Token::Identifier(id)) => {
                 Statement::Exit(Expression::Identifier(id.to_string()))
             }
+            (Token::Print, Token::Integer(int)) => {
+                Statement::Print(Expression::Literal(int.to_string()))
+            }
+            (Token::Print, Token::Identifier(id)) => {
+                Statement::Print(Expression::Identifier(id.to_string()))
+            }
             _ => panic!("Unrecognized statement."),
         },
         3 => match (&buffer[0], &buffer[1], &buffer[2]) {
@@ -62,6 +69,12 @@ fn get_statement(buffer: &Vec<Token>) -> Statement {
                 Expression::Identifier(id.to_string()),
                 Expression::Literal(int.to_string()),
             ),
+            (Token::Identifier(id1), Token::Equal, Token::Identifier(id2)) => {
+                Statement::Assignment(
+                    Expression::Identifier(id1.to_string()),
+                    Expression::Identifier(id2.to_string()),
+                )
+            }
             _ => panic!("Unrecognized statement."),
         },
         _ => {
