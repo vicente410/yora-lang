@@ -3,8 +3,8 @@ use crate::lexer::Token;
 #[derive(Debug, PartialEq)]
 pub enum Statement {
     Exit(Expression),
+    Assignment(Expression, Expression),
     /*Declaration(Identifier, Option<Expression>),
-    Assignment(Identifier, Expression),
     IfBlock(Expression, Vec<Statement>),
     LoopBlock(Vec<Statement>),*/
 }
@@ -12,8 +12,8 @@ pub enum Statement {
 #[derive(Debug, PartialEq)]
 pub enum Expression {
     Literal(String),
-    /*Identifier(String),
-    Not(&'a Expression),
+    Identifier(String),
+    /*Not(&'a Expression),
     Equal(&'a Expression, &'a Expression),
     NotEqual(&'a Expression, &'a Expression),
     And(&'a Expression, &'a Expression),
@@ -47,16 +47,25 @@ pub fn parse(tokens: Vec<Token>) -> Vec<Statement> {
 }
 
 fn get_statement(buffer: &Vec<Token>) -> Statement {
-    if buffer.len() == 2
-        && matches!(buffer[0], Token::Exit)
-        && matches!(buffer[1], Token::Integer(..))
-    {
-        if let Token::Integer(string) = &buffer[1] {
-            return Statement::Exit(Expression::Literal(string.to_string()));
-        } else {
+    match buffer.len() {
+        2 => match (&buffer[0], &buffer[1]) {
+            (Token::Exit, Token::Integer(int)) => {
+                Statement::Exit(Expression::Literal(int.to_string()))
+            }
+            (Token::Exit, Token::Identifier(id)) => {
+                Statement::Exit(Expression::Identifier(id.to_string()))
+            }
+            _ => panic!("Unrecognized statement."),
+        },
+        3 => match (&buffer[0], &buffer[1], &buffer[2]) {
+            (Token::Identifier(id), Token::Equal, Token::Integer(int)) => Statement::Assignment(
+                Expression::Identifier(id.to_string()),
+                Expression::Literal(int.to_string()),
+            ),
+            _ => panic!("Unrecognized statement."),
+        },
+        _ => {
             panic!("Unrecognized statement.");
         }
-    } else {
-        panic!("Unrecognized statement.");
     }
 }

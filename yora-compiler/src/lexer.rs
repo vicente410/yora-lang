@@ -4,6 +4,7 @@ pub enum Token {
     Integer(String),
     SemiColon,
     Identifier(String),
+    Equal,
 }
 
 pub fn lex(source: String) -> Vec<Token> {
@@ -36,6 +37,7 @@ fn get_token(string: String) -> Token {
     match string.as_str() {
         "exit" => Token::Exit,
         ";" => Token::SemiColon,
+        "=" => Token::Equal,
         _ => Token::Identifier(string),
     }
 }
