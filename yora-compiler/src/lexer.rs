@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     Exit,
     Print,
@@ -6,6 +6,9 @@ pub enum Token {
     SemiColon,
     Identifier(String),
     Equal,
+    LeftParen,
+    RightParen,
+    Add,
 }
 
 pub fn lex(source: String) -> Vec<Token> {
@@ -40,6 +43,9 @@ fn get_token(string: String) -> Token {
         "print" => Token::Print,
         ";" => Token::SemiColon,
         "=" => Token::Equal,
+        "(" => Token::LeftParen,
+        ")" => Token::RightParen,
+        "+" => Token::Add,
         _ => Token::Identifier(string),
     }
 }

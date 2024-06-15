@@ -11,25 +11,20 @@ pub fn codegen(ast: Vec<Statement>) -> String {
     text.push_str("section .text\nglobal _start\n_start:\n");
     for statement in ast {
         match statement {
-            Statement::Assignment(arg1, arg2) => match (arg1, arg2) {
-                (Expression::Identifier(id), Expression::Literal(int)) => {
-                    symbol_table.insert(id, int);
+            Statement::Assignment(arg1, expr) => {
+                if let Expression::Value(Value::Identifier(id)) = arg1 {
+                    symbol_table.insert(id, eval_expr(expr, &symbol_table));
+                } else {
+                    panic!("Cannot assign to this expression.");
                 }
-                (Expression::Identifier(id1), Expression::Identifier(id2)) => {
-                    symbol_table.insert(id1, symbol_table[&id2].clone());
-                }
-                _ => {}
-            },
-            Statement::Exit(arg) => {
+            }
+            Statement::Exit(expr) => {
                 text.push_str(&format!(
                     "    mov rax, 60\n    mov rdi, {}\n    syscall\n\n",
-                    match arg {
-                        Expression::Literal(int) => int,
-                        Expression::Identifier(id) => symbol_table[&id].clone(),
-                    }
+                    eval_expr(expr, &symbol_table)
                 ));
             }
-            Statement::Print(arg) => {
+            Statement::Print(expr) => {
                 // TODO: change buffer size to fit string
                 text.push_str(&format!(
                     "    mov rax, 1\n    mov rdi, 1\n    mov rsi, str{}\n    mov rdx, 3\n    syscall\n\n",
@@ -38,10 +33,7 @@ pub fn codegen(ast: Vec<Statement>) -> String {
                 data.push_str(&format!(
                     "str{}: db \"{}\", 0x0A\n",
                     num_buffers,
-                    match arg {
-                        Expression::Literal(int) => int,
-                        Expression::Identifier(id) => symbol_table[&id].clone(),
-                    }
+                    eval_expr(expr, &symbol_table)
                 ));
                 num_buffers += 1;
             }
@@ -49,4 +41,18 @@ pub fn codegen(ast: Vec<Statement>) -> String {
     }
 
     data + "\n" + &text
+}
+
+fn eval_expr(expr: Expression, symbol_table: &HashMap<String, String>) -> String {
+    match expr {
+        Expression::Value(val) => match val {
+            Value::Identifier(id) => symbol_table[&id].clone(),
+            Value::Integer(int) => int,
+        },
+        Expression::Add(expr1, expr2) => {
+            let val1: i32 = eval_expr(*expr1, &symbol_table).parse().unwrap();
+            let val2: i32 = eval_expr(*expr2, &symbol_table).parse().unwrap();
+            (val1 + val2).to_string()
+        }
+    }
 }

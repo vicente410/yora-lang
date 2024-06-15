@@ -12,19 +12,24 @@ pub enum Statement {
 
 #[derive(Debug, PartialEq)]
 pub enum Expression {
-    Literal(String),
-    Identifier(String),
+    Value(Value),
+    Add(Box<Expression>, Box<Expression>),
     /*Not(&'a Expression),
     Equal(&'a Expression, &'a Expression),
     NotEqual(&'a Expression, &'a Expression),
     And(&'a Expression, &'a Expression),
     Or(&'a Expression, &'a Expression),
     Xor(&'a Expression, &'a Expression),
-    Add(&'a Expression, &'a Expression),
     Sub(&'a Expression, &'a Expression),
     Mul(&'a Expression, &'a Expression),
     Div(&'a Expression, &'a Expression),
     Rem(&'a Expression, &'a Expression),*/
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Value {
+    Identifier(String),
+    Integer(String),
 }
 
 pub fn parse(tokens: Vec<Token>) -> Vec<Statement> {
@@ -48,37 +53,48 @@ pub fn parse(tokens: Vec<Token>) -> Vec<Statement> {
 }
 
 fn get_statement(buffer: &Vec<Token>) -> Statement {
-    match buffer.len() {
-        2 => match (&buffer[0], &buffer[1]) {
-            (Token::Exit, Token::Integer(int)) => {
-                Statement::Exit(Expression::Literal(int.to_string()))
+    if buffer.len() > 1 {
+        match (&buffer[1], &buffer[buffer.len() - 1]) {
+            (Token::LeftParen, Token::RightParen) => match buffer[0] {
+                Token::Exit => {
+                    Statement::Exit(get_expression(buffer[2..buffer.len() - 1].to_vec()))
+                }
+                Token::Print => {
+                    Statement::Print(get_expression(buffer[2..buffer.len() - 1].to_vec()))
+                }
+                _ => panic!("Unrecognized statement."),
+            },
+            _ => {
+                if buffer[1] == Token::Equal {
+                    Statement::Assignment(
+                        get_expression(buffer[0..1].to_vec()),
+                        get_expression(buffer[2..].to_vec()),
+                    )
+                } else {
+                    panic!("Unrecognized statement.")
+                }
             }
-            (Token::Exit, Token::Identifier(id)) => {
-                Statement::Exit(Expression::Identifier(id.to_string()))
-            }
-            (Token::Print, Token::Integer(int)) => {
-                Statement::Print(Expression::Literal(int.to_string()))
-            }
-            (Token::Print, Token::Identifier(id)) => {
-                Statement::Print(Expression::Identifier(id.to_string()))
-            }
-            _ => panic!("Unrecognized statement."),
-        },
-        3 => match (&buffer[0], &buffer[1], &buffer[2]) {
-            (Token::Identifier(id), Token::Equal, Token::Integer(int)) => Statement::Assignment(
-                Expression::Identifier(id.to_string()),
-                Expression::Literal(int.to_string()),
-            ),
-            (Token::Identifier(id1), Token::Equal, Token::Identifier(id2)) => {
-                Statement::Assignment(
-                    Expression::Identifier(id1.to_string()),
-                    Expression::Identifier(id2.to_string()),
-                )
-            }
-            _ => panic!("Unrecognized statement."),
-        },
-        _ => {
-            panic!("Unrecognized statement.");
         }
+    } else {
+        panic!("Unrecognized statement.")
+    }
+}
+
+fn get_expression(tokens: Vec<Token>) -> Expression {
+    let len = tokens.len();
+    match len {
+        1 => match &tokens[0] {
+            Token::Identifier(id) => Expression::Value(Value::Identifier(id.to_string())),
+            Token::Integer(id) => Expression::Value(Value::Integer(id.to_string())),
+            _ => panic!("Unrecognized expression."),
+        },
+        2 => panic!("Unrecognized expression."),
+        _ => match &tokens[len - 2] {
+            Token::Add => Expression::Add(
+                Box::new(get_expression(tokens[0..len - 2].to_vec())),
+                Box::new(get_expression(tokens[len - 1..].to_vec())),
+            ),
+            _ => panic!("Unrecognized expression."),
+        },
     }
 }
