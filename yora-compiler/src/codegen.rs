@@ -54,5 +54,25 @@ fn eval_expr(expr: Expression, symbol_table: &HashMap<String, String>) -> String
             let val2: i32 = eval_expr(*expr2, &symbol_table).parse().unwrap();
             (val1 + val2).to_string()
         }
+        Expression::Sub(expr1, expr2) => {
+            let val1: i32 = eval_expr(*expr1, &symbol_table).parse().unwrap();
+            let val2: i32 = eval_expr(*expr2, &symbol_table).parse().unwrap();
+            (val1 - val2).to_string()
+        }
+        Expression::Mul(expr1, expr2) => {
+            let val1: i32 = eval_expr(*expr1, &symbol_table).parse().unwrap();
+            let val2: i32 = eval_expr(*expr2, &symbol_table).parse().unwrap();
+            (val1 * val2).to_string()
+        }
+        Expression::Div(expr1, expr2) => {
+            let val1: i32 = eval_expr(*expr1, &symbol_table).parse().unwrap();
+            let val2: i32 = eval_expr(*expr2, &symbol_table).parse().unwrap();
+            (val1 / val2).to_string()
+        }
+        Expression::Rem(expr1, expr2) => {
+            let val1: i32 = eval_expr(*expr1, &symbol_table).parse().unwrap();
+            let val2: i32 = eval_expr(*expr2, &symbol_table).parse().unwrap();
+            (val1 % val2).to_string()
+        }
     }
 }

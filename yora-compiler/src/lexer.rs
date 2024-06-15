@@ -9,6 +9,10 @@ pub enum Token {
     LeftParen,
     RightParen,
     Add,
+    Sub,
+    Mul,
+    Div,
+    Rem,
 }
 
 pub fn lex(source: String) -> Vec<Token> {
@@ -46,6 +50,10 @@ fn get_token(string: String) -> Token {
         "(" => Token::LeftParen,
         ")" => Token::RightParen,
         "+" => Token::Add,
+        "-" => Token::Sub,
+        "*" => Token::Mul,
+        "/" => Token::Div,
+        "%" => Token::Rem,
         _ => Token::Identifier(string),
     }
 }

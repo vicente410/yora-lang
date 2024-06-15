@@ -14,16 +14,16 @@ pub enum Statement {
 pub enum Expression {
     Value(Value),
     Add(Box<Expression>, Box<Expression>),
+    Sub(Box<Expression>, Box<Expression>),
+    Mul(Box<Expression>, Box<Expression>),
+    Div(Box<Expression>, Box<Expression>),
+    Rem(Box<Expression>, Box<Expression>),
     /*Not(&'a Expression),
     Equal(&'a Expression, &'a Expression),
     NotEqual(&'a Expression, &'a Expression),
     And(&'a Expression, &'a Expression),
     Or(&'a Expression, &'a Expression),
-    Xor(&'a Expression, &'a Expression),
-    Sub(&'a Expression, &'a Expression),
-    Mul(&'a Expression, &'a Expression),
-    Div(&'a Expression, &'a Expression),
-    Rem(&'a Expression, &'a Expression),*/
+    Xor(&'a Expression, &'a Expression),*/
 }
 
 #[derive(Debug, PartialEq)]
@@ -91,6 +91,22 @@ fn get_expression(tokens: Vec<Token>) -> Expression {
         2 => panic!("Unrecognized expression."),
         _ => match &tokens[len - 2] {
             Token::Add => Expression::Add(
+                Box::new(get_expression(tokens[0..len - 2].to_vec())),
+                Box::new(get_expression(tokens[len - 1..].to_vec())),
+            ),
+            Token::Sub => Expression::Sub(
+                Box::new(get_expression(tokens[0..len - 2].to_vec())),
+                Box::new(get_expression(tokens[len - 1..].to_vec())),
+            ),
+            Token::Mul => Expression::Mul(
+                Box::new(get_expression(tokens[0..len - 2].to_vec())),
+                Box::new(get_expression(tokens[len - 1..].to_vec())),
+            ),
+            Token::Div => Expression::Div(
+                Box::new(get_expression(tokens[0..len - 2].to_vec())),
+                Box::new(get_expression(tokens[len - 1..].to_vec())),
+            ),
+            Token::Rem => Expression::Rem(
                 Box::new(get_expression(tokens[0..len - 2].to_vec())),
                 Box::new(get_expression(tokens[len - 1..].to_vec())),
             ),
