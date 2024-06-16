@@ -20,14 +20,22 @@ pub fn codegen(ast: Vec<Statement>) -> String {
             }
             Statement::Exit(expr) => {
                 text.push_str(&format!(
-                    "    mov rax, 60\n    mov rdi, {}\n    syscall\n\n",
+                    "\tmov rax, 60\n\
+                     \tmov rdi, {}\n\
+                     \tsyscall\n\n",
                     eval_expr(expr, &symbol_table)
                 ));
             }
             Statement::Print(expr) => {
                 // TODO: change buffer size to fit string
                 text.push_str(&format!(
-                    "    mov rax, 1\n    mov rdi, 1\n    mov rsi, str{}\n    mov rdx, 3\n    syscall\n\n",
+                    "\tpush rax\n\
+                     \tmov rax, 1\n\
+                     \tmov rdi, 1\n\
+                     \tmov rsi, str{}\n\
+                     \tmov rdx, 3\n\
+                     \tsyscall\n\
+                     \tpop rax\n\n",
                     num_buffers,
                 ));
                 data.push_str(&format!(
@@ -50,28 +58,28 @@ fn eval_expr(expr: Expression, symbol_table: &HashMap<String, String>) -> String
             Value::Integer(int) => int,
         },
         Expression::Add(expr1, expr2) => {
-            let val1: i32 = eval_expr(*expr1, &symbol_table).parse().unwrap();
-            let val2: i32 = eval_expr(*expr2, &symbol_table).parse().unwrap();
+            let val1: i32 = eval_expr(*expr1, symbol_table).parse().unwrap();
+            let val2: i32 = eval_expr(*expr2, symbol_table).parse().unwrap();
             (val1 + val2).to_string()
         }
         Expression::Sub(expr1, expr2) => {
-            let val1: i32 = eval_expr(*expr1, &symbol_table).parse().unwrap();
-            let val2: i32 = eval_expr(*expr2, &symbol_table).parse().unwrap();
+            let val1: i32 = eval_expr(*expr1, symbol_table).parse().unwrap();
+            let val2: i32 = eval_expr(*expr2, symbol_table).parse().unwrap();
             (val1 - val2).to_string()
         }
         Expression::Mul(expr1, expr2) => {
-            let val1: i32 = eval_expr(*expr1, &symbol_table).parse().unwrap();
-            let val2: i32 = eval_expr(*expr2, &symbol_table).parse().unwrap();
+            let val1: i32 = eval_expr(*expr1, symbol_table).parse().unwrap();
+            let val2: i32 = eval_expr(*expr2, symbol_table).parse().unwrap();
             (val1 * val2).to_string()
         }
         Expression::Div(expr1, expr2) => {
-            let val1: i32 = eval_expr(*expr1, &symbol_table).parse().unwrap();
-            let val2: i32 = eval_expr(*expr2, &symbol_table).parse().unwrap();
+            let val1: i32 = eval_expr(*expr1, symbol_table).parse().unwrap();
+            let val2: i32 = eval_expr(*expr2, symbol_table).parse().unwrap();
             (val1 / val2).to_string()
         }
         Expression::Rem(expr1, expr2) => {
-            let val1: i32 = eval_expr(*expr1, &symbol_table).parse().unwrap();
-            let val2: i32 = eval_expr(*expr2, &symbol_table).parse().unwrap();
+            let val1: i32 = eval_expr(*expr1, symbol_table).parse().unwrap();
+            let val2: i32 = eval_expr(*expr2, symbol_table).parse().unwrap();
             (val1 % val2).to_string()
         }
     }

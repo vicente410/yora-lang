@@ -52,7 +52,7 @@ pub fn parse(tokens: Vec<Token>) -> Vec<Statement> {
     ast
 }
 
-fn get_statement(buffer: &Vec<Token>) -> Statement {
+fn get_statement(buffer: &[Token]) -> Statement {
     if buffer.len() > 1 {
         match (&buffer[1], &buffer[buffer.len() - 1]) {
             (Token::LeftParen, Token::RightParen) => match buffer[0] {

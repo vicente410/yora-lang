@@ -23,14 +23,14 @@ enum Flag {
 #[derive(Eq, Debug, Hash, PartialEq)]
 enum DebugOptions {
     Tokens,
-    AST,
+    Ast,
 }
 
 fn main() {
     let mut args: Vec<String> = env::args().collect();
     let (filename, flags) = parse_args(&mut args);
 
-    let source = fs::read_to_string(&format!("{}.yr", filename)).unwrap();
+    let source = fs::read_to_string(format!("{}.yr", filename)).unwrap();
     let assembly = compile(source, &flags);
 
     let (asm_name, obj_name, exec_name) = get_filenames(filename, &flags);
@@ -69,7 +69,7 @@ fn parse_args(args: &mut Vec<String>) -> (String, HashMap<Flag, Option<String>>)
                 (
                     Flag::Debug(match args[i].as_str() {
                         "tokens" => DebugOptions::Tokens,
-                        "ast" => DebugOptions::AST,
+                        "ast" => DebugOptions::Ast,
                         _ => panic!("Debug option not found."),
                     }),
                     None,
@@ -97,14 +97,12 @@ fn compile(source: String, flags: &HashMap<Flag, Option<String>>) -> String {
 
     let ast = parse(tokens);
 
-    if flags.contains_key(&Flag::Debug(DebugOptions::AST)) {
+    if flags.contains_key(&Flag::Debug(DebugOptions::Ast)) {
         dbg!(&ast);
         process::exit(0);
     }
 
-    let assembly = codegen(ast);
-
-    assembly
+    codegen(ast)
 }
 
 fn get_filenames(
@@ -142,14 +140,14 @@ fn get_filenames(
 
 fn assemble(asm_name: &String, obj_name: &String) {
     Command::new("nasm")
-        .args(["-felf64", "-o", &obj_name, &asm_name])
+        .args(["-felf64", "-o", obj_name, asm_name])
         .output()
         .expect("Failed to execute \"nasm\"");
 }
 
 fn link(obj_name: &String, exec_name: &String) {
     Command::new("ld")
-        .args(["-o", &exec_name, &obj_name])
+        .args(["-o", exec_name, obj_name])
         .output()
         .expect("Failed to execute \"ld\"");
 }
