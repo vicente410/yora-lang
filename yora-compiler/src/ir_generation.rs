@@ -1,9 +1,7 @@
-use core::panic;
-
 use crate::parser::Expression;
 
 #[derive(Debug, PartialEq)]
-enum Ir {
+pub enum Ir {
     Exit(String),
     Assign(String, String),
     Add(String, String),
@@ -19,7 +17,7 @@ pub fn generate_ir(ast: Vec<Expression>) -> Vec<Ir> {
     let mut num_tmp = 0;
 
     for expr in ast {
-        get_value(expr, &mut tmp_vec, &mut num_tmp);
+        get_value(&expr, &mut tmp_vec, &mut num_tmp);
         inter_repr.append(&mut tmp_vec);
         tmp_vec.clear();
     }
@@ -27,29 +25,28 @@ pub fn generate_ir(ast: Vec<Expression>) -> Vec<Ir> {
     inter_repr
 }
 
-fn get_value(expr: Expression, tmp_vec: &mut Vec<Ir>, num_tmp: &mut u32) -> String {
+fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, num_tmp: &mut u32) -> String {
     match expr {
         Expression::Exit(val) => {
-            *num_tmp += 1;
-            let arg = get_value(*val, tmp_vec, num_tmp);
+            let arg = get_value(val, tmp_vec, num_tmp);
             tmp_vec.push(Ir::Exit(arg.clone()));
             arg
         }
 
-        Expression::Add(dest, ref src)
-        | Expression::Sub(dest, ref src)
-        | Expression::Mul(dest, ref src)
-        | Expression::Div(dest, ref src)
-        | Expression::Mod(dest, ref src) => {
-            let arg1 = get_value(*dest, tmp_vec, num_tmp);
-            let arg2 = get_value(*src, tmp_vec, num_tmp);
-            get_operation(&expr, arg1.clone(), arg2);
+        Expression::Add(ref dest, ref src)
+        | Expression::Sub(ref dest, ref src)
+        | Expression::Mul(ref dest, ref src)
+        | Expression::Div(ref dest, ref src)
+        | Expression::Mod(ref dest, ref src) => {
+            let arg1 = get_value(&*dest, tmp_vec, num_tmp);
+            let arg2 = get_value(&*src, tmp_vec, num_tmp);
+            tmp_vec.push(get_operation(&expr, arg1.clone(), arg2));
             arg1
         }
         Expression::Integer(val) => {
             *num_tmp += 1;
             tmp_vec.push(Ir::Assign(format!("t{num_tmp}"), val.to_string()));
-            val.to_string()
+            format!("t{num_tmp}")
         }
     }
 }
@@ -75,20 +72,12 @@ mod tests {
             Box::new(Expression::Integer("2".to_string())),
             Box::new(Expression::Integer("3".to_string())),
         )))];
-
         let output = vec![
             Ir::Assign("t1".to_string(), "2".to_string()),
-            Ir::Add("t1".to_string(), "3".to_string()),
+            Ir::Assign("t2".to_string(), "3".to_string()),
+            Ir::Add("t1".to_string(), "t2".to_string()),
             Ir::Exit("t1".to_string()),
         ];
-        assert_eq!(generate_ir(input), output);
-    }
-
-    #[test]
-    fn test_integer() {
-        let input = vec![Expression::Integer("2".to_string())];
-        let output = vec![Ir::Assign("t1".to_string(), "2".to_string())];
-
         assert_eq!(generate_ir(input), output);
     }
 }

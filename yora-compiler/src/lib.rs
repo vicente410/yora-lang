@@ -1,3 +1,4 @@
+use ir_generation::*;
 use lexer::*;
 use parser::*;
 use std::collections::HashMap;
@@ -22,6 +23,7 @@ pub enum Flag {
 pub enum DebugOptions {
     Tokens,
     Ast,
+    Ir,
 }
 
 pub struct Compiler {
@@ -47,7 +49,7 @@ impl Compiler {
         self.flags = flags;
     }
 
-    pub fn set_filenames(&mut self, filename: &String) {
+    pub fn set_filename(&mut self, filename: &String) {
         self.filename = filename.to_string();
         self.asm_name = if self.flags.contains_key(&Flag::Assembly) {
             if self.flags.contains_key(&Flag::Output) {
@@ -102,6 +104,13 @@ impl Compiler {
 
         if self.flags.contains_key(&Flag::Debug(DebugOptions::Ast)) {
             dbg!(&ast);
+            process::exit(0);
+        }
+
+        let ir = generate_ir(ast);
+
+        if self.flags.contains_key(&Flag::Debug(DebugOptions::Ir)) {
+            dbg!(&ir);
             process::exit(0);
         }
 
