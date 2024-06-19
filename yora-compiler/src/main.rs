@@ -1,4 +1,4 @@
-use ir_generation::*;
+//use ir_generation::*;
 use lexer::*;
 use parser::*;
 use std::collections::HashMap;
@@ -102,7 +102,8 @@ fn compile(source: String, flags: &HashMap<Flag, Option<String>>) -> String {
         process::exit(0);
     }
 
-    codegen(ast)
+    "".to_string()
+    //codegen(ast)
 }
 
 fn get_filenames(

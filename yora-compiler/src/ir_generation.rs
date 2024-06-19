@@ -1,4 +1,4 @@
-use crate::parser::*;
+/*use crate::parser::*;
 
 enum InterRepr {
     Exit(Value, Value),
@@ -20,4 +20,4 @@ pub fn generate_ir(ast: Vec<Expression>) -> Vec<InterRepr> {
     }
 
     inter_repr
-}
+}*/
