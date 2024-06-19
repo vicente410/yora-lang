@@ -12,7 +12,7 @@ pub enum Token {
     Sub,
     Mul,
     Div,
-    Rem,
+    Mod,
 }
 
 pub fn lex(source: String) -> Vec<Token> {
@@ -29,16 +29,14 @@ pub fn lex(source: String) -> Vec<Token> {
                 tokens.push(get_token(buffer.clone()));
                 buffer.clear();
             }
-        // Ignore comments
-        } else if i + 1 < len && chars[i] == '/' {
-            if chars[i + 1] == '/' {
-                while i < len && chars[i] != '\n' {
-                    i += 1;
-                }
-            } else if chars[i + 1] == '*' {
-                while i + 1 < len && !(chars[i] == '*' && chars[i + 1] == '/') {
-                    i += 1;
-                }
+        // Ignores comments
+        } else if i + 1 < len && source[i..=i + 1] == *"//" {
+            while i < len && chars[i] != '\n' {
+                i += 1;
+            }
+        } else if i + 1 < len && source[i..=i + 1] == *"/*" {
+            while i + 1 < len && !(source[i..=i + 1] == *"*/") {
+                i += 1;
             }
         } else if !chars[i].is_whitespace() {
             tokens.push(get_token(chars[i].to_string()));
@@ -66,7 +64,29 @@ fn get_token(string: String) -> Token {
         "-" => Token::Sub,
         "*" => Token::Mul,
         "/" => Token::Div,
-        "%" => Token::Rem,
+        "%" => Token::Mod,
         _ => Token::Identifier(string),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_input() {
+        let input = "exit(2 + 3)";
+
+        let output = vec![
+            Token::Exit,
+            Token::LeftParen,
+            Token::Integer("2".to_string()),
+            Token::Add,
+            Token::Integer("3".to_string()),
+            Token::RightParen,
+            Token::SemiColon,
+        ];
+
+        assert_eq!(lex(input.to_string()), output);
     }
 }
