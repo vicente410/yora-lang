@@ -8,56 +8,95 @@ fn main() {
     let mut compiler = Compiler::new();
     let (filename, flags) = parse_args(&mut args);
 
-    compiler.set_filenames(&filename);
+    compiler.set_filename(&filename);
     compiler.set_flags(flags);
     compiler.compile();
 }
 
 fn parse_args(args: &mut Vec<String>) -> (String, HashMap<Flag, Option<String>>) {
-    let mut filename = args.pop().unwrap();
-    let mut i = 1;
+    let mut filename = String::new();
     let mut flags: HashMap<Flag, Option<String>> = HashMap::new();
+    let mut args_it = args.iter().peekable();
 
-    match filename.strip_suffix(".yr") {
-        Some(res) => filename = res.to_string(),
-        None => panic!("Incorrect extension: please use .yr"),
-    }
-
-    while i < args.len() {
-        let (flag, value) = match args[i].as_str() {
+    args_it.next();
+    while let Some(arg) = args_it.next() {
+        match arg.as_str() {
             "-o" | "--output" => {
-                i += 1;
-                (Flag::Output, Some(args[i].clone()))
+                if let Some(arg) = args_it.next() {
+                    flags.insert(Flag::Output, Some(arg.clone()));
+                } else {
+                    println!(
+                        "Incorrect usage of output flag.\n\
+                            Correct usage: \n\
+                            \t-o, --output <filename>\tWrite output to <filename>"
+                    );
+                    process::exit(1);
+                }
             }
+
             "-d" | "--debug" => {
-                i += 1;
-                (
-                    Flag::Debug(match args[i].as_str() {
-                        "tokens" => DebugOptions::Tokens,
-                        "ast" => DebugOptions::Ast,
-                        _ => panic!("Debug option not found."),
-                    }),
-                    None,
-                )
+                if let Some(arg) = args_it.next() {
+                    flags.insert(
+                        Flag::Debug(match arg.as_str() {
+                            "tokens" => DebugOptions::Tokens,
+                            "ast" => DebugOptions::Ast,
+                            "ir" => DebugOptions::Ir,
+                            _ => {
+                                println!("Invalid debug option.");
+                                process::exit(1);
+                            }
+                        }),
+                        None,
+                    );
+                } else {
+                    println!(
+                        "Incorrect usage of debug flag.\n\
+                            Correct usage:\n\
+                            \t-d, --debug [tokens, ast]\tPrints debug information"
+                    );
+                    process::exit(1);
+                }
             }
-            "-s" | "--assembly" => (Flag::Assembly, None),
+
+            "-s" | "--assembly" => {
+                flags.insert(Flag::Assembly, None);
+            }
+
             "-h" | "--help" => {
                 print!(
                     "Usage: yora-compiler [options] file\n\
                         Option:\n\
                         \t-h, --help\t\tDisplay this message\n\
                         \t-o, --output <filename>\tWrite output to <filename>\n\
-                        \t-d, --debug [tokens, ast]\tPrints debug information\n\
+                        \t-d, --debug [tokens, ast, ir]\tPrints debug information\n\
                         \t-s, --assembly\t\tCompile only; do not assemble or link\n"
                 );
                 process::exit(0);
             }
-            _ => panic!("Incorrect usage"),
+
+            _ => {
+                if arg[0..1] == *"-" {
+                    println!("Incorrect usage");
+                } else if filename == *"" {
+                    filename = arg.clone();
+                    match filename.strip_suffix(".yr") {
+                        Some(res) => filename = res.to_string(),
+                        None => {
+                            println!("Incorrect extension: please use .yr");
+                            process::exit(1);
+                        }
+                    };
+                } else {
+                    println!("More than one filename given.\nUse -h for help.");
+                    process::exit(1);
+                }
+            }
         };
+    }
 
-        flags.insert(flag, value);
-
-        i += 1;
+    if filename == *"" {
+        println!("No filename given.");
+        process::exit(1);
     }
 
     (filename, flags)
