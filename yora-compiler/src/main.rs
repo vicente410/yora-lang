@@ -1,4 +1,4 @@
-use codegen::*;
+use ir_generation::*;
 use lexer::*;
 use parser::*;
 use std::collections::HashMap;
@@ -9,7 +9,7 @@ use std::io::prelude::*;
 use std::process;
 use std::process::Command;
 
-mod codegen;
+mod ir_generation;
 mod lexer;
 mod parser;
 

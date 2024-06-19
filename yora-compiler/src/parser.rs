@@ -1,16 +1,6 @@
 use crate::lexer::Token;
 
 #[derive(Debug, PartialEq)]
-pub enum Statement {
-    Exit(Expression),
-    Print(Expression),
-    Assignment(Expression, Expression),
-    /*Declaration(Identifier, Option<Expression>),
-    IfBlock(Expression, Vec<Statement>),
-    LoopBlock(Vec<Statement>),*/
-}
-
-#[derive(Debug, PartialEq)]
 pub enum Expression {
     Value(Value),
     Add(Box<Expression>, Box<Expression>),
@@ -18,6 +8,13 @@ pub enum Expression {
     Mul(Box<Expression>, Box<Expression>),
     Div(Box<Expression>, Box<Expression>),
     Rem(Box<Expression>, Box<Expression>),
+    Exit(Box<Expression>),
+    Print(Box<Expression>),
+    Assign(Box<Expression>, Box<Expression>),
+    Sequence(Vec<Expression>),
+    /*Declaration(Identifier, Option<Expression>),
+    IfBlock(Expression, Expression),
+    LoopBlock(Vec<Statement>),*/
     /*Not(&'a Expression),
     Equal(&'a Expression, &'a Expression),
     NotEqual(&'a Expression, &'a Expression),
@@ -32,15 +29,15 @@ pub enum Value {
     Integer(String),
 }
 
-pub fn parse(tokens: Vec<Token>) -> Vec<Statement> {
-    let mut ast: Vec<Statement> = Vec::new();
+pub fn parse(tokens: Vec<Token>) -> Vec<Expression> {
+    let mut ast: Vec<Expression> = Vec::new();
     let mut buffer: Vec<Token> = Vec::new();
 
     for token in tokens {
         if !matches!(token, Token::SemiColon) {
             buffer.push(token);
         } else {
-            ast.push(get_statement(&buffer));
+            ast.push(get_expression(&buffer));
             buffer.clear();
         }
     }
@@ -52,65 +49,56 @@ pub fn parse(tokens: Vec<Token>) -> Vec<Statement> {
     ast
 }
 
-fn get_statement(buffer: &[Token]) -> Statement {
-    if buffer.len() > 1 {
-        match (&buffer[1], &buffer[buffer.len() - 1]) {
-            (Token::LeftParen, Token::RightParen) => match buffer[0] {
-                Token::Exit => {
-                    Statement::Exit(get_expression(buffer[2..buffer.len() - 1].to_vec()))
-                }
-                Token::Print => {
-                    Statement::Print(get_expression(buffer[2..buffer.len() - 1].to_vec()))
-                }
-                _ => panic!("Unrecognized statement."),
-            },
+fn get_expression(tokens: &Vec<Token>) -> Expression {
+    let len = tokens.len();
+
+    if len == 1 {
+        return match &tokens[0] {
+            Token::Identifier(id) => Expression::Value(Value::Identifier(id.to_string())),
+            Token::Integer(int) => Expression::Value(Value::Integer(int.to_string())),
+            _ => panic!("Unrecognized expression."),
+        };
+    }
+
+    match (&tokens[1], &tokens[len - 1]) {
+        (Token::LeftParen, Token::RightParen) => match tokens[0] {
+            Token::Exit => Expression::Exit(Box::new(get_expression(&tokens[2..len - 1].to_vec()))),
+            Token::Print => {
+                Expression::Print(Box::new(get_expression(&tokens[2..len - 1].to_vec())))
+            }
+            _ => panic!("Unrecognized statement."),
+        },
+        _ => match &tokens[len - 2] {
+            Token::Add => Expression::Add(
+                Box::new(get_expression(&tokens[0..len - 2].to_vec())),
+                Box::new(get_expression(&tokens[len - 1..].to_vec())),
+            ),
+            Token::Sub => Expression::Sub(
+                Box::new(get_expression(&tokens[0..len - 2].to_vec())),
+                Box::new(get_expression(&tokens[len - 1..].to_vec())),
+            ),
+            Token::Mul => Expression::Mul(
+                Box::new(get_expression(&tokens[0..len - 2].to_vec())),
+                Box::new(get_expression(&tokens[len - 1..].to_vec())),
+            ),
+            Token::Div => Expression::Div(
+                Box::new(get_expression(&tokens[0..len - 2].to_vec())),
+                Box::new(get_expression(&tokens[len - 1..].to_vec())),
+            ),
+            Token::Rem => Expression::Rem(
+                Box::new(get_expression(&tokens[0..len - 2].to_vec())),
+                Box::new(get_expression(&tokens[len - 1..].to_vec())),
+            ),
             _ => {
-                if buffer[1] == Token::Equal {
-                    Statement::Assignment(
-                        get_expression(buffer[0..1].to_vec()),
-                        get_expression(buffer[2..].to_vec()),
+                if tokens[1] == Token::Equal {
+                    Expression::Assignment(
+                        Box::new(get_expression(&tokens[0..1].to_vec())),
+                        Box::new(get_expression(&tokens[2..].to_vec())),
                     )
                 } else {
                     panic!("Unrecognized statement.")
                 }
             }
-        }
-    } else {
-        panic!("Unrecognized statement.")
-    }
-}
-
-fn get_expression(tokens: Vec<Token>) -> Expression {
-    let len = tokens.len();
-    match len {
-        1 => match &tokens[0] {
-            Token::Identifier(id) => Expression::Value(Value::Identifier(id.to_string())),
-            Token::Integer(id) => Expression::Value(Value::Integer(id.to_string())),
-            _ => panic!("Unrecognized expression."),
-        },
-        2 => panic!("Unrecognized expression."),
-        _ => match &tokens[len - 2] {
-            Token::Add => Expression::Add(
-                Box::new(get_expression(tokens[0..len - 2].to_vec())),
-                Box::new(get_expression(tokens[len - 1..].to_vec())),
-            ),
-            Token::Sub => Expression::Sub(
-                Box::new(get_expression(tokens[0..len - 2].to_vec())),
-                Box::new(get_expression(tokens[len - 1..].to_vec())),
-            ),
-            Token::Mul => Expression::Mul(
-                Box::new(get_expression(tokens[0..len - 2].to_vec())),
-                Box::new(get_expression(tokens[len - 1..].to_vec())),
-            ),
-            Token::Div => Expression::Div(
-                Box::new(get_expression(tokens[0..len - 2].to_vec())),
-                Box::new(get_expression(tokens[len - 1..].to_vec())),
-            ),
-            Token::Rem => Expression::Rem(
-                Box::new(get_expression(tokens[0..len - 2].to_vec())),
-                Box::new(get_expression(tokens[len - 1..].to_vec())),
-            ),
-            _ => panic!("Unrecognized expression."),
         },
     }
 }
