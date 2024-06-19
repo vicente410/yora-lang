@@ -4,16 +4,16 @@ use std::process;
 use yora_compiler::*;
 
 fn main() {
-    let mut args: Vec<String> = env::args().collect();
+    let args: Vec<String> = env::args().collect();
     let mut compiler = Compiler::new();
-    let (filename, flags) = parse_args(&mut args);
+    let (filename, flags) = parse_args(args);
 
     compiler.set_filename(&filename);
     compiler.set_flags(flags);
     compiler.compile();
 }
 
-fn parse_args(args: &mut Vec<String>) -> (String, HashMap<Flag, Option<String>>) {
+fn parse_args(args: Vec<String>) -> (String, HashMap<Flag, Option<String>>) {
     let mut filename = String::new();
     let mut flags: HashMap<Flag, Option<String>> = HashMap::new();
     let mut args_it = args.iter().peekable();
@@ -100,4 +100,47 @@ fn parse_args(args: &mut Vec<String>) -> (String, HashMap<Flag, Option<String>>)
     }
 
     (filename, flags)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_flag_system_output() {
+        let input = vec![
+            "program".to_string(),
+            "test.yr".to_string(),
+            "-o".to_string(),
+            "output_file".to_string(),
+        ];
+        let mut output: HashMap<Flag, Option<String>> = HashMap::new();
+        output.insert(Flag::Output, Some("output_file".to_string()));
+        assert_eq!(parse_args(input), ("test".to_string(), output));
+    }
+
+    #[test]
+    fn test_flag_system_debug() {
+        let input = vec![
+            "program".to_string(),
+            "test.yr".to_string(),
+            "-d".to_string(),
+            "ast".to_string(),
+        ];
+        let mut output: HashMap<Flag, Option<String>> = HashMap::new();
+        output.insert(Flag::Debug(DebugOptions::Ast), None);
+        assert_eq!(parse_args(input), ("test".to_string(), output));
+    }
+
+    #[test]
+    fn test_flag_system_asm() {
+        let input = vec![
+            "program".to_string(),
+            "test.yr".to_string(),
+            "-s".to_string(),
+        ];
+        let mut output: HashMap<Flag, Option<String>> = HashMap::new();
+        output.insert(Flag::Assembly, None);
+        assert_eq!(parse_args(input), ("test".to_string(), output));
+    }
 }
