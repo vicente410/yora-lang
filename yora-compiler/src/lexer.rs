@@ -36,8 +36,10 @@ pub fn lex(source: String) -> Vec<Token> {
             }
         } else if i + 1 < len && source[i..=i + 1] == *"/*" {
             while i + 1 < len && !(source[i..=i + 1] == *"*/") {
+                // println!("a a a a stayin' alive");
                 i += 1;
             }
+            i += 1;
         } else if !chars[i].is_whitespace() {
             tokens.push(get_token(chars[i].to_string()));
         }
@@ -75,7 +77,7 @@ mod tests {
 
     #[test]
     fn test_input() {
-        let input = "exit(2 + 3)";
+        let input = "exit(2 + 3);";
 
         let output = vec![
             Token::Exit,
