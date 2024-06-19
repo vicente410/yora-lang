@@ -1,3 +1,4 @@
+use asm_generation::*;
 use ir_generation::*;
 use lexer::*;
 use parser::*;
@@ -8,6 +9,7 @@ use std::io::prelude::*;
 use std::process;
 use std::process::Command;
 
+mod asm_generation;
 mod ir_generation;
 mod lexer;
 mod parser;
@@ -114,7 +116,7 @@ impl Compiler {
             process::exit(0);
         }
 
-        "".to_string()
+        generate_asm(ir)
     }
 
     fn assemble(&self) {

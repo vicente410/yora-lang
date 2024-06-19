@@ -8,8 +8,8 @@ fn main() {
     let mut compiler = Compiler::new();
     let (filename, flags) = parse_args(args);
 
-    compiler.set_filename(&filename);
     compiler.set_flags(flags);
+    compiler.set_filename(&filename);
     compiler.compile();
 }
 
@@ -66,10 +66,10 @@ fn parse_args(args: Vec<String>) -> (String, HashMap<Flag, Option<String>>) {
                 print!(
                     "Usage: yora-compiler [options] file\n\
                         Option:\n\
-                        \t-h, --help\t\tDisplay this message\n\
-                        \t-o, --output <filename>\tWrite output to <filename>\n\
+                        \t-h, --help\t\t\tDisplay this message\n\
+                        \t-o, --output <filename>\t\tWrite output to <filename>\n\
                         \t-d, --debug [tokens, ast, ir]\tPrints debug information\n\
-                        \t-s, --assembly\t\tCompile only; do not assemble or link\n"
+                        \t-s, --assembly\t\t\tCompile only; do not assemble or link\n"
                 );
                 process::exit(0);
             }

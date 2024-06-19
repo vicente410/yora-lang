@@ -38,9 +38,9 @@ fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, num_tmp: &mut u32) -> Str
         | Expression::Mul(ref dest, ref src)
         | Expression::Div(ref dest, ref src)
         | Expression::Mod(ref dest, ref src) => {
-            let arg1 = get_value(&*dest, tmp_vec, num_tmp);
-            let arg2 = get_value(&*src, tmp_vec, num_tmp);
-            tmp_vec.push(get_operation(&expr, arg1.clone(), arg2));
+            let arg1 = get_value(dest, tmp_vec, num_tmp);
+            let arg2 = get_value(src, tmp_vec, num_tmp);
+            tmp_vec.push(get_operation(expr, arg1.clone(), arg2));
             arg1
         }
         Expression::Integer(val) => {
@@ -53,11 +53,11 @@ fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, num_tmp: &mut u32) -> Str
 
 fn get_operation(operation: &Expression, arg1: String, arg2: String) -> Ir {
     match operation {
-        Expression::Add(_, _) => Ir::Add(arg1, arg2),
-        Expression::Sub(_, _) => Ir::Sub(arg1, arg2),
-        Expression::Mul(_, _) => Ir::Mul(arg1, arg2),
-        Expression::Div(_, _) => Ir::Div(arg1, arg2),
-        Expression::Mod(_, _) => Ir::Mod(arg1, arg2),
+        Expression::Add(..) => Ir::Add(arg1, arg2),
+        Expression::Sub(..) => Ir::Sub(arg1, arg2),
+        Expression::Mul(..) => Ir::Mul(arg1, arg2),
+        Expression::Div(..) => Ir::Div(arg1, arg2),
+        Expression::Mod(..) => Ir::Mod(arg1, arg2),
         _ => panic!("Unexpected operation."),
     }
 }
