@@ -13,12 +13,12 @@ pub enum Expression {
     Div(Box<Expression>, Box<Expression>),
     Mod(Box<Expression>, Box<Expression>),
     Exit(Box<Expression>),
+    If(Box<Expression>, Box<Expression>),
     Declaration(Box<Expression>, Box<Expression>),
     Assign(Box<Expression>, Box<Expression>),
+    Sequence(Vec<Box<Expression>>),
     /*Declaration(Identifier, Option<Expression>),
     Print(Box<Expression>),
-    Sequence(Vec<Expression>),
-    IfBlock(Expression, Expression),
     LoopBlock(Vec<Statement>),*/
     /*Not(&'a Expression),
     Equal(&'a Expression, &'a Expression),
@@ -30,19 +30,21 @@ pub enum Expression {
 
 pub fn parse(tokens: Vec<Token>) -> Vec<Expression> {
     let mut ast: Vec<Expression> = Vec::new();
-    let mut buffer: Vec<Token> = Vec::new();
+    let mut start = 0;
+    let mut end = 0;
 
-    for token in tokens {
-        if !matches!(token, Token::SemiColon) {
-            buffer.push(token);
-        } else {
-            ast.push(get_expression(&buffer));
-            buffer.clear();
+    while end < tokens.len() {
+        if matches!(tokens[end], Token::SemiColon) {
+            ast.push(get_expression(&tokens[start..=end]));
+            start = end + 1;
+        } else if matches!(tokens[end], Token::If) {
+            while end < tokens.len() && matches!(tokens[end], Token::CloseCurly) {
+                end += 1;
+            }
+            ast.push(get_expression(&tokens[start..=end]));
+            start = end + 1;
         }
-    }
-
-    if !buffer.is_empty() {
-        panic!("Missing semicolon.");
+        end += 1;
     }
 
     ast
@@ -59,10 +61,11 @@ fn get_expression(tokens: &[Token]) -> Expression {
             _ => panic!("Unrecognized expression."),
         };
     }
+    dbg!(tokens);
 
-    match (&tokens[1], &tokens[len - 1]) {
-        (Token::LeftParen, Token::RightParen) => match tokens[0] {
-            Token::Exit => Expression::Exit(Box::new(get_expression(&tokens[2..len - 1]))),
+    match (&tokens[1], &tokens[len - 2]) {
+        (Token::OpenParen, Token::CloseParen) => match tokens[0] {
+            Token::Exit => Expression::Exit(Box::new(get_expression(&tokens[2..len - 2]))),
             /*Token::Print => {
                 Expression::Print(Box::new(get_expression(&tokens[2..len - 1].to_vec())))
             }*/
@@ -72,18 +75,27 @@ fn get_expression(tokens: &[Token]) -> Expression {
             if tokens[0] == Token::Var && tokens[2] == Token::Equal {
                 Expression::Declaration(
                     Box::new(get_expression(&tokens[1..2])),
-                    Box::new(get_expression(&tokens[3..])),
+                    Box::new(get_expression(&tokens[3..len - 1])),
+                )
+            } else if tokens[0] == Token::If {
+                let mut i = 0;
+                while i < len && tokens[i] != Token::OpenCurly {
+                    i += 1;
+                }
+                Expression::If(
+                    Box::new(get_expression(&tokens[1..i])),
+                    Box::new(get_expression(&tokens[i + 1..len - 1])),
                 )
             } else if tokens[1] == Token::Equal {
                 Expression::Assign(
                     Box::new(get_expression(&tokens[0..1])),
-                    Box::new(get_expression(&tokens[2..])),
+                    Box::new(get_expression(&tokens[2..len - 1])),
                 )
             } else {
                 match &tokens[len - 2] {
                     Token::Add | Token::Sub | Token::Mul | Token::Div | Token::Mod => {
-                        let arg1 = Box::new(get_expression(&tokens[0..len - 2]));
-                        let arg2 = Box::new(get_expression(&tokens[len - 1..]));
+                        let arg1 = Box::new(get_expression(&tokens[0..len - 3]));
+                        let arg2 = Box::new(get_expression(&tokens[len - 2..len - 1]));
                         get_operation(&tokens[len - 2], arg1, arg2)
                     }
                     _ => {
@@ -114,11 +126,11 @@ mod tests {
     fn test_parser() {
         let input = vec![
             Token::Exit,
-            Token::LeftParen,
+            Token::OpenParen,
             Token::IntLit("2".to_string()),
             Token::Add,
             Token::IntLit("3".to_string()),
-            Token::RightParen,
+            Token::CloseParen,
             Token::SemiColon,
         ];
         let output = vec![Expression::Exit(Box::new(Expression::Add(

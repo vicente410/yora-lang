@@ -66,6 +66,7 @@ fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, num_tmp: &mut u32) -> Str
             format!("t{num_tmp}")
         }
         Expression::Identifier(id) => id.to_string(),
+        Expression::If(..) => todo!(),
     }
 }
 

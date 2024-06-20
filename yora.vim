@@ -1,5 +1,5 @@
 syn keyword functions print exit
-syn keyword keywords var
+syn keyword keywords var if
 syn region strings start="\"" end="\""
 syn region comments start="/\*" end="\*/"
 syn match comments "//.*$"
