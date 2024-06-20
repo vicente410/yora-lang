@@ -98,10 +98,11 @@ mod tests {
         ];
         let output = "global _start\n\
                     _start:\n\
-                        \tmov rax, 2\n\
-                        \tmov rbx, 3\n\
-                        \tadd rax, rbx\n\n\
-                        \tmov rdi, rax\n\
+                        \tmov rbp, rsp\n\
+                        \tmov rbx, 2\n\
+                        \tmov r10, 3\n\
+                        \tadd rbx, r10\n\n\
+                        \tmov rdi, rbx\n\
                         \tmov rax, 60\n\
                         \tsyscall";
         assert_eq!(generate_asm(input), output);

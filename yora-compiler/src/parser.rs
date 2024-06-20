@@ -46,11 +46,22 @@ fn get_sequence(tokens: &[Token]) -> Expression {
             sequence.push(get_expression(&tokens[start..end]));
             start = end + 1;
         } else if matches!(tokens[end], Token::If) {
-            while end < tokens.len() && !matches!(tokens[end], Token::CloseCurly) {
+            while end < tokens.len() && matches!(tokens[end], Token::OpenCurly) {
+                end += 1;
+            }
+
+            let mut curly_counter = 1;
+
+            while end < tokens.len() && curly_counter != 0 {
+                if matches!(tokens[end], Token::OpenCurly) {
+                    curly_counter += 1;
+                } else if matches!(tokens[end], Token::CloseCurly) {
+                    curly_counter -= 1;
+                }
                 end += 1;
             }
             sequence.push(get_expression(&tokens[start..end]));
-            start = end + 1;
+            start = end;
         }
         end += 1;
     }
@@ -106,6 +117,7 @@ fn get_expression(tokens: &[Token]) -> Expression {
                         get_operation(&tokens[len - 2], arg1, arg2)
                     }
                     _ => {
+                        dbg!(tokens);
                         panic!("Unrecognized expression.");
                     }
                 }
@@ -140,10 +152,12 @@ mod tests {
             Token::CloseParen,
             Token::SemiColon,
         ];
-        let output = vec![Expression::Exit(Box::new(Expression::Add(
-            Box::new(Expression::IntLit("2".to_string())),
-            Box::new(Expression::IntLit("3".to_string())),
-        )))];
+        let output = vec![Expression::Sequence(vec![Expression::Exit(Box::new(
+            Expression::Add(
+                Box::new(Expression::IntLit("2".to_string())),
+                Box::new(Expression::IntLit("3".to_string())),
+            ),
+        ))])];
         assert_eq!(parse(input), output);
     }
 }
