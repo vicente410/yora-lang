@@ -16,7 +16,7 @@ pub enum Expression {
     If(Box<Expression>, Box<Expression>),
     Declaration(Box<Expression>, Box<Expression>),
     Assign(Box<Expression>, Box<Expression>),
-    Sequence(Vec<Box<Expression>>),
+    Sequence(Vec<Expression>),
     /*Declaration(Identifier, Option<Expression>),
     Print(Box<Expression>),
     LoopBlock(Vec<Statement>),*/
@@ -30,24 +30,32 @@ pub enum Expression {
 
 pub fn parse(tokens: Vec<Token>) -> Vec<Expression> {
     let mut ast: Vec<Expression> = Vec::new();
+
+    ast.push(get_sequence(&tokens[..]));
+
+    ast
+}
+
+fn get_sequence(tokens: &[Token]) -> Expression {
+    let mut sequence: Vec<Expression> = Vec::new();
     let mut start = 0;
     let mut end = 0;
 
     while end < tokens.len() {
         if matches!(tokens[end], Token::SemiColon) {
-            ast.push(get_expression(&tokens[start..=end]));
+            sequence.push(get_expression(&tokens[start..end]));
             start = end + 1;
         } else if matches!(tokens[end], Token::If) {
-            while end < tokens.len() && matches!(tokens[end], Token::CloseCurly) {
+            while end < tokens.len() && !matches!(tokens[end], Token::CloseCurly) {
                 end += 1;
             }
-            ast.push(get_expression(&tokens[start..=end]));
+            sequence.push(get_expression(&tokens[start..end]));
             start = end + 1;
         }
         end += 1;
     }
 
-    ast
+    Expression::Sequence(sequence)
 }
 
 fn get_expression(tokens: &[Token]) -> Expression {
@@ -56,16 +64,15 @@ fn get_expression(tokens: &[Token]) -> Expression {
     if len == 1 {
         return match &tokens[0] {
             Token::Identifier(id) => Expression::Identifier(id.to_string()),
-            Token::BoolLit(int) => Expression::BoolLit(int.to_string()),
+            Token::BoolLit(bool) => Expression::BoolLit(bool.to_string()),
             Token::IntLit(int) => Expression::IntLit(int.to_string()),
             _ => panic!("Unrecognized expression."),
         };
     }
-    dbg!(tokens);
 
-    match (&tokens[1], &tokens[len - 2]) {
+    match (&tokens[1], &tokens[len - 1]) {
         (Token::OpenParen, Token::CloseParen) => match tokens[0] {
-            Token::Exit => Expression::Exit(Box::new(get_expression(&tokens[2..len - 2]))),
+            Token::Exit => Expression::Exit(Box::new(get_expression(&tokens[2..len - 1]))),
             /*Token::Print => {
                 Expression::Print(Box::new(get_expression(&tokens[2..len - 1].to_vec())))
             }*/
@@ -75,7 +82,7 @@ fn get_expression(tokens: &[Token]) -> Expression {
             if tokens[0] == Token::Var && tokens[2] == Token::Equal {
                 Expression::Declaration(
                     Box::new(get_expression(&tokens[1..2])),
-                    Box::new(get_expression(&tokens[3..len - 1])),
+                    Box::new(get_expression(&tokens[3..])),
                 )
             } else if tokens[0] == Token::If {
                 let mut i = 0;
@@ -84,18 +91,18 @@ fn get_expression(tokens: &[Token]) -> Expression {
                 }
                 Expression::If(
                     Box::new(get_expression(&tokens[1..i])),
-                    Box::new(get_expression(&tokens[i + 1..len - 1])),
+                    Box::new(get_sequence(&tokens[i + 1..])),
                 )
             } else if tokens[1] == Token::Equal {
                 Expression::Assign(
                     Box::new(get_expression(&tokens[0..1])),
-                    Box::new(get_expression(&tokens[2..len - 1])),
+                    Box::new(get_expression(&tokens[2..])),
                 )
             } else {
                 match &tokens[len - 2] {
                     Token::Add | Token::Sub | Token::Mul | Token::Div | Token::Mod => {
-                        let arg1 = Box::new(get_expression(&tokens[0..len - 3]));
-                        let arg2 = Box::new(get_expression(&tokens[len - 2..len - 1]));
+                        let arg1 = Box::new(get_expression(&tokens[0..len - 2]));
+                        let arg2 = Box::new(get_expression(&tokens[len - 1..]));
                         get_operation(&tokens[len - 2], arg1, arg2)
                     }
                     _ => {
