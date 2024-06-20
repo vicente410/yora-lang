@@ -47,7 +47,7 @@ pub fn parse(tokens: Vec<Token>) -> Vec<Expression> {
     ast
 }
 
-fn get_expression(tokens: &Vec<Token>) -> Expression {
+fn get_expression(tokens: &[Token]) -> Expression {
     let len = tokens.len();
 
     if len == 1 {
@@ -60,7 +60,7 @@ fn get_expression(tokens: &Vec<Token>) -> Expression {
 
     match (&tokens[1], &tokens[len - 1]) {
         (Token::LeftParen, Token::RightParen) => match tokens[0] {
-            Token::Exit => Expression::Exit(Box::new(get_expression(&tokens[2..len - 1].to_vec()))),
+            Token::Exit => Expression::Exit(Box::new(get_expression(&tokens[2..len - 1]))),
             /*Token::Print => {
                 Expression::Print(Box::new(get_expression(&tokens[2..len - 1].to_vec())))
             }*/
@@ -80,8 +80,8 @@ fn get_expression(tokens: &Vec<Token>) -> Expression {
             } else {
                 match &tokens[len - 2] {
                     Token::Add | Token::Sub | Token::Mul | Token::Div | Token::Mod => {
-                        let arg1 = Box::new(get_expression(&tokens[0..len - 2].to_vec()));
-                        let arg2 = Box::new(get_expression(&tokens[len - 1..].to_vec()));
+                        let arg1 = Box::new(get_expression(&tokens[0..len - 2]));
+                        let arg2 = Box::new(get_expression(&tokens[len - 1..]));
                         get_operation(&tokens[len - 2], arg1, arg2)
                     }
                     _ => {
