@@ -2,18 +2,28 @@ use crate::ir_generation::Ir;
 use std::collections::HashMap;
 
 pub fn generate_asm(ir: Vec<Ir>) -> String {
-    let mut asm = String::from("global _start\n_start:\n");
+    let mut asm = String::from("global _start\n_start:\n\tmov rbp, rsp\n");
     let mut symbol_table: HashMap<String, String> = HashMap::new();
     let mut num_regs = 0;
-    let regs = ["rax", "rbx", "rcx", "rdx"];
+    let regs = ["rax", "rbx", "r10", "r11", "r12", "r13", "r14", "r15"];
 
     for instruction in ir {
         let string = match instruction {
             Ir::Assign(ref dest, src) => {
-                symbol_table.insert(dest.to_string(), regs[num_regs].to_string());
-                num_regs += 1;
+                if !symbol_table.contains_key(dest) {
+                    if num_regs < regs.len() {
+                        symbol_table.insert(dest.to_string(), regs[num_regs].to_string());
+                    } else {
+                        asm.push_str("\tsub rsp, 8\n");
+                        symbol_table.insert(
+                            dest.to_string(),
+                            format!("[rbp-{}]", (num_regs - regs.len() + 1) * 8),
+                        );
+                    }
+                    num_regs += 1;
+                }
                 &format!(
-                    "\tmov {}, {}\n",
+                    "\tmov qword {}, {}\n",
                     get_value(dest, &symbol_table),
                     get_value(&src, &symbol_table)
                 )
