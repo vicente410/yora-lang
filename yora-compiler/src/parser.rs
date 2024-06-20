@@ -4,6 +4,7 @@ use crate::lexer::Token;
 
 #[derive(Debug, PartialEq)]
 pub enum Expression {
+    Identifier(String),
     Integer(String),
     Add(Box<Expression>, Box<Expression>),
     Sub(Box<Expression>, Box<Expression>),
@@ -11,10 +12,10 @@ pub enum Expression {
     Div(Box<Expression>, Box<Expression>),
     Mod(Box<Expression>, Box<Expression>),
     Exit(Box<Expression>),
-    /*Declaration(Identifier, Option<Expression>),
-    Identifier(String),
-    Print(Box<Expression>),
+    Declaration(Box<Expression>, Box<Expression>),
     Assign(Box<Expression>, Box<Expression>),
+    /*Declaration(Identifier, Option<Expression>),
+    Print(Box<Expression>),
     Sequence(Vec<Expression>),
     IfBlock(Expression, Expression),
     LoopBlock(Vec<Statement>),*/
@@ -51,7 +52,7 @@ fn get_expression(tokens: &Vec<Token>) -> Expression {
 
     if len == 1 {
         return match &tokens[0] {
-            //Token::Identifier(id) => Expression::Identifier(id.to_string()),
+            Token::Identifier(id) => Expression::Identifier(id.to_string()),
             Token::Integer(int) => Expression::Integer(int.to_string()),
             _ => panic!("Unrecognized expression."),
         };
@@ -65,23 +66,30 @@ fn get_expression(tokens: &Vec<Token>) -> Expression {
             }*/
             _ => panic!("Unrecognized expression."),
         },
-        _ => match &tokens[len - 2] {
-            Token::Add | Token::Sub | Token::Mul | Token::Div | Token::Mod => {
-                let arg1 = Box::new(get_expression(&tokens[0..len - 2].to_vec()));
-                let arg2 = Box::new(get_expression(&tokens[len - 1..].to_vec()));
-                get_operation(&tokens[len - 2], arg1, arg2)
+        _ => {
+            if tokens[0] == Token::Var && tokens[2] == Token::Equal {
+                Expression::Declaration(
+                    Box::new(get_expression(&tokens[1..2].to_vec())),
+                    Box::new(get_expression(&tokens[3..].to_vec())),
+                )
+            } else if tokens[1] == Token::Equal {
+                Expression::Assign(
+                    Box::new(get_expression(&tokens[0..1].to_vec())),
+                    Box::new(get_expression(&tokens[2..].to_vec())),
+                )
+            } else {
+                match &tokens[len - 2] {
+                    Token::Add | Token::Sub | Token::Mul | Token::Div | Token::Mod => {
+                        let arg1 = Box::new(get_expression(&tokens[0..len - 2].to_vec()));
+                        let arg2 = Box::new(get_expression(&tokens[len - 1..].to_vec()));
+                        get_operation(&tokens[len - 2], arg1, arg2)
+                    }
+                    _ => {
+                        panic!("Unrecognized expression.");
+                    }
+                }
             }
-            _ => {
-                /*if tokens[1] == Token::Equal {
-                    Expression::Assignment(
-                        Box::new(get_expression(&tokens[0..1].to_vec())),
-                        Box::new(get_expression(&tokens[2..].to_vec())),
-                    )
-                } else {*/
-                panic!("Unrecognized expression.")
-                //}
-            }
-        },
+        }
     }
 }
 

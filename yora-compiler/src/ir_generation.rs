@@ -32,7 +32,12 @@ fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, num_tmp: &mut u32) -> Str
             tmp_vec.push(Ir::Exit(arg.clone()));
             arg
         }
-
+        Expression::Assign(ref dest, ref src) | Expression::Declaration(ref dest, ref src) => {
+            let arg1 = get_value(dest, tmp_vec, num_tmp);
+            let arg2 = get_value(src, tmp_vec, num_tmp);
+            tmp_vec.push(Ir::Assign(arg1.clone(), arg2));
+            arg1
+        }
         Expression::Add(ref dest, ref src)
         | Expression::Sub(ref dest, ref src)
         | Expression::Mul(ref dest, ref src)
@@ -48,6 +53,7 @@ fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, num_tmp: &mut u32) -> Str
             tmp_vec.push(Ir::Assign(format!("t{num_tmp}"), val.to_string()));
             format!("t{num_tmp}")
         }
+        Expression::Identifier(id) => id.to_string(),
     }
 }
 

@@ -6,6 +6,7 @@ pub enum Token {
     SemiColon,
     Identifier(String),
     Equal,
+    Var,
     LeftParen,
     RightParen,
     Add,
@@ -58,6 +59,7 @@ fn get_token(string: String) -> Token {
     match string.as_str() {
         "exit" => Token::Exit,
         "print" => Token::Print,
+        "var" => Token::Var,
         ";" => Token::SemiColon,
         "=" => Token::Equal,
         "(" => Token::LeftParen,
