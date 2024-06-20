@@ -1,4 +1,4 @@
-use crate::ir_generation::Ir;
+use crate::{ir_generation::Ir, JmpType};
 use std::collections::HashMap;
 
 pub fn generate_asm(ir: Vec<Ir>) -> String {
@@ -52,10 +52,25 @@ pub fn generate_asm(ir: Vec<Ir>) -> String {
                 get_value(dest, &symbol_table),
                 get_value(src, &symbol_table)
             ),
+            Ir::Label(label) => &format!("{}:\n", label),
+            Ir::Jmp(cmp1, cmp2, jmp_label, jmp_type) => {
+                if jmp_type == JmpType::Jmp {
+                    &format!("\tjmp {}", jmp_label)
+                } else {
+                    &format!(
+                        "\tcmp {}, {}\n\
+                        \t{} {}\n",
+                        get_value(&cmp1, &symbol_table),
+                        get_value(&cmp2, &symbol_table),
+                        get_jump(jmp_type),
+                        jmp_label
+                    )
+                }
+            }
             Ir::Exit(src) => &format!(
                 "\n\tmov rdi, {}\n\
                     \tmov rax, 60\n\
-                    \tsyscall",
+                    \tsyscall\n",
                 get_value(&src, &symbol_table),
             ),
         };
@@ -70,6 +85,18 @@ fn get_value(value: &String, symbol_table: &HashMap<String, String>) -> String {
         symbol_table[value].clone()
     } else {
         value.to_string()
+    }
+}
+
+fn get_jump(jmp_type: JmpType) -> String {
+    match jmp_type {
+        JmpType::Jmp => "jmp".to_string(),
+        JmpType::Je => "je".to_string(),
+        JmpType::Jne => "jne".to_string(),
+        JmpType::Jl => "jl".to_string(),
+        JmpType::Jle => "jle".to_string(),
+        JmpType::Jg => "jg".to_string(),
+        JmpType::Jge => "jge".to_string(),
     }
 }
 

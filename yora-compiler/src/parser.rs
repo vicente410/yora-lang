@@ -41,7 +41,8 @@ fn get_sequence(tokens: &[Token]) -> Expression {
     let mut start = 0;
     let mut end = 0;
 
-    while end < tokens.len() {
+    while end + 1 < tokens.len() {
+        end += 1;
         if matches!(tokens[end], Token::SemiColon) {
             sequence.push(get_expression(&tokens[start..end]));
             start = end + 1;
@@ -51,19 +52,22 @@ fn get_sequence(tokens: &[Token]) -> Expression {
             }
 
             let mut curly_counter = 1;
+            let mut iterations = 0;
 
-            while end < tokens.len() && curly_counter != 0 {
+            while end + 1 < tokens.len() && curly_counter != 0 {
+                end += 1;
                 if matches!(tokens[end], Token::OpenCurly) {
-                    curly_counter += 1;
+                    if iterations != 1 {
+                        curly_counter += 1;
+                    }
                 } else if matches!(tokens[end], Token::CloseCurly) {
                     curly_counter -= 1;
                 }
-                end += 1;
+                iterations += 1;
             }
-            sequence.push(get_expression(&tokens[start..end]));
-            start = end;
+            sequence.push(get_expression(&tokens[start..=end]));
+            start = end + 1;
         }
-        end += 1;
     }
 
     Expression::Sequence(sequence)
@@ -117,7 +121,6 @@ fn get_expression(tokens: &[Token]) -> Expression {
                         get_operation(&tokens[len - 2], arg1, arg2)
                     }
                     _ => {
-                        dbg!(tokens);
                         panic!("Unrecognized expression.");
                     }
                 }

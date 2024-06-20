@@ -1,9 +1,13 @@
+use std::ops::Deref;
+
 use crate::parser::Expression;
 
 #[derive(Debug, PartialEq)]
 pub enum Ir {
     Exit(String),
     Assign(String, String),
+    Label(String),
+    Jmp(String, String, String, JmpType),
     Add(String, String),
     Sub(String, String),
     Mul(String, String),
@@ -11,13 +15,29 @@ pub enum Ir {
     Mod(String, String),
 }
 
+#[derive(Debug, PartialEq)]
+pub enum JmpType {
+    Jmp,
+    Je,
+    Jne,
+    Jl,
+    Jle,
+    Jg,
+    Jge,
+}
+
+struct Nums {
+    tmp: u32,
+    ifs: u32,
+}
+
 pub fn generate_ir(ast: Vec<Expression>) -> Vec<Ir> {
     let mut inter_repr = Vec::new();
     let mut tmp_vec = Vec::new();
-    let mut num_tmp = 0;
+    let mut nums = Nums { tmp: 0, ifs: 0 };
 
     for expr in ast {
-        get_value(&expr, &mut tmp_vec, &mut num_tmp);
+        get_value(&expr, &mut tmp_vec, &mut nums);
         inter_repr.append(&mut tmp_vec);
         tmp_vec.clear();
     }
@@ -25,16 +45,16 @@ pub fn generate_ir(ast: Vec<Expression>) -> Vec<Ir> {
     inter_repr
 }
 
-fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, num_tmp: &mut u32) -> String {
+fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, nums: &mut Nums) -> String {
     match expr {
         Expression::Exit(val) => {
-            let arg = get_value(val, tmp_vec, num_tmp);
+            let arg = get_value(val, tmp_vec, nums);
             tmp_vec.push(Ir::Exit(arg.clone()));
             arg
         }
         Expression::Assign(ref dest, ref src) | Expression::Declaration(ref dest, ref src) => {
-            let arg1 = get_value(dest, tmp_vec, num_tmp);
-            let arg2 = get_value(src, tmp_vec, num_tmp);
+            let arg1 = get_value(dest, tmp_vec, nums);
+            let arg2 = get_value(src, tmp_vec, nums);
             tmp_vec.push(Ir::Assign(arg1.clone(), arg2));
             arg1
         }
@@ -43,31 +63,52 @@ fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, num_tmp: &mut u32) -> Str
         | Expression::Mul(ref dest, ref src)
         | Expression::Div(ref dest, ref src)
         | Expression::Mod(ref dest, ref src) => {
-            let arg1 = get_value(dest, tmp_vec, num_tmp);
-            let arg2 = get_value(src, tmp_vec, num_tmp);
+            let arg1 = get_value(dest, tmp_vec, nums);
+            let arg2 = get_value(src, tmp_vec, nums);
             tmp_vec.push(get_operation(expr, arg1.clone(), arg2));
             arg1
         }
         Expression::IntLit(int) => {
-            *num_tmp += 1;
-            tmp_vec.push(Ir::Assign(format!("t{num_tmp}"), int.to_string()));
-            format!("t{num_tmp}")
+            nums.tmp += 1;
+            tmp_vec.push(Ir::Assign(format!("t{}", nums.tmp), int.to_string()));
+            format!("t{}", nums.tmp)
         }
         Expression::BoolLit(bool) => {
-            *num_tmp += 1;
+            nums.tmp += 1;
             tmp_vec.push(Ir::Assign(
-                format!("t{num_tmp}"),
+                format!("t{}", nums.tmp),
                 if bool == "true" {
                     "1".to_string()
                 } else {
                     "0".to_string()
                 },
             ));
-            format!("t{num_tmp}")
+            format!("t{}", nums.tmp)
         }
         Expression::Identifier(id) => id.to_string(),
-        Expression::If(..) => todo!(),
-        Expression::Sequence(..) => todo!(),
+        Expression::If(cond, seq) => match cond.deref() {
+            Expression::BoolLit(..) => {
+                let value = get_value(cond, tmp_vec, nums);
+                nums.ifs += 1;
+                let current_ifs = nums.ifs;
+                tmp_vec.push(Ir::Jmp(
+                    value,
+                    "1".to_string(),
+                    format!("end_if{}", current_ifs),
+                    get_inverse_jump(JmpType::Je),
+                ));
+                let seq_value = get_value(seq, tmp_vec, nums);
+                tmp_vec.push(Ir::Label(format!("end_if{}", current_ifs)));
+                seq_value
+            }
+            _ => panic!("Unrecognized boolean expression."),
+        },
+        Expression::Sequence(seq) => {
+            for expr in seq {
+                get_value(expr, tmp_vec, nums);
+            }
+            "seq".to_string()
+        }
     }
 }
 
@@ -79,6 +120,18 @@ fn get_operation(operation: &Expression, arg1: String, arg2: String) -> Ir {
         Expression::Div(..) => Ir::Div(arg1, arg2),
         Expression::Mod(..) => Ir::Mod(arg1, arg2),
         _ => panic!("Unexpected operation."),
+    }
+}
+
+fn get_inverse_jump(jmp_type: JmpType) -> JmpType {
+    match jmp_type {
+        JmpType::Jmp => JmpType::Jmp,
+        JmpType::Je => JmpType::Jne,
+        JmpType::Jne => JmpType::Je,
+        JmpType::Jl => JmpType::Jge,
+        JmpType::Jle => JmpType::Jg,
+        JmpType::Jg => JmpType::Jle,
+        JmpType::Jge => JmpType::Jl,
     }
 }
 
