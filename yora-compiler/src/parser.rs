@@ -5,7 +5,8 @@ use crate::lexer::Token;
 #[derive(Debug, PartialEq)]
 pub enum Expression {
     Identifier(String),
-    Integer(String),
+    BoolLit(String),
+    IntLit(String),
     Add(Box<Expression>, Box<Expression>),
     Sub(Box<Expression>, Box<Expression>),
     Mul(Box<Expression>, Box<Expression>),
@@ -53,7 +54,8 @@ fn get_expression(tokens: &[Token]) -> Expression {
     if len == 1 {
         return match &tokens[0] {
             Token::Identifier(id) => Expression::Identifier(id.to_string()),
-            Token::Integer(int) => Expression::Integer(int.to_string()),
+            Token::BoolLit(int) => Expression::BoolLit(int.to_string()),
+            Token::IntLit(int) => Expression::IntLit(int.to_string()),
             _ => panic!("Unrecognized expression."),
         };
     }
@@ -113,15 +115,15 @@ mod tests {
         let input = vec![
             Token::Exit,
             Token::LeftParen,
-            Token::Integer("2".to_string()),
+            Token::IntLit("2".to_string()),
             Token::Add,
-            Token::Integer("3".to_string()),
+            Token::IntLit("3".to_string()),
             Token::RightParen,
             Token::SemiColon,
         ];
         let output = vec![Expression::Exit(Box::new(Expression::Add(
-            Box::new(Expression::Integer("2".to_string())),
-            Box::new(Expression::Integer("3".to_string())),
+            Box::new(Expression::IntLit("2".to_string())),
+            Box::new(Expression::IntLit("3".to_string())),
         )))];
         assert_eq!(parse(input), output);
     }

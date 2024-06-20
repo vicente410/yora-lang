@@ -2,7 +2,6 @@ use asm_generation::*;
 use ir_generation::*;
 use lexer::*;
 use parser::*;
-use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
@@ -16,7 +15,6 @@ mod parser;
 
 #[derive(Eq, Debug, Hash, PartialEq)]
 pub enum Flag {
-    Output,
     Debug(DebugOptions),
     Assembly,
 }
@@ -33,7 +31,13 @@ pub struct Compiler {
     asm_name: String,
     obj_name: String,
     exec_name: String,
-    flags: HashMap<Flag, Option<String>>,
+    flags: Vec<Flag>,
+}
+
+impl Default for Compiler {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Compiler {
@@ -43,38 +47,29 @@ impl Compiler {
             asm_name: String::new(),
             obj_name: String::new(),
             exec_name: String::new(),
-            flags: HashMap::new(),
+            flags: Vec::new(),
         }
     }
 
-    pub fn set_flags(&mut self, flags: HashMap<Flag, Option<String>>) {
+    pub fn set_flags(&mut self, flags: Vec<Flag>) {
         self.flags = flags;
     }
 
-    pub fn set_filename(&mut self, filename: &String) {
+    pub fn set_filename(&mut self, filename: &String, exec_name: &String) {
         self.filename = filename.to_string();
-        self.asm_name = if self.flags.contains_key(&Flag::Assembly) {
-            if self.flags.contains_key(&Flag::Output) {
-                if let Some(string) = &self.flags[&Flag::Output] {
-                    string.clone()
-                } else {
-                    panic!();
-                }
-            } else {
-                format!("{}.asm", filename)
-            }
-        } else {
-            Compiler::get_tmpfile_path()
-        };
         self.obj_name = Compiler::get_tmpfile_path();
-        self.exec_name = if self.flags.contains_key(&Flag::Output) {
-            if let Some(string) = &self.flags[&Flag::Output] {
-                string.clone()
-            } else {
-                panic!();
-            }
+        self.exec_name = if !exec_name.is_empty() {
+            exec_name.to_string()
         } else {
             filename.clone()
+        };
+
+        let asm_name = self.exec_name.clone();
+
+        self.asm_name = if self.flags.contains(&Flag::Assembly) {
+            format!("{}.asm", asm_name)
+        } else {
+            Compiler::get_tmpfile_path()
         };
     }
 
@@ -85,7 +80,7 @@ impl Compiler {
         let mut asm_file = File::create(&self.asm_name).unwrap();
         asm_file.write_all(&assembly.into_bytes()).unwrap();
 
-        if self.flags.contains_key(&Flag::Assembly) {
+        if self.flags.contains(&Flag::Assembly) {
             process::exit(0);
         }
 
@@ -97,21 +92,21 @@ impl Compiler {
     fn get_assembly(&self, source: String) -> String {
         let tokens = lex(source);
 
-        if self.flags.contains_key(&Flag::Debug(DebugOptions::Tokens)) {
+        if self.flags.contains(&Flag::Debug(DebugOptions::Tokens)) {
             dbg!(&tokens);
             process::exit(0);
         }
 
         let ast = parse(tokens);
 
-        if self.flags.contains_key(&Flag::Debug(DebugOptions::Ast)) {
+        if self.flags.contains(&Flag::Debug(DebugOptions::Ast)) {
             dbg!(&ast);
             process::exit(0);
         }
 
         let ir = generate_ir(ast);
 
-        if self.flags.contains_key(&Flag::Debug(DebugOptions::Ir)) {
+        if self.flags.contains(&Flag::Debug(DebugOptions::Ir)) {
             dbg!(&ir);
             process::exit(0);
         }
@@ -147,7 +142,7 @@ impl Compiler {
 
     fn remove_tmpfiles(&self) {
         Compiler::remove_file(&self.obj_name);
-        if !self.flags.contains_key(&Flag::Assembly) {
+        if !self.flags.contains(&Flag::Assembly) {
             Compiler::remove_file(&self.asm_name);
         }
     }

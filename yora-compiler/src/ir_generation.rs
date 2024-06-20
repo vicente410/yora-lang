@@ -48,9 +48,21 @@ fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, num_tmp: &mut u32) -> Str
             tmp_vec.push(get_operation(expr, arg1.clone(), arg2));
             arg1
         }
-        Expression::Integer(val) => {
+        Expression::IntLit(int) => {
             *num_tmp += 1;
-            tmp_vec.push(Ir::Assign(format!("t{num_tmp}"), val.to_string()));
+            tmp_vec.push(Ir::Assign(format!("t{num_tmp}"), int.to_string()));
+            format!("t{num_tmp}")
+        }
+        Expression::BoolLit(bool) => {
+            *num_tmp += 1;
+            tmp_vec.push(Ir::Assign(
+                format!("t{num_tmp}"),
+                if bool == "true" {
+                    "1".to_string()
+                } else {
+                    "0".to_string()
+                },
+            ));
             format!("t{num_tmp}")
         }
         Expression::Identifier(id) => id.to_string(),
@@ -75,8 +87,8 @@ mod tests {
     #[test]
     fn test_ir_generation() {
         let input = vec![Expression::Exit(Box::new(Expression::Add(
-            Box::new(Expression::Integer("2".to_string())),
-            Box::new(Expression::Integer("3".to_string())),
+            Box::new(Expression::IntLit("2".to_string())),
+            Box::new(Expression::IntLit("3".to_string())),
         )))];
         let output = vec![
             Ir::Assign("t1".to_string(), "2".to_string()),

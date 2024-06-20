@@ -1,12 +1,13 @@
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
+    BoolLit(String),
+    IntLit(String),
+    Identifier(String),
     Exit,
     Print,
-    Integer(String),
     SemiColon,
-    Identifier(String),
-    Equal,
     Var,
+    Equal,
     LeftParen,
     RightParen,
     Add,
@@ -52,7 +53,7 @@ pub fn lex(source: String) -> Vec<Token> {
 
 fn get_token(string: String) -> Token {
     if string.parse::<i64>().is_ok() {
-        return Token::Integer(string);
+        return Token::IntLit(string);
     }
 
     match string.as_str() {
@@ -68,6 +69,8 @@ fn get_token(string: String) -> Token {
         "*" => Token::Mul,
         "/" => Token::Div,
         "%" => Token::Mod,
+        "true" => Token::BoolLit(string),
+        "false" => Token::BoolLit(string),
         _ => Token::Identifier(string),
     }
 }
@@ -83,9 +86,9 @@ mod tests {
         let output = vec![
             Token::Exit,
             Token::LeftParen,
-            Token::Integer("2".to_string()),
+            Token::IntLit("2".to_string()),
             Token::Add,
-            Token::Integer("3".to_string()),
+            Token::IntLit("3".to_string()),
             Token::RightParen,
             Token::SemiColon,
         ];

@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::env;
 use std::process;
 use yora_compiler::*;
@@ -6,16 +5,17 @@ use yora_compiler::*;
 fn main() {
     let args: Vec<String> = env::args().collect();
     let mut compiler = Compiler::new();
-    let (filename, flags) = parse_args(args);
+    let (filename, exec_name, flags) = parse_args(args);
 
     compiler.set_flags(flags);
-    compiler.set_filename(&filename);
+    compiler.set_filename(&filename, &exec_name);
     compiler.compile();
 }
 
-fn parse_args(args: Vec<String>) -> (String, HashMap<Flag, Option<String>>) {
+fn parse_args(args: Vec<String>) -> (String, String, Vec<Flag>) {
     let mut filename = String::new();
-    let mut flags: HashMap<Flag, Option<String>> = HashMap::new();
+    let mut exec_name = String::new();
+    let mut flags: Vec<Flag> = Vec::new();
     let mut args_it = args.iter().peekable();
 
     args_it.next();
@@ -23,7 +23,7 @@ fn parse_args(args: Vec<String>) -> (String, HashMap<Flag, Option<String>>) {
         match arg.as_str() {
             "-o" | "--output" => {
                 if let Some(arg) = args_it.next() {
-                    flags.insert(Flag::Output, Some(arg.clone()));
+                    exec_name.clone_from(arg);
                 } else {
                     println!(
                         "Incorrect usage of output flag.\n\
@@ -36,18 +36,15 @@ fn parse_args(args: Vec<String>) -> (String, HashMap<Flag, Option<String>>) {
 
             "-d" | "--debug" => {
                 if let Some(arg) = args_it.next() {
-                    flags.insert(
-                        Flag::Debug(match arg.as_str() {
-                            "tokens" => DebugOptions::Tokens,
-                            "ast" => DebugOptions::Ast,
-                            "ir" => DebugOptions::Ir,
-                            _ => {
-                                println!("Invalid debug option.");
-                                process::exit(1);
-                            }
-                        }),
-                        None,
-                    );
+                    flags.push(Flag::Debug(match arg.as_str() {
+                        "tokens" => DebugOptions::Tokens,
+                        "ast" => DebugOptions::Ast,
+                        "ir" => DebugOptions::Ir,
+                        _ => {
+                            println!("Invalid debug option.");
+                            process::exit(1);
+                        }
+                    }));
                 } else {
                     println!(
                         "Incorrect usage of debug flag.\n\
@@ -59,7 +56,7 @@ fn parse_args(args: Vec<String>) -> (String, HashMap<Flag, Option<String>>) {
             }
 
             "-s" | "--assembly" => {
-                flags.insert(Flag::Assembly, None);
+                flags.push(Flag::Assembly);
             }
 
             "-h" | "--help" => {
@@ -78,7 +75,7 @@ fn parse_args(args: Vec<String>) -> (String, HashMap<Flag, Option<String>>) {
                 if arg[0..1] == *"-" {
                     println!("Incorrect usage");
                 } else if filename == *"" {
-                    filename = arg.clone();
+                    filename.clone_from(arg);
                     match filename.strip_suffix(".yr") {
                         Some(res) => filename = res.to_string(),
                         None => {
@@ -99,7 +96,7 @@ fn parse_args(args: Vec<String>) -> (String, HashMap<Flag, Option<String>>) {
         process::exit(1);
     }
 
-    (filename, flags)
+    (filename, exec_name, flags)
 }
 
 #[cfg(test)]
@@ -114,9 +111,11 @@ mod tests {
             "-o".to_string(),
             "output_file".to_string(),
         ];
-        let mut output: HashMap<Flag, Option<String>> = HashMap::new();
-        output.insert(Flag::Output, Some("output_file".to_string()));
-        assert_eq!(parse_args(input), ("test".to_string(), output));
+        let output = vec![];
+        assert_eq!(
+            parse_args(input),
+            ("test".to_string(), "output_file".to_string(), output)
+        );
     }
 
     #[test]
@@ -127,9 +126,11 @@ mod tests {
             "-d".to_string(),
             "ast".to_string(),
         ];
-        let mut output: HashMap<Flag, Option<String>> = HashMap::new();
-        output.insert(Flag::Debug(DebugOptions::Ast), None);
-        assert_eq!(parse_args(input), ("test".to_string(), output));
+        let output = vec![Flag::Debug(DebugOptions::Ast)];
+        assert_eq!(
+            parse_args(input),
+            ("test".to_string(), "".to_string(), output)
+        );
     }
 
     #[test]
@@ -139,8 +140,10 @@ mod tests {
             "test.yr".to_string(),
             "-s".to_string(),
         ];
-        let mut output: HashMap<Flag, Option<String>> = HashMap::new();
-        output.insert(Flag::Assembly, None);
-        assert_eq!(parse_args(input), ("test".to_string(), output));
+        let output = vec![Flag::Assembly];
+        assert_eq!(
+            parse_args(input),
+            ("test".to_string(), "".to_string(), output)
+        );
     }
 }
