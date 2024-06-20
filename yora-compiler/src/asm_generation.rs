@@ -5,7 +5,7 @@ pub fn generate_asm(ir: Vec<Ir>) -> String {
     let mut asm = String::from("global _start\n_start:\n\tmov rbp, rsp\n");
     let mut symbol_table: HashMap<String, String> = HashMap::new();
     let mut num_regs = 0;
-    let regs = ["rax", "rbx", "r10", "r11", "r12", "r13", "r14", "r15"];
+    let regs = ["rbx", "r10", "r11", "r12", "r13", "r14", "r15"];
 
     for instruction in ir {
         let string = match instruction {
@@ -17,22 +17,36 @@ pub fn generate_asm(ir: Vec<Ir>) -> String {
                         asm.push_str("\tsub rsp, 8\n");
                         symbol_table.insert(
                             dest.to_string(),
-                            format!("[rbp-{}]", (num_regs - regs.len() + 1) * 8),
+                            format!("qword [rbp-{}]", (num_regs - regs.len() + 1) * 8),
                         );
                     }
                     num_regs += 1;
                 }
                 &format!(
-                    "\tmov qword {}, {}\n",
+                    "\tmov {}, {}\n",
                     get_value(dest, &symbol_table),
                     get_value(&src, &symbol_table)
                 )
             }
-            Ir::Add(ref dest, ref src)
-            | Ir::Sub(ref dest, ref src)
-            | Ir::Mul(ref dest, ref src)
-            | Ir::Div(ref dest, ref src)
-            | Ir::Mod(ref dest, ref src) => &format!(
+            Ir::Mul(ref dest, ref src) | Ir::Div(ref dest, ref src) => &format!(
+                "\tmov rax, {}\n\
+                \t{} {}\n\
+                \tmov {}, rax",
+                get_value(dest, &symbol_table),
+                get_operation(&instruction),
+                get_value(src, &symbol_table),
+                get_value(dest, &symbol_table),
+            ),
+            Ir::Mod(ref dest, ref src) => &format!(
+                "\tmov rax, {}\n\
+                \t{} {}\n\
+                \tmov {}, rdx",
+                get_value(dest, &symbol_table),
+                get_operation(&instruction),
+                get_value(src, &symbol_table),
+                get_value(dest, &symbol_table),
+            ),
+            Ir::Add(ref dest, ref src) | Ir::Sub(ref dest, ref src) => &format!(
                 "\t{} {}, {}\n",
                 get_operation(&instruction),
                 get_value(dest, &symbol_table),
@@ -65,7 +79,7 @@ fn get_operation(operation: &Ir) -> &str {
         Ir::Sub(..) => "sub",
         Ir::Mul(..) => "mul",
         Ir::Div(..) => "div",
-        Ir::Mod(..) => "mod",
+        Ir::Mod(..) => "div",
         _ => panic!("Unexpected operation."),
     }
 }

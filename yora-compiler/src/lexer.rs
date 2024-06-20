@@ -37,7 +37,6 @@ pub fn lex(source: String) -> Vec<Token> {
             }
         } else if i + 1 < len && source[i..=i + 1] == *"/*" {
             while i + 1 < len && source[i..=i + 1] != *"*/" {
-                // println!("a a a a stayin' alive");
                 i += 1;
             }
             i += 1;
