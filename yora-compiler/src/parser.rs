@@ -69,13 +69,13 @@ fn get_expression(tokens: &[Token]) -> Expression {
         _ => {
             if tokens[0] == Token::Var && tokens[2] == Token::Equal {
                 Expression::Declaration(
-                    Box::new(get_expression(&tokens[1..2].to_vec())),
-                    Box::new(get_expression(&tokens[3..].to_vec())),
+                    Box::new(get_expression(&tokens[1..2])),
+                    Box::new(get_expression(&tokens[3..])),
                 )
             } else if tokens[1] == Token::Equal {
                 Expression::Assign(
-                    Box::new(get_expression(&tokens[0..1].to_vec())),
-                    Box::new(get_expression(&tokens[2..].to_vec())),
+                    Box::new(get_expression(&tokens[0..1])),
+                    Box::new(get_expression(&tokens[2..])),
                 )
             } else {
                 match &tokens[len - 2] {
