@@ -93,30 +93,29 @@ fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, nums: &mut Nums) -> Strin
                 let current_ifs = nums.ifs;
                 tmp_vec.push(Ir::Jmp(
                     value,
-                    "1".to_string(),
+                    "0".to_string(),
                     format!("end_if{}", current_ifs),
-                    get_inverse_jump(JmpType::Je),
+                    get_inverse_jump(cond),
                 ));
                 let seq_value = get_value(seq, tmp_vec, nums);
                 tmp_vec.push(Ir::Label(format!("end_if{}", current_ifs)));
                 seq_value
             }
-            Expression::Eq(cmp1, cmp2, jmp_type)
-            | Expression::NotEq(cmp1, cmp2, jmp_type)
-            | Expression::Less(cmp1, cmp2, jmp_type)
-            | Expression::LessEq(cmp1, cmp2, jmp_type)
-            | Expression::Greater(cmp1, cmp2, jmp_type)
-            | Expression::GreaterEq(cmp1, cmp2, jmp_type) => {
+            Expression::Eq(cmp1, cmp2)
+            | Expression::NotEq(cmp1, cmp2)
+            | Expression::Less(cmp1, cmp2)
+            | Expression::LessEq(cmp1, cmp2)
+            | Expression::Greater(cmp1, cmp2)
+            | Expression::GreaterEq(cmp1, cmp2) => {
                 nums.ifs += 1;
                 let current_ifs = nums.ifs;
-                let jmp = jmp_type;
                 let cmp1_value = get_value(cmp1, tmp_vec, nums);
                 let cmp2_value = get_value(cmp2, tmp_vec, nums);
                 tmp_vec.push(Ir::Jmp(
                     cmp1_value,
                     cmp2_value,
                     format!("end_if{}", current_ifs),
-                    get_inverse_jump(jmp.clone()),
+                    get_inverse_jump(cond),
                 ));
                 let seq_value = get_value(seq, tmp_vec, nums);
                 tmp_vec.push(Ir::Label(format!("end_if{}", current_ifs)));
@@ -145,15 +144,19 @@ fn get_operation(operation: &Expression, arg1: String, arg2: String) -> Ir {
     }
 }
 
-fn get_inverse_jump(jmp_type: JmpType) -> JmpType {
-    match jmp_type {
-        JmpType::Jmp => JmpType::Jmp,
-        JmpType::Je => JmpType::Jne,
-        JmpType::Jne => JmpType::Je,
-        JmpType::Jl => JmpType::Jge,
-        JmpType::Jle => JmpType::Jg,
-        JmpType::Jg => JmpType::Jle,
-        JmpType::Jge => JmpType::Jl,
+fn get_inverse_jump(expr: &Expression) -> JmpType {
+    match expr {
+        Expression::BoolLit(..) => JmpType::Je,
+        Expression::Eq(..) => JmpType::Jne,
+        Expression::NotEq(..) => JmpType::Je,
+        Expression::Less(..) => JmpType::Jge,
+        Expression::LessEq(..) => JmpType::Jg,
+        Expression::Greater(..) => JmpType::Jle,
+        Expression::GreaterEq(..) => JmpType::Jl,
+        _ => {
+            dbg!(expr);
+            panic!("Given expression is not a boolean operator.")
+        }
     }
 }
 
