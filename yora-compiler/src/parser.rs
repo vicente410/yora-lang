@@ -128,9 +128,9 @@ fn get_expression(tokens: &[Token]) -> Expression {
                 match tokens[1] {
                     Token::Add | Token::Sub | Token::Mul | Token::Div | Token::Mod => {
                         let mut new_tokens = Vec::from(tokens);
-                        new_tokens.remove(2);
-                        new_tokens.insert(0, tokens[1].clone());
-                        new_tokens.insert(0, tokens[2].clone());
+                        new_tokens.remove(1);
+                        new_tokens.insert(2, tokens[0].clone());
+                        new_tokens.insert(3, tokens[1].clone());
                         get_expression(&new_tokens)
                     }
                     _ => panic!("Unrecognized assign operation"),
