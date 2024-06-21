@@ -131,7 +131,7 @@ mod tests {
                         \tadd rbx, r10\n\n\
                         \tmov rdi, rbx\n\
                         \tmov rax, 60\n\
-                        \tsyscall";
+                        \tsyscall\n";
         assert_eq!(generate_asm(input), output);
     }
 }

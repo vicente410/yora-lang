@@ -1,6 +1,6 @@
 use core::panic;
 
-use crate::lexer::Token;
+use crate::{lexer::Token, JmpType};
 
 #[derive(Debug, PartialEq)]
 pub enum Expression {
@@ -12,6 +12,12 @@ pub enum Expression {
     Mul(Box<Expression>, Box<Expression>),
     Div(Box<Expression>, Box<Expression>),
     Mod(Box<Expression>, Box<Expression>),
+    Less(Box<Expression>, Box<Expression>, JmpType),
+    LessEquals(Box<Expression>, Box<Expression>, JmpType),
+    More(Box<Expression>, Box<Expression>, JmpType),
+    MoreEquals(Box<Expression>, Box<Expression>, JmpType),
+    Equals(Box<Expression>, Box<Expression>, JmpType),
+    NotEquals(Box<Expression>, Box<Expression>, JmpType),
     Exit(Box<Expression>),
     If(Box<Expression>, Box<Expression>),
     Declaration(Box<Expression>, Box<Expression>),
@@ -115,7 +121,17 @@ fn get_expression(tokens: &[Token]) -> Expression {
                 )
             } else {
                 match &tokens[len - 2] {
-                    Token::Add | Token::Sub | Token::Mul | Token::Div | Token::Mod => {
+                    Token::Add
+                    | Token::Sub
+                    | Token::Mul
+                    | Token::Div
+                    | Token::Mod
+                    | Token::Less
+                    | Token::LessEquals
+                    | Token::More
+                    | Token::MoreEquals
+                    | Token::Equals
+                    | Token::NotEquals => {
                         let arg1 = Box::new(get_expression(&tokens[0..len - 2]));
                         let arg2 = Box::new(get_expression(&tokens[len - 1..]));
                         get_operation(&tokens[len - 2], arg1, arg2)
@@ -136,6 +152,12 @@ fn get_operation(operation: &Token, arg1: Box<Expression>, arg2: Box<Expression>
         Token::Mul => Expression::Mul(arg1, arg2),
         Token::Div => Expression::Div(arg1, arg2),
         Token::Mod => Expression::Mod(arg1, arg2),
+        Token::Less => Expression::Less(arg1, arg2, JmpType::Jl),
+        Token::LessEquals => Expression::LessEquals(arg1, arg2, JmpType::Jle),
+        Token::More => Expression::More(arg1, arg2, JmpType::Jg),
+        Token::MoreEquals => Expression::MoreEquals(arg1, arg2, JmpType::Jge),
+        Token::Equals => Expression::Equals(arg1, arg2, JmpType::Je),
+        Token::NotEquals => Expression::NotEquals(arg1, arg2, JmpType::Jne),
         _ => panic!("Unexpected operation."),
     }
 }

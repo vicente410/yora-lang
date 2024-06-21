@@ -15,7 +15,7 @@ pub enum Ir {
     Mod(String, String),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum JmpType {
     Jmp,
     Je,
@@ -101,6 +101,27 @@ fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, nums: &mut Nums) -> Strin
                 tmp_vec.push(Ir::Label(format!("end_if{}", current_ifs)));
                 seq_value
             }
+            Expression::Less(cmp1, cmp2, jmp_type)
+            | Expression::LessEquals(cmp1, cmp2, jmp_type)
+            | Expression::More(cmp1, cmp2, jmp_type)
+            | Expression::MoreEquals(cmp1, cmp2, jmp_type)
+            | Expression::Equals(cmp1, cmp2, jmp_type)
+            | Expression::NotEquals(cmp1, cmp2, jmp_type) => {
+                nums.ifs += 1;
+                let current_ifs = nums.ifs;
+                let jmp = jmp_type;
+                let cmp1_value = get_value(cmp1, tmp_vec, nums);
+                let cmp2_value = get_value(cmp2, tmp_vec, nums);
+                tmp_vec.push(Ir::Jmp(
+                    cmp1_value,
+                    cmp2_value,
+                    format!("end_if{}", current_ifs),
+                    get_inverse_jump(jmp.clone()),
+                ));
+                let seq_value = get_value(seq, tmp_vec, nums);
+                tmp_vec.push(Ir::Label(format!("end_if{}", current_ifs)));
+                seq_value
+            }
             _ => panic!("Unrecognized boolean expression."),
         },
         Expression::Sequence(seq) => {
@@ -109,6 +130,7 @@ fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, nums: &mut Nums) -> Strin
             }
             "seq".to_string()
         }
+        _ => panic!("Invalid expression"),
     }
 }
 
