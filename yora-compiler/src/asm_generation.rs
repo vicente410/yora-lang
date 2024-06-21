@@ -31,7 +31,7 @@ pub fn generate_asm(ir: Vec<Ir>) -> String {
             Ir::Mul(ref dest, ref src) | Ir::Div(ref dest, ref src) => &format!(
                 "\tmov rax, {}\n\
                     \t{} {}\n\
-                    \tmov {}, rax",
+                    \tmov {}, rax\n",
                 get_value(dest, &symbol_table),
                 get_operation(&instruction),
                 get_value(src, &symbol_table),
@@ -40,7 +40,7 @@ pub fn generate_asm(ir: Vec<Ir>) -> String {
             Ir::Mod(ref dest, ref src) => &format!(
                 "\tmov rax, {}\n\
                     \t{} {}\n\
-                    \tmov {}, rdx",
+                    \tmov {}, rdx\n",
                 get_value(dest, &symbol_table),
                 get_operation(&instruction),
                 get_value(src, &symbol_table),

@@ -127,7 +127,10 @@ fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, nums: &mut Nums) -> Strin
                 tmp_vec.push(Ir::Label(format!("end_if_{}", current_ifs)));
                 seq_value
             }
-            _ => panic!("Unrecognized boolean expression."),
+            _ => {
+                dbg!(cond);
+                panic!("Unrecognized boolean expression.")
+            }
         },
         Expression::Loop(seq) => {
             tmp_vec.push(Ir::Label(format!("loop_{}", nums.loops)));
@@ -142,10 +145,10 @@ fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, nums: &mut Nums) -> Strin
             "".to_string()
         }
         Expression::Sequence(seq) => {
-            for expr in seq {
+            for expr in &seq[0..seq.len() - 1] {
                 get_value(expr, tmp_vec, nums);
             }
-            "".to_string()
+            get_value(&seq[seq.len() - 1], tmp_vec, nums)
         }
         _ => panic!("Invalid expression"),
     }

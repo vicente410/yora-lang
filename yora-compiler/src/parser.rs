@@ -90,7 +90,10 @@ fn get_expression(tokens: &[Token]) -> Expression {
             Token::BoolLit(bool) => Expression::BoolLit(bool.to_string()),
             Token::IntLit(int) => Expression::IntLit(int.to_string()),
             Token::Break => Expression::Break,
-            _ => panic!("Unrecognized expression."),
+            _ => {
+                dbg!(&tokens);
+                panic!("Unrecognized expression.")
+            }
         };
     }
 
