@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use crate::parser::Expression;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Ir {
     Exit(String),
     Assign(String, String),

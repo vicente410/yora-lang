@@ -9,7 +9,7 @@ pub fn generate_asm(ir: Vec<Ir>) -> String {
 
     for instruction in ir {
         let string = match instruction {
-            Ir::Assign(ref dest, src) => {
+            Ir::Assign(ref dest, ref src) => {
                 if !symbol_table.contains_key(dest) {
                     if num_regs < regs.len() {
                         symbol_table.insert(dest.to_string(), regs[num_regs].to_string());
@@ -22,10 +22,10 @@ pub fn generate_asm(ir: Vec<Ir>) -> String {
                     }
                     num_regs += 1;
                 }
-                &format!(
-                    "\tmov {}, {}\n",
+                &get_instruction(
+                    get_value(&src, &symbol_table),
                     get_value(dest, &symbol_table),
-                    get_value(&src, &symbol_table)
+                    &instruction,
                 )
             }
             Ir::Mul(ref dest, ref src) | Ir::Div(ref dest, ref src) => &format!(
@@ -46,12 +46,12 @@ pub fn generate_asm(ir: Vec<Ir>) -> String {
                 get_value(src, &symbol_table),
                 get_value(dest, &symbol_table),
             ),
-            Ir::Add(ref dest, ref src) | Ir::Sub(ref dest, ref src) => &format!(
-                "\t{} {}, {}\n",
-                get_operation(&instruction),
+            Ir::Add(ref dest, ref src) | Ir::Sub(ref dest, ref src) => &get_instruction(
+                get_value(&src, &symbol_table),
                 get_value(dest, &symbol_table),
-                get_value(src, &symbol_table)
+                &instruction,
             ),
+
             Ir::Label(label) => &format!("{}:\n", label),
             Ir::Jmp(label) => &format!("\tjmp {}\n", label),
             Ir::JmpCmp(cmp1, cmp2, label, jmp_type) => &format!(
@@ -101,6 +101,31 @@ fn get_operation(operation: &Ir) -> &str {
         Ir::Mul(..) => "mul",
         Ir::Div(..) => "div",
         Ir::Mod(..) => "div",
-        _ => panic!("Unexpected operation."),
+        Ir::Assign(..) => "mov",
+        _ => {
+            dbg!(operation);
+            panic!("Unexpected operation.")
+        }
+    }
+}
+
+fn get_instruction(src_val: String, dest_val: String, instruction: &Ir) -> String {
+    if src_val.contains("[") && dest_val.contains("[") {
+        format!(
+            "\t push rax\n\
+        \tmov rax, {}\n\
+        \t{} {}, rax\n\
+        \tpop rax\n",
+            src_val,
+            get_operation(instruction),
+            dest_val
+        )
+    } else {
+        format!(
+            "\t{} {}, {}\n",
+            get_operation(instruction),
+            dest_val,
+            src_val
+        )
     }
 }
