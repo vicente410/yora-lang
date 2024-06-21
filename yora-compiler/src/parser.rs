@@ -1,6 +1,6 @@
 use std::process;
 
-use crate::{lexer::Token, JmpType};
+use crate::lexer::Token;
 
 #[derive(Debug, PartialEq)]
 pub enum Expression {
@@ -12,6 +12,7 @@ pub enum Expression {
     // Control flow
     Sequence(Vec<Expression>),
     If(Box<Expression>, Box<Expression>),
+    Loop(Box<Expression>),
 
     // Variables
     Declare(Box<Expression>, Box<Expression>),
@@ -66,6 +67,10 @@ fn get_sequence(tokens: &[Token]) -> Expression {
                     curly_counter -= 1;
                 }
             }
+        } else if matches!(tokens[start], Token::Loop) {
+            while end + 1 < tokens.len() && !matches!(tokens[end], Token::CloseCurly) {
+                end += 1;
+            }
         } else {
             while end + 1 < tokens.len() && !matches!(tokens[end], Token::SemiColon) {
                 end += 1;
@@ -114,6 +119,8 @@ fn get_expression(tokens: &[Token]) -> Expression {
                     Box::new(get_expression(&tokens[1..i])),
                     Box::new(get_sequence(&tokens[i + 1..])),
                 )
+            } else if tokens[0] == Token::Loop {
+                Expression::Loop(Box::new(get_sequence(&tokens[2..])))
             } else if tokens[1] == Token::Assign {
                 Expression::Assign(
                     Box::new(get_expression(&tokens[0..1])),

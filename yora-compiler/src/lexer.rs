@@ -6,10 +6,14 @@ pub enum Token {
     IntLit(String),
 
     //Keywords
+    Var,
     If,
+    Loop,
+    Break,
+
+    // Built-in functions
     Exit,
     Print,
-    Var,
 
     // Operators
     Add,
@@ -91,10 +95,13 @@ fn get_token(string: String) -> Result<Token, String> {
     }
 
     Ok(match string.as_str() {
+        "var" => Token::Var,
         "if" => Token::If,
+        "loop" => Token::Loop,
+        "break" => Token::Break,
+
         "exit" => Token::Exit,
         "print" => Token::Print,
-        "var" => Token::Var,
 
         "+" => Token::Add,
         "-" => Token::Sub,
