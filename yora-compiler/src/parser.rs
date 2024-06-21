@@ -1,11 +1,13 @@
+use std::process;
+
 use crate::{lexer::Token, JmpType};
 
 #[derive(Debug, PartialEq)]
 pub enum Expression {
     // Literals
     Identifier(String),
-    IntLit(String),
     BoolLit(String),
+    IntLit(String),
 
     // Control flow
     Sequence(Vec<Expression>),
@@ -24,18 +26,16 @@ pub enum Expression {
     Mul(Box<Expression>, Box<Expression>),
     Div(Box<Expression>, Box<Expression>),
     Mod(Box<Expression>, Box<Expression>),
-    Eq(Box<Expression>, Box<Expression>, JmpType),
-    NotEq(Box<Expression>, Box<Expression>, JmpType),
-    Less(Box<Expression>, Box<Expression>, JmpType),
-    LessEq(Box<Expression>, Box<Expression>, JmpType),
-    Greater(Box<Expression>, Box<Expression>, JmpType),
-    GreaterEq(Box<Expression>, Box<Expression>, JmpType),
+    Eq(Box<Expression>, Box<Expression>),
+    NotEq(Box<Expression>, Box<Expression>),
+    Less(Box<Expression>, Box<Expression>),
+    LessEq(Box<Expression>, Box<Expression>),
+    Greater(Box<Expression>, Box<Expression>),
+    GreaterEq(Box<Expression>, Box<Expression>),
     /*Declaration(Identifier, Option<Expression>),
     Print(Box<Expression>),
     LoopBlock(Vec<Statement>),*/
     /*Not(&'a Expression),
-    Equal(&'a Expression, &'a Expression),
-    NotEqual(&'a Expression, &'a Expression),
     And(&'a Expression, &'a Expression),
     Or(&'a Expression, &'a Expression),
     Xor(&'a Expression, &'a Expression),*/
@@ -51,32 +51,29 @@ fn get_sequence(tokens: &[Token]) -> Expression {
     let mut end = 0;
 
     while end + 1 < tokens.len() {
-        end += 1;
-        if matches!(tokens[end], Token::SemiColon) {
-            sequence.push(get_expression(&tokens[start..end]));
-            start = end + 1;
-        } else if matches!(tokens[end], Token::If) {
-            while end < tokens.len() && matches!(tokens[end], Token::OpenCurly) {
+        if matches!(tokens[start], Token::If) {
+            while end < tokens.len() && !matches!(tokens[end], Token::OpenCurly) {
                 end += 1;
             }
 
             let mut curly_counter = 1;
-            let mut iterations = 0;
 
             while end + 1 < tokens.len() && curly_counter != 0 {
                 end += 1;
                 if matches!(tokens[end], Token::OpenCurly) {
-                    if iterations != 1 {
-                        curly_counter += 1;
-                    }
+                    curly_counter += 1;
                 } else if matches!(tokens[end], Token::CloseCurly) {
                     curly_counter -= 1;
                 }
-                iterations += 1;
             }
-            sequence.push(get_expression(&tokens[start..=end]));
-            start = end + 1;
+        } else {
+            while end + 1 < tokens.len() && !matches!(tokens[end], Token::SemiColon) {
+                end += 1;
+            }
         }
+        sequence.push(get_expression(&tokens[start..end]));
+        start = end + 1;
+        end += 1;
     }
 
     Expression::Sequence(sequence)
@@ -103,7 +100,7 @@ fn get_expression(tokens: &[Token]) -> Expression {
             _ => panic!("Unrecognized expression."),
         },
         _ => {
-            if tokens[0] == Token::Var && tokens[2] == Token::Eq {
+            if tokens[0] == Token::Var && tokens[2] == Token::Assign {
                 Expression::Declare(
                     Box::new(get_expression(&tokens[1..2])),
                     Box::new(get_expression(&tokens[3..])),
@@ -140,7 +137,9 @@ fn get_expression(tokens: &[Token]) -> Expression {
                         get_operation(&tokens[len - 2], arg1, arg2)
                     }
                     _ => {
-                        panic!("Unrecognized expression.");
+                        println!("Unrecognized expression:");
+                        dbg!(tokens);
+                        process::exit(1);
                     }
                 }
             }
@@ -155,12 +154,12 @@ fn get_operation(operation: &Token, arg1: Box<Expression>, arg2: Box<Expression>
         Token::Mul => Expression::Mul(arg1, arg2),
         Token::Div => Expression::Div(arg1, arg2),
         Token::Mod => Expression::Mod(arg1, arg2),
-        Token::Eq => Expression::Eq(arg1, arg2, JmpType::Je),
-        Token::NotEq => Expression::NotEq(arg1, arg2, JmpType::Jne),
-        Token::Less => Expression::Less(arg1, arg2, JmpType::Jl),
-        Token::LessEq => Expression::LessEq(arg1, arg2, JmpType::Jle),
-        Token::Greater => Expression::Greater(arg1, arg2, JmpType::Jg),
-        Token::GreaterEq => Expression::GreaterEq(arg1, arg2, JmpType::Jge),
+        Token::Eq => Expression::Eq(arg1, arg2),
+        Token::NotEq => Expression::NotEq(arg1, arg2),
+        Token::Less => Expression::Less(arg1, arg2),
+        Token::LessEq => Expression::LessEq(arg1, arg2),
+        Token::Greater => Expression::Greater(arg1, arg2),
+        Token::GreaterEq => Expression::GreaterEq(arg1, arg2),
         _ => panic!("Unexpected operation."),
     }
 }

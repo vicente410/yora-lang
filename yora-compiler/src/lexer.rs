@@ -2,8 +2,8 @@
 pub enum Token {
     // Literals
     Identifier(String),
-    IntLit(String),
     BoolLit(String),
+    IntLit(String),
 
     //Keywords
     If,
