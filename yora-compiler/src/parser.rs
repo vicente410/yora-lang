@@ -1,28 +1,35 @@
-use core::panic;
-
 use crate::{lexer::Token, JmpType};
 
 #[derive(Debug, PartialEq)]
 pub enum Expression {
+    // Literals
     Identifier(String),
-    BoolLit(String),
     IntLit(String),
+    BoolLit(String),
+
+    // Control flow
+    Sequence(Vec<Expression>),
+    If(Box<Expression>, Box<Expression>),
+
+    // Variables
+    Declare(Box<Expression>, Box<Expression>),
+    Assign(Box<Expression>, Box<Expression>),
+
+    // Built-in functions
+    Exit(Box<Expression>),
+
+    // Operators
     Add(Box<Expression>, Box<Expression>),
     Sub(Box<Expression>, Box<Expression>),
     Mul(Box<Expression>, Box<Expression>),
     Div(Box<Expression>, Box<Expression>),
     Mod(Box<Expression>, Box<Expression>),
+    Eq(Box<Expression>, Box<Expression>, JmpType),
+    NotEq(Box<Expression>, Box<Expression>, JmpType),
     Less(Box<Expression>, Box<Expression>, JmpType),
-    LessEquals(Box<Expression>, Box<Expression>, JmpType),
-    More(Box<Expression>, Box<Expression>, JmpType),
-    MoreEquals(Box<Expression>, Box<Expression>, JmpType),
-    Equals(Box<Expression>, Box<Expression>, JmpType),
-    NotEquals(Box<Expression>, Box<Expression>, JmpType),
-    Exit(Box<Expression>),
-    If(Box<Expression>, Box<Expression>),
-    Declaration(Box<Expression>, Box<Expression>),
-    Assign(Box<Expression>, Box<Expression>),
-    Sequence(Vec<Expression>),
+    LessEq(Box<Expression>, Box<Expression>, JmpType),
+    Greater(Box<Expression>, Box<Expression>, JmpType),
+    GreaterEq(Box<Expression>, Box<Expression>, JmpType),
     /*Declaration(Identifier, Option<Expression>),
     Print(Box<Expression>),
     LoopBlock(Vec<Statement>),*/
@@ -35,11 +42,7 @@ pub enum Expression {
 }
 
 pub fn parse(tokens: Vec<Token>) -> Vec<Expression> {
-    let mut ast: Vec<Expression> = Vec::new();
-
-    ast.push(get_sequence(&tokens[..]));
-
-    ast
+    vec![get_sequence(&tokens[..])]
 }
 
 fn get_sequence(tokens: &[Token]) -> Expression {
@@ -100,8 +103,8 @@ fn get_expression(tokens: &[Token]) -> Expression {
             _ => panic!("Unrecognized expression."),
         },
         _ => {
-            if tokens[0] == Token::Var && tokens[2] == Token::Equal {
-                Expression::Declaration(
+            if tokens[0] == Token::Var && tokens[2] == Token::Eq {
+                Expression::Declare(
                     Box::new(get_expression(&tokens[1..2])),
                     Box::new(get_expression(&tokens[3..])),
                 )
@@ -114,7 +117,7 @@ fn get_expression(tokens: &[Token]) -> Expression {
                     Box::new(get_expression(&tokens[1..i])),
                     Box::new(get_sequence(&tokens[i + 1..])),
                 )
-            } else if tokens[1] == Token::Equal {
+            } else if tokens[1] == Token::Assign {
                 Expression::Assign(
                     Box::new(get_expression(&tokens[0..1])),
                     Box::new(get_expression(&tokens[2..])),
@@ -126,12 +129,12 @@ fn get_expression(tokens: &[Token]) -> Expression {
                     | Token::Mul
                     | Token::Div
                     | Token::Mod
+                    | Token::Eq
+                    | Token::NotEq
                     | Token::Less
-                    | Token::LessEquals
-                    | Token::More
-                    | Token::MoreEquals
-                    | Token::Equals
-                    | Token::NotEquals => {
+                    | Token::LessEq
+                    | Token::Greater
+                    | Token::GreaterEq => {
                         let arg1 = Box::new(get_expression(&tokens[0..len - 2]));
                         let arg2 = Box::new(get_expression(&tokens[len - 1..]));
                         get_operation(&tokens[len - 2], arg1, arg2)
@@ -152,12 +155,12 @@ fn get_operation(operation: &Token, arg1: Box<Expression>, arg2: Box<Expression>
         Token::Mul => Expression::Mul(arg1, arg2),
         Token::Div => Expression::Div(arg1, arg2),
         Token::Mod => Expression::Mod(arg1, arg2),
+        Token::Eq => Expression::Eq(arg1, arg2, JmpType::Je),
+        Token::NotEq => Expression::NotEq(arg1, arg2, JmpType::Jne),
         Token::Less => Expression::Less(arg1, arg2, JmpType::Jl),
-        Token::LessEquals => Expression::LessEquals(arg1, arg2, JmpType::Jle),
-        Token::More => Expression::More(arg1, arg2, JmpType::Jg),
-        Token::MoreEquals => Expression::MoreEquals(arg1, arg2, JmpType::Jge),
-        Token::Equals => Expression::Equals(arg1, arg2, JmpType::Je),
-        Token::NotEquals => Expression::NotEquals(arg1, arg2, JmpType::Jne),
+        Token::LessEq => Expression::LessEq(arg1, arg2, JmpType::Jle),
+        Token::Greater => Expression::Greater(arg1, arg2, JmpType::Jg),
+        Token::GreaterEq => Expression::GreaterEq(arg1, arg2, JmpType::Jge),
         _ => panic!("Unexpected operation."),
     }
 }

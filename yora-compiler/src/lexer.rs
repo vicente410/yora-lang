@@ -1,96 +1,143 @@
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
-    BoolLit(String),
-    IntLit(String),
+    // Literals
     Identifier(String),
+    IntLit(String),
+    BoolLit(String),
+
+    //Keywords
     If,
-    Less,
-    LessEquals,
-    More,
-    MoreEquals,
-    Equals,
-    NotEquals,
     Exit,
     Print,
-    SemiColon,
     Var,
-    Equal,
-    OpenCurly,
-    CloseCurly,
-    OpenParen,
-    CloseParen,
+
+    // Operators
     Add,
     Sub,
     Mul,
     Div,
     Mod,
+    Not,
+    Eq,
+    NotEq,
+    Less,
+    LessEq,
+    Greater,
+    GreaterEq,
+
+    // Other
+    Assign,
+    OpenCurly,
+    CloseCurly,
+    OpenParen,
+    CloseParen,
+    SemiColon,
+    Comment,
+    BlockComment,
 }
 
 pub fn lex(source: String) -> Vec<Token> {
     let mut tokens: Vec<Token> = Vec::new();
-    let mut buffer: String = String::new();
-    let chars: Vec<char> = source.chars().collect();
+    let mut start = 0;
+    let mut end = 0;
     let len = source.len();
-    let mut i = 0;
 
-    while i < len {
-        if chars[i].is_alphanumeric() {
-            buffer.push(chars[i]);
-            if i + 1 < len && !chars[i + 1].is_alphanumeric() {
-                tokens.push(get_token(buffer.clone()));
-                buffer.clear();
-            }
-        // Ignores comments
-        } else if i + 1 < len && source[i..=i + 1] == *"//" {
-            while i < len && chars[i] != '\n' {
-                i += 1;
-            }
-        } else if i + 1 < len && source[i..=i + 1] == *"/*" {
-            while i + 1 < len && source[i..=i + 1] != *"*/" {
-                i += 1;
-            }
-            i += 1;
-        } else if !chars[i].is_whitespace() {
-            tokens.push(get_token(chars[i].to_string()));
+    while end < len {
+        // Skip whitespaces before a token
+        while start + 1 < len && source.chars().nth(start).unwrap().is_whitespace() {
+            start += 1;
+        }
+        if start + 1 == len {
+            break;
+        }
+        end = start + 1;
+
+        // Try to create token until not possible
+        while get_token(source[start..end].to_string()).is_ok()
+            && get_token(source[start..=end].to_string()).is_ok()
+        {
+            end += 1
         }
 
-        i += 1;
+        // Skip comments or add token to tokens
+        let token = get_token(source[start..end].to_string()).unwrap();
+        match token {
+            Token::Comment => {
+                while end < len && source[end..=end] != *"\n" {
+                    end += 1;
+                }
+            }
+            Token::BlockComment => {
+                while end + 1 < len && source[end..=end + 1] != *"*/" {
+                    end += 1;
+                }
+                end += 2;
+            }
+            _ => tokens.push(token),
+        }
+        start = end;
     }
 
     tokens
 }
 
-fn get_token(string: String) -> Token {
-    if string.parse::<i64>().is_ok() {
-        return Token::IntLit(string);
+fn get_token(string: String) -> Result<Token, String> {
+    if string.contains(' ') {
+        return Err(format!("Invalid token \"{}\"", string));
     }
 
-    match string.as_str() {
+    if string.parse::<i64>().is_ok() {
+        return Ok(Token::IntLit(string));
+    }
+
+    Ok(match string.as_str() {
+        "if" => Token::If,
         "exit" => Token::Exit,
         "print" => Token::Print,
-        "if" => Token::If,
         "var" => Token::Var,
-        ";" => Token::SemiColon,
-        "=" => Token::Equal,
-        "(" => Token::OpenParen,
-        ")" => Token::CloseParen,
-        "{" => Token::OpenCurly,
-        "}" => Token::CloseCurly,
+
         "+" => Token::Add,
         "-" => Token::Sub,
         "*" => Token::Mul,
         "/" => Token::Div,
         "%" => Token::Mod,
+        "!" => Token::Not,
+        "==" => Token::Eq,
+        "!=" => Token::NotEq,
         "<" => Token::Less,
-        "<=" => Token::LessEquals,
-        ">" => Token::More,
-        ">=" => Token::MoreEquals,
-        "==" => Token::Equals,
-        "!=" => Token::NotEquals,
+        "<=" => Token::LessEq,
+        ">" => Token::Greater,
+        ">=" => Token::GreaterEq,
+
+        ";" => Token::SemiColon,
+        "=" => Token::Assign,
+        "(" => Token::OpenParen,
+        ")" => Token::CloseParen,
+        "{" => Token::OpenCurly,
+        "}" => Token::CloseCurly,
+
+        "//" => Token::Comment,
+        "/*" => Token::BlockComment,
+
         "true" => Token::BoolLit(string),
         "false" => Token::BoolLit(string),
-        _ => Token::Identifier(string),
+        _ => {
+            if is_valid_identifier(&string) {
+                Token::Identifier(string)
+            } else {
+                return Err(format!("Invalid identifier \"{}\"", string));
+            }
+        }
+    })
+}
+
+fn is_valid_identifier(string: &String) -> bool {
+    for char in string.chars() {
+        if !char.is_alphabetic() && char != '_' {
+            return false;
+        }
     }
+    string != "_"
 }
 
 #[cfg(test)]
@@ -99,7 +146,7 @@ mod tests {
 
     #[test]
     fn test_input() {
-        let input = "exit(2 + 3);";
+        let input = "exit(2 + 3);\n";
 
         let output = vec![
             Token::Exit,

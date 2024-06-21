@@ -52,7 +52,7 @@ fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, nums: &mut Nums) -> Strin
             tmp_vec.push(Ir::Exit(arg.clone()));
             arg
         }
-        Expression::Assign(ref dest, ref src) | Expression::Declaration(ref dest, ref src) => {
+        Expression::Assign(ref dest, ref src) | Expression::Declare(ref dest, ref src) => {
             let arg1 = get_value(dest, tmp_vec, nums);
             let arg2 = get_value(src, tmp_vec, nums);
             tmp_vec.push(Ir::Assign(arg1.clone(), arg2));
@@ -101,12 +101,12 @@ fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, nums: &mut Nums) -> Strin
                 tmp_vec.push(Ir::Label(format!("end_if{}", current_ifs)));
                 seq_value
             }
-            Expression::Less(cmp1, cmp2, jmp_type)
-            | Expression::LessEquals(cmp1, cmp2, jmp_type)
-            | Expression::More(cmp1, cmp2, jmp_type)
-            | Expression::MoreEquals(cmp1, cmp2, jmp_type)
-            | Expression::Equals(cmp1, cmp2, jmp_type)
-            | Expression::NotEquals(cmp1, cmp2, jmp_type) => {
+            Expression::Eq(cmp1, cmp2, jmp_type)
+            | Expression::NotEq(cmp1, cmp2, jmp_type)
+            | Expression::Less(cmp1, cmp2, jmp_type)
+            | Expression::LessEq(cmp1, cmp2, jmp_type)
+            | Expression::Greater(cmp1, cmp2, jmp_type)
+            | Expression::GreaterEq(cmp1, cmp2, jmp_type) => {
                 nums.ifs += 1;
                 let current_ifs = nums.ifs;
                 let jmp = jmp_type;
