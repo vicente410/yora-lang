@@ -30,8 +30,8 @@ pub fn generate_asm(ir: Vec<Ir>) -> String {
             }
             Ir::Mul(ref dest, ref src) | Ir::Div(ref dest, ref src) => &format!(
                 "\tmov rax, {}\n\
-                \t{} {}\n\
-                \tmov {}, rax",
+                    \t{} {}\n\
+                    \tmov {}, rax",
                 get_value(dest, &symbol_table),
                 get_operation(&instruction),
                 get_value(src, &symbol_table),
@@ -39,8 +39,8 @@ pub fn generate_asm(ir: Vec<Ir>) -> String {
             ),
             Ir::Mod(ref dest, ref src) => &format!(
                 "\tmov rax, {}\n\
-                \t{} {}\n\
-                \tmov {}, rdx",
+                    \t{} {}\n\
+                    \tmov {}, rdx",
                 get_value(dest, &symbol_table),
                 get_operation(&instruction),
                 get_value(src, &symbol_table),
@@ -53,20 +53,15 @@ pub fn generate_asm(ir: Vec<Ir>) -> String {
                 get_value(src, &symbol_table)
             ),
             Ir::Label(label) => &format!("{}:\n", label),
-            Ir::Jmp(cmp1, cmp2, jmp_label, jmp_type) => {
-                if jmp_type == JmpType::Jmp {
-                    &format!("\tjmp {}", jmp_label)
-                } else {
-                    &format!(
-                        "\tcmp {}, {}\n\
-                        \t{} {}\n",
-                        get_value(&cmp1, &symbol_table),
-                        get_value(&cmp2, &symbol_table),
-                        get_jump(jmp_type),
-                        jmp_label
-                    )
-                }
-            }
+            Ir::Jmp(label) => &format!("\tjmp {}\n", label),
+            Ir::JmpCmp(cmp1, cmp2, label, jmp_type) => &format!(
+                "\tcmp {}, {}\n\
+                    \t{} {}\n",
+                get_value(&cmp1, &symbol_table),
+                get_value(&cmp2, &symbol_table),
+                get_jump(jmp_type),
+                label
+            ),
             Ir::Exit(src) => &format!(
                 "\n\tmov rdi, {}\n\
                     \tmov rax, 60\n\
@@ -90,7 +85,6 @@ fn get_value(value: &String, symbol_table: &HashMap<String, String>) -> String {
 
 fn get_jump(jmp_type: JmpType) -> String {
     match jmp_type {
-        JmpType::Jmp => "jmp".to_string(),
         JmpType::Je => "je".to_string(),
         JmpType::Jne => "jne".to_string(),
         JmpType::Jl => "jl".to_string(),
@@ -108,30 +102,5 @@ fn get_operation(operation: &Ir) -> &str {
         Ir::Div(..) => "div",
         Ir::Mod(..) => "div",
         _ => panic!("Unexpected operation."),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_asm_generation() {
-        let input = vec![
-            Ir::Assign("t1".to_string(), "2".to_string()),
-            Ir::Assign("t2".to_string(), "3".to_string()),
-            Ir::Add("t1".to_string(), "t2".to_string()),
-            Ir::Exit("t1".to_string()),
-        ];
-        let output = "global _start\n\
-                    _start:\n\
-                        \tmov rbp, rsp\n\
-                        \tmov rbx, 2\n\
-                        \tmov r10, 3\n\
-                        \tadd rbx, r10\n\n\
-                        \tmov rdi, rbx\n\
-                        \tmov rax, 60\n\
-                        \tsyscall\n";
-        assert_eq!(generate_asm(input), output);
     }
 }

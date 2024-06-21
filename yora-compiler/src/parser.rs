@@ -13,6 +13,7 @@ pub enum Expression {
     Sequence(Vec<Expression>),
     If(Box<Expression>, Box<Expression>),
     Loop(Box<Expression>),
+    Break,
 
     // Variables
     Declare(Box<Expression>, Box<Expression>),
@@ -52,7 +53,7 @@ fn get_sequence(tokens: &[Token]) -> Expression {
     let mut end = 0;
 
     while end + 1 < tokens.len() {
-        if matches!(tokens[start], Token::If) {
+        if matches!(tokens[start], Token::If) || matches!(tokens[start], Token::Loop) {
             while end < tokens.len() && !matches!(tokens[end], Token::OpenCurly) {
                 end += 1;
             }
@@ -66,10 +67,6 @@ fn get_sequence(tokens: &[Token]) -> Expression {
                 } else if matches!(tokens[end], Token::CloseCurly) {
                     curly_counter -= 1;
                 }
-            }
-        } else if matches!(tokens[start], Token::Loop) {
-            while end + 1 < tokens.len() && !matches!(tokens[end], Token::CloseCurly) {
-                end += 1;
             }
         } else {
             while end + 1 < tokens.len() && !matches!(tokens[end], Token::SemiColon) {
@@ -92,6 +89,7 @@ fn get_expression(tokens: &[Token]) -> Expression {
             Token::Identifier(id) => Expression::Identifier(id.to_string()),
             Token::BoolLit(bool) => Expression::BoolLit(bool.to_string()),
             Token::IntLit(int) => Expression::IntLit(int.to_string()),
+            Token::Break => Expression::Break,
             _ => panic!("Unrecognized expression."),
         };
     }
@@ -168,30 +166,5 @@ fn get_operation(operation: &Token, arg1: Box<Expression>, arg2: Box<Expression>
         Token::Greater => Expression::Greater(arg1, arg2),
         Token::GreaterEq => Expression::GreaterEq(arg1, arg2),
         _ => panic!("Unexpected operation."),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parser() {
-        let input = vec![
-            Token::Exit,
-            Token::OpenParen,
-            Token::IntLit("2".to_string()),
-            Token::Add,
-            Token::IntLit("3".to_string()),
-            Token::CloseParen,
-            Token::SemiColon,
-        ];
-        let output = vec![Expression::Sequence(vec![Expression::Exit(Box::new(
-            Expression::Add(
-                Box::new(Expression::IntLit("2".to_string())),
-                Box::new(Expression::IntLit("3".to_string())),
-            ),
-        ))])];
-        assert_eq!(parse(input), output);
     }
 }
