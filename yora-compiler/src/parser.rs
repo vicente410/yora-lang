@@ -124,6 +124,17 @@ fn get_expression(tokens: &[Token]) -> Expression {
                     Box::new(get_expression(&tokens[0..1])),
                     Box::new(get_expression(&tokens[2..])),
                 )
+            } else if tokens[2] == Token::Assign {
+                match tokens[1] {
+                    Token::Add | Token::Sub | Token::Mul | Token::Div | Token::Mod => {
+                        let mut new_tokens = Vec::from(tokens);
+                        new_tokens.remove(2);
+                        new_tokens.insert(0, tokens[1].clone());
+                        new_tokens.insert(0, tokens[2].clone());
+                        get_expression(&new_tokens)
+                    }
+                    _ => panic!("Unrecognized assign operation"),
+                }
             } else {
                 match &tokens[len - 2] {
                     Token::Add

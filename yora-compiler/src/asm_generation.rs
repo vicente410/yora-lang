@@ -17,13 +17,13 @@ pub fn generate_asm(ir: Vec<Ir>) -> String {
                         asm.push_str("\tsub rsp, 8\n");
                         symbol_table.insert(
                             dest.to_string(),
-                            format!("qword [rbp-{}]", (num_regs - regs.len() + 1) * 8),
+                            format!("qword [rbp-{}]", (num_regs - regs.len()) * 8),
                         );
                     }
                     num_regs += 1;
                 }
                 &get_instruction(
-                    get_value(&src, &symbol_table),
+                    get_value(src, &symbol_table),
                     get_value(dest, &symbol_table),
                     &instruction,
                 )
@@ -47,7 +47,7 @@ pub fn generate_asm(ir: Vec<Ir>) -> String {
                 get_value(dest, &symbol_table),
             ),
             Ir::Add(ref dest, ref src) | Ir::Sub(ref dest, ref src) => &get_instruction(
-                get_value(&src, &symbol_table),
+                get_value(src, &symbol_table),
                 get_value(dest, &symbol_table),
                 &instruction,
             ),
@@ -110,12 +110,12 @@ fn get_operation(operation: &Ir) -> &str {
 }
 
 fn get_instruction(src_val: String, dest_val: String, instruction: &Ir) -> String {
-    if src_val.contains("[") && dest_val.contains("[") {
+    if src_val.contains('[') && dest_val.contains('[') {
         format!(
-            "\t push rax\n\
-        \tmov rax, {}\n\
-        \t{} {}, rax\n\
-        \tpop rax\n",
+            "\tpush rax\n\
+                \tmov rax, {}\n\
+                \t{} {}, rax\n\
+                \tpop rax\n",
             src_val,
             get_operation(instruction),
             dest_val
