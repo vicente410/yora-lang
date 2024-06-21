@@ -11,7 +11,9 @@ use std::process::Command;
 pub mod asm_generation;
 pub mod ir_generation;
 pub mod lexer;
+pub mod optimizer;
 pub mod parser;
+pub mod semantic_analyzer;
 
 #[derive(Eq, Debug, Hash, PartialEq)]
 pub enum Flag {
