@@ -8,10 +8,10 @@ use std::io::prelude::*;
 use std::process;
 use std::process::Command;
 
-mod asm_generation;
-mod ir_generation;
-mod lexer;
-mod parser;
+pub mod asm_generation;
+pub mod ir_generation;
+pub mod lexer;
+pub mod parser;
 
 #[derive(Eq, Debug, Hash, PartialEq)]
 pub enum Flag {

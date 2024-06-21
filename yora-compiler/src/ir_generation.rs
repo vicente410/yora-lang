@@ -159,23 +159,3 @@ fn get_inverse_jump(expr: &Expression) -> JmpType {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_ir_generation() {
-        let input = vec![Expression::Exit(Box::new(Expression::Add(
-            Box::new(Expression::IntLit("2".to_string())),
-            Box::new(Expression::IntLit("3".to_string())),
-        )))];
-        let output = vec![
-            Ir::Assign("t1".to_string(), "2".to_string()),
-            Ir::Assign("t2".to_string(), "3".to_string()),
-            Ir::Add("t1".to_string(), "t2".to_string()),
-            Ir::Exit("t1".to_string()),
-        ];
-        assert_eq!(generate_ir(input), output);
-    }
-}
