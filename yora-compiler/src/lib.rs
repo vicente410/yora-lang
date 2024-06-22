@@ -2,6 +2,7 @@ use asm_generation::*;
 use ir_generation::*;
 use lexer::*;
 use parser::*;
+use semantic_analyzer::analyze;
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
@@ -105,6 +106,8 @@ impl Compiler {
             dbg!(&ast);
             process::exit(0);
         }
+
+        analyze(&ast);
 
         let ir = generate_ir(ast);
 
