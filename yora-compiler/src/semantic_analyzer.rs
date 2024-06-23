@@ -1,47 +1,68 @@
 use crate::parser::Expression;
 use std::{collections::HashMap, ops::Deref, process};
 
+enum ErrorTypes {
+    UndeclaredVariable(String, u32),
+    NotAnIdentifier(String, u32),
+    CannotMakeOperation(String, String, u32),
+    NotACondition(u32),
+    InvalidComparison(String, String, u32),
+    InvalidExitCode(u32),
+}
+
 pub fn analyze(ast: &Vec<Expression>) {
     let mut variables: HashMap<String, String> = HashMap::new();
+    let mut errors: Vec<ErrorTypes> = Vec::new();
+
     for expr in ast {
-        analyze_expression(expr, &mut variables);
+        analyze_expression(expr, &mut variables, &mut errors);
+    }
+
+    for error in &errors {
+        print_error(error);
+    }
+
+    if !errors.is_empty() {
+        process::exit(1);
     }
 }
 
-fn analyze_expression(expr: &Expression, vars: &mut HashMap<String, String>) {
+fn analyze_expression(
+    expr: &Expression,
+    vars: &mut HashMap<String, String>,
+    errors: &mut Vec<ErrorTypes>,
+) {
     match expr {
         Expression::Declare(ref dest, ref src) => {
-            analyze_expression(src, vars);
+            analyze_expression(src, vars, errors);
 
             let src_val = get_value(src);
             let dest_val = get_value(dest);
+
             if !vars.contains_key(&src_val) && get_type(&src) == "id".to_string() {
-                println!("Variable with name {src_val} undeclared");
-                process::exit(1);
+                errors.push(ErrorTypes::UndeclaredVariable(src_val, 69));
             }
+
             if !vars.contains_key(&dest_val) && get_type(&dest) == "id".to_string() {
                 vars.insert(dest_val, get_type(src));
             } else {
-                println!("{dest_val} it not an identifier 1");
-                process::exit(1);
+                errors.push(ErrorTypes::NotAnIdentifier(dest_val, 69));
             }
         }
         Expression::Assign(ref dest, ref src) => {
-            analyze_expression(src, vars);
+            analyze_expression(src, vars, errors);
 
             let src_val = get_value(src);
             let dest_val = get_value(dest);
+
             if !vars.contains_key(&src_val) && get_type(&src) == "id".to_string() {
-                println!("Variable with name {src_val} undeclared");
-                process::exit(1);
+                errors.push(ErrorTypes::UndeclaredVariable(src_val, 69));
             }
+
             if !vars.contains_key(&dest_val) && get_type(&dest) == "id".to_string() {
-                println!("Variable with name {dest_val} undeclared");
-                process::exit(1);
+                errors.push(ErrorTypes::UndeclaredVariable(dest_val, 69));
             } else if !vars.contains_key(&dest_val) {
-                println!("{dest_val} is not an identifier 2");
-                dbg!(dest);
-                process::exit(1);
+                errors.push(ErrorTypes::NotAnIdentifier(dest_val, 69));
             }
         }
 
@@ -50,57 +71,59 @@ fn analyze_expression(expr: &Expression, vars: &mut HashMap<String, String>) {
         | Expression::Mul(ref dest, ref src)
         | Expression::Div(ref dest, ref src)
         | Expression::Mod(ref dest, ref src) => {
-            analyze_expression(src, vars);
-            analyze_expression(dest, vars);
+            analyze_expression(src, vars, errors);
+            analyze_expression(dest, vars, errors);
 
             let src_val = get_value(src);
             let dest_val = get_value(dest);
 
             if !vars.contains_key(&src_val) && get_type(&src) == "id".to_string() {
-                println!("Variable with name {src_val} undeclared");
-                process::exit(1);
+                errors.push(ErrorTypes::UndeclaredVariable(src_val.clone(), 69));
             }
+
             if !vars.contains_key(&dest_val) && get_type(&dest) == "id".to_string() {
-                println!("Variable with name {dest_val} undeclared");
-                process::exit(1);
+                errors.push(ErrorTypes::UndeclaredVariable(dest_val.clone(), 69));
             }
+
             if vars.contains_key(&src_val) && vars[&src_val] != "int" {
-                println!(
-                    "Variable with name {src_val} is not an int. Can't make an operation with it"
-                );
-                process::exit(1);
+                errors.push(ErrorTypes::CannotMakeOperation(
+                    vars[&src_val].clone(),
+                    "int".to_string(),
+                    69,
+                ));
             } else if get_type(&src) != "id".to_string() && get_type(&src) != "int".to_string() {
-                println!(
-                    "Can't make an operation between type int and {}",
-                    get_type(&src)
-                );
-                process::exit(1);
+                errors.push(ErrorTypes::CannotMakeOperation(
+                    get_type(&src),
+                    "int".to_string(),
+                    69,
+                ));
             }
+
             if vars.contains_key(&dest_val) && vars[&dest_val] != "int" {
-                println!(
-                    "Variable with name {dest_val} is not an int. Can't make an operation with it"
-                );
-                process::exit(1);
+                errors.push(ErrorTypes::CannotMakeOperation(
+                    vars[&dest_val].clone(),
+                    "int".to_string(),
+                    69,
+                ));
             } else if get_type(&dest) != "id".to_string() && get_type(&dest) != "int".to_string() {
-                println!(
-                    "Can't make an operation between type int and {}",
-                    get_type(&dest)
-                );
-                process::exit(1);
+                errors.push(ErrorTypes::CannotMakeOperation(
+                    get_type(&dest),
+                    "int".to_string(),
+                    69,
+                ));
             }
         }
         Expression::Sequence(seq) => {
             for expr in &seq[0..seq.len()] {
-                analyze_expression(expr, vars);
+                analyze_expression(expr, vars, errors);
             }
         }
         Expression::If(cond, seq) => {
             if get_type(cond) != "bool" {
-                println!("Given if does not have a boolean type inside it");
-                process::exit(1);
+                errors.push(ErrorTypes::NotACondition(69));
             }
-            analyze_expression(cond, vars);
-            analyze_expression(seq, vars);
+            analyze_expression(cond, vars, errors);
+            analyze_expression(seq, vars, errors);
         }
 
         Expression::Eq(cmp1, cmp2)
@@ -109,60 +132,56 @@ fn analyze_expression(expr: &Expression, vars: &mut HashMap<String, String>) {
         | Expression::LessEq(cmp1, cmp2)
         | Expression::Greater(cmp1, cmp2)
         | Expression::GreaterEq(cmp1, cmp2) => {
-            analyze_expression(cmp1, vars);
-            analyze_expression(cmp2, vars);
+            analyze_expression(cmp1, vars, errors);
+            analyze_expression(cmp2, vars, errors);
 
             let val1 = get_value(cmp1);
             let val2 = get_value(cmp2);
 
             if vars.contains_key(&val1) && vars.contains_key(&val2) && vars[&val1] != vars[&val2] {
-                println!(
-                    "Can't compare type {} with type {}",
-                    vars[&val1], vars[&val2]
-                );
-                process::exit(1);
+                errors.push(ErrorTypes::InvalidComparison(
+                    vars[&val1].clone(),
+                    vars[&val2].clone(),
+                    69,
+                ));
             } else if vars.contains_key(&val1)
                 && !vars.contains_key(&val2)
                 && vars[&val1] != get_type(cmp2)
             {
-                println!(
-                    "Can't compare type {} with type {}",
-                    vars[&val1],
-                    get_type(cmp2)
-                );
-                process::exit(1);
+                errors.push(ErrorTypes::InvalidComparison(
+                    vars[&val1].clone(),
+                    get_type(cmp2),
+                    69,
+                ));
             } else if !vars.contains_key(&val1)
                 && vars.contains_key(&val2)
                 && get_type(cmp1) != vars[&val2]
             {
-                println!(
-                    "Can't compare type {} with type {}",
+                errors.push(ErrorTypes::InvalidComparison(
                     get_type(cmp1),
-                    vars[&val2]
-                );
-                process::exit(1);
+                    vars[&val2].clone(),
+                    69,
+                ));
             } else if !vars.contains_key(&val1)
                 && !vars.contains_key(&val2)
                 && get_type(cmp1) != get_type(cmp2)
             {
-                println!(
-                    "Can't compare type {} with type {}",
+                errors.push(ErrorTypes::InvalidComparison(
                     get_type(cmp1),
-                    get_type(cmp2)
-                );
-                process::exit(1);
+                    get_type(cmp2),
+                    69,
+                ));
             }
         }
-        Expression::Loop(seq) => analyze_expression(seq, vars),
+        Expression::Loop(seq) => analyze_expression(seq, vars, errors),
         Expression::Exit(val) => {
-            analyze_expression(val, vars);
+            analyze_expression(val, vars, errors);
             if (get_type(val) == "id"
                 && vars.contains_key(&get_value(val))
                 && vars[&get_value(val)] != "int")
                 || get_type(val) != "id" && get_type(val) != "int"
             {
-                println!("Exit codes can only be ints");
-                process::exit(1);
+                errors.push(ErrorTypes::InvalidExitCode(69));
             }
         }
         Expression::Break
@@ -218,6 +237,29 @@ fn get_type(expr: &Expression) -> String {
         _ => {
             dbg!(&expr);
             panic!("Not a valid type")
+        }
+    }
+}
+
+fn print_error(error: &ErrorTypes) {
+    match error {
+        ErrorTypes::UndeclaredVariable(var, line) => {
+            println!("Variable with name {var} undeclared [line {line}]")
+        }
+        ErrorTypes::NotAnIdentifier(id, line) => {
+            println!("{id} is not an identifier [line {line}]")
+        }
+        ErrorTypes::CannotMakeOperation(type1, type2, line) => {
+            println!("Can't make an operation between type {type1} and {type2} [line {line}]")
+        }
+        ErrorTypes::NotACondition(line) => {
+            println!("Invalid condition for if statement [line {line}]")
+        }
+        ErrorTypes::InvalidComparison(type1, type2, line) => {
+            println!("Can't compare type {type1} with type {type2} [line {line}]")
+        }
+        ErrorTypes::InvalidExitCode(line) => {
+            println!("Exit codes can only be ints [line {line}]")
         }
     }
 }
