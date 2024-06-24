@@ -1,3 +1,5 @@
+use std::process;
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     // Literals
@@ -31,65 +33,97 @@ pub enum Token {
 
     // Other
     Assign,
-    OpenCurly,
-    CloseCurly,
+    Indent,
+    Dedent,
+    NewLine,
     OpenParen,
     CloseParen,
-    SemiColon,
+    Colon,
     Comment,
-    BlockComment,
 }
 
 pub fn lex(source: String) -> Vec<Token> {
     let mut tokens: Vec<Token> = Vec::new();
-    let mut start = 0;
-    let mut end = 0;
-    let len = source.len();
+    let mut current_indent = 0;
 
-    while end < len {
-        // Skip whitespaces before a token
-        while start + 1 < len && source.chars().nth(start).unwrap().is_whitespace() {
-            start += 1;
-        }
-        if start + 1 == len {
-            break;
-        }
-        end = start + 1;
+    // Lex each line in the input
+    for line in source.lines() {
+        current_indent = add_indent(&mut tokens, line, current_indent);
+        add_tokens(&mut tokens, line);
+        tokens.push(Token::NewLine);
+    }
 
-        // Try to create token until not possible
-        while get_token(source[start..end].to_string()).is_ok()
-            && get_token(source[start..=end].to_string()).is_ok()
-        {
-            end += 1
-        }
-
-        // Skip comments or add token to tokens
-        let token = get_token(source[start..end].to_string()).unwrap();
-        match token {
-            Token::Comment => {
-                while end < len && source[end..=end] != *"\n" {
-                    end += 1;
-                }
-            }
-            Token::BlockComment => {
-                while end + 1 < len && source[end..=end + 1] != *"*/" {
-                    end += 1;
-                }
-                end += 2;
-            }
-            _ => tokens.push(token),
-        }
-        start = end;
+    // Add dedent to finish at indentation level 0
+    for _ in 0..current_indent {
+        tokens.push(Token::Dedent);
     }
 
     tokens
 }
 
-fn get_token(string: String) -> Result<Token, String> {
-    if string.contains(' ') {
-        return Err(format!("Invalid token \"{}\"", string));
+fn add_indent(tokens: &mut Vec<Token>, line: &str, current_indent: u32) -> u32 {
+    let line = line.as_bytes();
+    let indent_size = 4;
+    let mut line_indent = 0;
+    let mut i = 0;
+
+    while line[i].is_ascii_whitespace() {
+        if line[i] == b'\t' {
+            line_indent += 1;
+            i += 1;
+        } else if line[i..i + indent_size] == *b"    " {
+            line_indent += 1;
+            i += 4;
+        } else {
+            println!("Indentation error");
+            process::exit(1);
+        }
     }
 
+    if line_indent > current_indent {
+        for _ in 0..line_indent - current_indent {
+            tokens.push(Token::Indent);
+        }
+    } else {
+        for _ in 0..current_indent - line_indent {
+            tokens.push(Token::Dedent);
+        }
+    }
+
+    line_indent
+}
+
+fn add_tokens(tokens: &mut Vec<Token>, line: &str) {
+    let mut start = 0;
+    let mut end = 1;
+    let len = line.len();
+
+    while end < len {
+        // Skip whitespaces before a token
+        while start + 1 < len && line.chars().nth(start).unwrap().is_whitespace() {
+            start += 1;
+        }
+        end = start + 1;
+
+        // Try to create token until not possible
+        while end + 1 < len
+            && get_token(line[start..end].to_string()).is_ok()
+            && get_token(line[start..=end].to_string()).is_ok()
+        {
+            end += 1
+        }
+
+        // Push token and skip if comment
+        let token = get_token(line[start..end].to_string()).unwrap();
+        match token {
+            Token::Comment => break,
+            _ => tokens.push(token),
+        }
+        start = end;
+    }
+}
+
+fn get_token(string: String) -> Result<Token, String> {
     if string.parse::<i64>().is_ok() {
         return Ok(Token::IntLit(string));
     }
@@ -116,15 +150,12 @@ fn get_token(string: String) -> Result<Token, String> {
         ">" => Token::Greater,
         ">=" => Token::GreaterEq,
 
-        ";" => Token::SemiColon,
+        ":" => Token::Colon,
         "=" => Token::Assign,
         "(" => Token::OpenParen,
         ")" => Token::CloseParen,
-        "{" => Token::OpenCurly,
-        "}" => Token::CloseCurly,
 
         "//" => Token::Comment,
-        "/*" => Token::BlockComment,
 
         "true" => Token::BoolLit(string),
         "false" => Token::BoolLit(string),
@@ -144,5 +175,5 @@ fn is_valid_identifier(string: &String) -> bool {
             return false;
         }
     }
-    string != "_"
+    string != "_" && string != ""
 }

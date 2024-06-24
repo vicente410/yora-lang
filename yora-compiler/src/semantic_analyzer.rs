@@ -39,11 +39,11 @@ fn analyze_expression(
             let src_val = get_value(src);
             let dest_val = get_value(dest);
 
-            if !vars.contains_key(&src_val) && get_type(&src) == "id".to_string() {
+            if !vars.contains_key(&src_val) && get_type(src) == "id" {
                 errors.push(ErrorTypes::UndeclaredVariable(src_val, 69));
             }
 
-            if !vars.contains_key(&dest_val) && get_type(&dest) == "id".to_string() {
+            if !vars.contains_key(&dest_val) && get_type(dest) == "id" {
                 vars.insert(dest_val, get_type(src));
             } else {
                 errors.push(ErrorTypes::NotAnIdentifier(dest_val, 69));
@@ -55,11 +55,11 @@ fn analyze_expression(
             let src_val = get_value(src);
             let dest_val = get_value(dest);
 
-            if !vars.contains_key(&src_val) && get_type(&src) == "id".to_string() {
+            if !vars.contains_key(&src_val) && get_type(src) == "id" {
                 errors.push(ErrorTypes::UndeclaredVariable(src_val, 69));
             }
 
-            if !vars.contains_key(&dest_val) && get_type(&dest) == "id".to_string() {
+            if !vars.contains_key(&dest_val) && get_type(dest) == "id" {
                 errors.push(ErrorTypes::UndeclaredVariable(dest_val, 69));
             } else if !vars.contains_key(&dest_val) {
                 errors.push(ErrorTypes::NotAnIdentifier(dest_val, 69));
@@ -77,11 +77,11 @@ fn analyze_expression(
             let src_val = get_value(src);
             let dest_val = get_value(dest);
 
-            if !vars.contains_key(&src_val) && get_type(&src) == "id".to_string() {
+            if !vars.contains_key(&src_val) && get_type(src) == "id" {
                 errors.push(ErrorTypes::UndeclaredVariable(src_val.clone(), 69));
             }
 
-            if !vars.contains_key(&dest_val) && get_type(&dest) == "id".to_string() {
+            if !vars.contains_key(&dest_val) && get_type(dest) == "id" {
                 errors.push(ErrorTypes::UndeclaredVariable(dest_val.clone(), 69));
             }
 
@@ -91,9 +91,9 @@ fn analyze_expression(
                     "int".to_string(),
                     69,
                 ));
-            } else if get_type(&src) != "id".to_string() && get_type(&src) != "int".to_string() {
+            } else if get_type(src) != "id" && get_type(src) != "int" {
                 errors.push(ErrorTypes::CannotMakeOperation(
-                    get_type(&src),
+                    get_type(src),
                     "int".to_string(),
                     69,
                 ));
@@ -105,9 +105,9 @@ fn analyze_expression(
                     "int".to_string(),
                     69,
                 ));
-            } else if get_type(&dest) != "id".to_string() && get_type(&dest) != "int".to_string() {
+            } else if get_type(dest) != "id" && get_type(dest) != "int" {
                 errors.push(ErrorTypes::CannotMakeOperation(
-                    get_type(&dest),
+                    get_type(dest),
                     "int".to_string(),
                     69,
                 ));

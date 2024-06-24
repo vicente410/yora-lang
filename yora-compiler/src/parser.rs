@@ -54,22 +54,23 @@ fn get_sequence(tokens: &[Token]) -> Expression {
 
     while end + 1 < tokens.len() {
         if matches!(tokens[start], Token::If) || matches!(tokens[start], Token::Loop) {
-            while end < tokens.len() && !matches!(tokens[end], Token::OpenCurly) {
+            while end < tokens.len() && !matches!(tokens[end], Token::Colon) {
                 end += 1;
             }
+            end += 2;
 
-            let mut curly_counter = 1;
+            let mut indent_level = 1;
 
-            while end + 1 < tokens.len() && curly_counter != 0 {
+            while end + 1 < tokens.len() && indent_level != 0 {
                 end += 1;
-                if matches!(tokens[end], Token::OpenCurly) {
-                    curly_counter += 1;
-                } else if matches!(tokens[end], Token::CloseCurly) {
-                    curly_counter -= 1;
+                match tokens[end] {
+                    Token::Indent => indent_level += 1,
+                    Token::Dedent => indent_level -= 1,
+                    _ => {}
                 }
             }
         } else {
-            while end + 1 < tokens.len() && !matches!(tokens[end], Token::SemiColon) {
+            while end + 1 < tokens.len() && !matches!(tokens[end], Token::NewLine) {
                 end += 1;
             }
         }
@@ -113,15 +114,15 @@ fn get_expression(tokens: &[Token]) -> Expression {
                 )
             } else if tokens[0] == Token::If {
                 let mut i = 0;
-                while i < len && tokens[i] != Token::OpenCurly {
+                while i < len && tokens[i] != Token::Colon {
                     i += 1;
                 }
                 Expression::If(
                     Box::new(get_expression(&tokens[1..i])),
-                    Box::new(get_sequence(&tokens[i + 1..])),
+                    Box::new(get_sequence(&tokens[i + 3..])),
                 )
             } else if tokens[0] == Token::Loop {
-                Expression::Loop(Box::new(get_sequence(&tokens[2..])))
+                Expression::Loop(Box::new(get_sequence(&tokens[4..])))
             } else if tokens[1] == Token::Assign {
                 Expression::Assign(
                     Box::new(get_expression(&tokens[0..1])),
