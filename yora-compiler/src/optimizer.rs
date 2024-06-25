@@ -32,9 +32,11 @@ fn constant_propagation(ir: Vec<Ir>) -> Vec<Ir> {
     for (i, instruction) in ir.iter().enumerate() {
         if let Ir::Assign(dest, src) = instruction {
             if src.parse::<i64>().is_ok() {
-                replace_with_constants(&mut new_ir, dest, src);
-                new_ir.remove(i - num_removed);
-                num_removed += 1;
+                let needed = replace_with_constants(&mut new_ir, dest, src);
+                if !needed {
+                    new_ir.remove(i - num_removed);
+                    num_removed += 1;
+                }
             }
         }
     }
@@ -42,7 +44,8 @@ fn constant_propagation(ir: Vec<Ir>) -> Vec<Ir> {
     new_ir
 }
 
-fn replace_with_constants(ir: &mut Vec<Ir>, source: &String, constant: &String) {
+fn replace_with_constants(ir: &mut Vec<Ir>, source: &String, constant: &String) -> bool {
+    let mut needed = false;
     for instruction in ir {
         match instruction {
             Ir::Add(dest, src) => {
@@ -55,20 +58,14 @@ fn replace_with_constants(ir: &mut Vec<Ir>, source: &String, constant: &String) 
                     *instruction = Ir::Sub(dest.to_string(), constant.to_string());
                 }
             }
-            Ir::Mul(dest, src) => {
-                if src == source {
-                    *instruction = Ir::Mul(dest.to_string(), constant.to_string());
-                }
+            Ir::Mul(..) => {
+                needed = true;
             }
-            Ir::Div(dest, src) => {
-                if src == source {
-                    *instruction = Ir::Div(dest.to_string(), constant.to_string());
-                }
+            Ir::Div(..) => {
+                needed = true;
             }
-            Ir::Mod(dest, src) => {
-                if src == source {
-                    *instruction = Ir::Mod(dest.to_string(), constant.to_string());
-                }
+            Ir::Mod(..) => {
+                needed = true;
             }
             Ir::Assign(dest, src) => {
                 if src == source {
@@ -100,4 +97,5 @@ fn replace_with_constants(ir: &mut Vec<Ir>, source: &String, constant: &String) 
             _ => {}
         }
     }
+    needed
 }

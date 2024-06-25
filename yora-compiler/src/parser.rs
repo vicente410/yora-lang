@@ -77,7 +77,7 @@ fn get_sequence(tokens: &[Token]) -> Expression {
                 end += 1;
             }
         }
-        if tokens[start..end] != [Token::NewLine] {
+        if tokens[start..end] != [Token::NewLine] && tokens[start..end] != [] {
             sequence.push(get_expression(&tokens[start..end]));
         }
         start = end + 1;
@@ -88,7 +88,6 @@ fn get_sequence(tokens: &[Token]) -> Expression {
 }
 
 fn get_expression(tokens: &[Token]) -> Expression {
-    dbg!(&tokens);
     let len = tokens.len();
 
     if len == 1 {
@@ -98,55 +97,58 @@ fn get_expression(tokens: &[Token]) -> Expression {
             Token::IntLit(int) => Expression::IntLit(int.to_string()),
             Token::Break => Expression::Break,
             _ => {
-                dbg!(&tokens);
-                panic!("Unrecognized expression.")
+                println!("Unrecognized expression:");
+                dbg!(tokens);
+                process::exit(1);
             }
         };
     }
 
-    match (&tokens[1], &tokens[len - 1]) {
-        (Token::OpenParen, Token::CloseParen) => match tokens[0] {
-            Token::Exit => Expression::Exit(Box::new(get_expression(&tokens[2..len - 1]))),
-            /*Token::Print => {
-                Expression::Print(Box::new(get_expression(&tokens[2..len - 1].to_vec())))
-            }*/
-            _ => panic!("Unrecognized expression."),
-        },
-        _ => {
-            if tokens[0] == Token::Var && tokens[2] == Token::Assign {
+    match &tokens[0] {
+        Token::Exit => Expression::Exit(Box::new(get_expression(&tokens[2..len - 1]))),
+        Token::Var => {
+            if matches!(&tokens[2], Token::Assign) {
                 Expression::Declare(
                     Box::new(get_expression(&tokens[1..2])),
                     Box::new(get_expression(&tokens[3..])),
                 )
-            } else if tokens[0] == Token::If {
-                let mut i = 0;
-                while i < len && tokens[i] != Token::Colon {
-                    i += 1;
-                }
+            } else {
+                println!("Unrecognized expression:");
+                dbg!(tokens);
+                process::exit(1);
+            }
+        }
+        Token::If => {
+            let mut i = 0;
+            while i < len && tokens[i] != Token::Colon {
+                i += 1;
+            }
+            Expression::If(
+                Box::new(get_expression(&tokens[1..i])),
+                Box::new(get_sequence(&tokens[i + 3..])),
+            )
+        }
+        Token::Loop => Expression::Loop(Box::new(get_sequence(&tokens[4..]))),
+        Token::While => {
+            let mut i = 0;
+            while i < len && tokens[i] != Token::Colon {
+                i += 1;
+            }
+            Expression::Loop(Box::new(Expression::Sequence(vec![
                 Expression::If(
                     Box::new(get_expression(&tokens[1..i])),
-                    Box::new(get_sequence(&tokens[i + 3..])),
-                )
-            } else if tokens[0] == Token::Loop {
-                Expression::Loop(Box::new(get_sequence(&tokens[4..])))
-            } else if tokens[0] == Token::While {
-                let mut i = 0;
-                while i < len && tokens[i] != Token::Colon {
-                    i += 1;
-                }
-                Expression::Sequence(vec![
-                    Expression::If(
-                        Box::new(get_expression(&tokens[1..i])),
-                        Box::new(Expression::Break),
-                    ),
-                    get_sequence(&tokens[i + 3..]),
-                ])
-            } else if tokens[1] == Token::Assign {
+                    Box::new(Expression::Break),
+                ),
+                get_sequence(&tokens[i + 3..]),
+            ])))
+        }
+        _ => {
+            if matches!(&tokens[1], Token::Assign) {
                 Expression::Assign(
                     Box::new(get_expression(&tokens[0..1])),
                     Box::new(get_expression(&tokens[2..])),
                 )
-            } else if tokens[2] == Token::Assign {
+            } else if matches!(&tokens[2], Token::Assign) {
                 match tokens[1] {
                     Token::Add | Token::Sub | Token::Mul | Token::Div | Token::Mod => {
                         let mut new_tokens = Vec::from(tokens);
@@ -198,6 +200,10 @@ fn get_operation(operation: &Token, arg1: Box<Expression>, arg2: Box<Expression>
         Token::LessEq => Expression::LessEq(arg1, arg2),
         Token::Greater => Expression::Greater(arg1, arg2),
         Token::GreaterEq => Expression::GreaterEq(arg1, arg2),
-        _ => panic!("Unexpected operation."),
+        _ => {
+            println!("Unrecognized operation:");
+            dbg!(operation);
+            process::exit(1);
+        }
     }
 }

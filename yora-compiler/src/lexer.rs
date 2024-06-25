@@ -105,17 +105,17 @@ fn add_tokens(tokens: &mut Vec<Token>, line: &str) {
 
     while end < len {
         // Skip whitespaces before a token
-        while start + 1 < len && line.chars().nth(start).unwrap().is_whitespace() {
+        while start < len && line.as_bytes()[start].is_ascii_whitespace() {
             start += 1;
         }
         end = start + 1;
 
         // Try to create token until not possible
-        while end + 1 < len
+        while end < len
             && get_token(line[start..end].to_string()).is_ok()
             && get_token(line[start..=end].to_string()).is_ok()
         {
-            end += 1
+            end += 1;
         }
 
         // Push token and skip if comment

@@ -1,6 +1,7 @@
 use asm_generation::*;
 use ir_generation::*;
 use lexer::*;
+use optimizer::optimize;
 use parser::*;
 use semantic_analyzer::analyze;
 use std::fs;
@@ -109,7 +110,7 @@ impl Compiler {
 
         analyze(&ast);
 
-        let ir = generate_ir(ast);
+        let ir = optimize(generate_ir(ast));
 
         if self.flags.contains(&Flag::Debug(DebugOptions::Ir)) {
             dbg!(&ir);
