@@ -11,6 +11,7 @@ pub enum Token {
     Var,
     If,
     Loop,
+    While,
     Break,
 
     // Built-in functions
@@ -66,6 +67,10 @@ fn add_indent(tokens: &mut Vec<Token>, line: &str, current_indent: u32) -> u32 {
     let indent_size = 4;
     let mut line_indent = 0;
     let mut i = 0;
+
+    if line.is_empty() {
+        return current_indent;
+    }
 
     while line[i].is_ascii_whitespace() {
         if line[i] == b'\t' {
@@ -132,6 +137,7 @@ fn get_token(string: String) -> Result<Token, String> {
         "var" => Token::Var,
         "if" => Token::If,
         "loop" => Token::Loop,
+        "while" => Token::While,
         "break" => Token::Break,
 
         "exit" => Token::Exit,
@@ -175,5 +181,5 @@ fn is_valid_identifier(string: &String) -> bool {
             return false;
         }
     }
-    string != "_" && string != ""
+    string != "_" && !string.is_empty()
 }

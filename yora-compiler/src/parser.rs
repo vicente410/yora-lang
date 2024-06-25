@@ -53,7 +53,10 @@ fn get_sequence(tokens: &[Token]) -> Expression {
     let mut end = 0;
 
     while end + 1 < tokens.len() {
-        if matches!(tokens[start], Token::If) || matches!(tokens[start], Token::Loop) {
+        if matches!(tokens[start], Token::If)
+            || matches!(tokens[start], Token::Loop)
+            || matches!(tokens[start], Token::While)
+        {
             while end < tokens.len() && !matches!(tokens[end], Token::Colon) {
                 end += 1;
             }
@@ -74,7 +77,9 @@ fn get_sequence(tokens: &[Token]) -> Expression {
                 end += 1;
             }
         }
-        sequence.push(get_expression(&tokens[start..end]));
+        if tokens[start..end] != [Token::NewLine] {
+            sequence.push(get_expression(&tokens[start..end]));
+        }
         start = end + 1;
         end += 1;
     }
@@ -83,6 +88,7 @@ fn get_sequence(tokens: &[Token]) -> Expression {
 }
 
 fn get_expression(tokens: &[Token]) -> Expression {
+    dbg!(&tokens);
     let len = tokens.len();
 
     if len == 1 {
@@ -123,6 +129,18 @@ fn get_expression(tokens: &[Token]) -> Expression {
                 )
             } else if tokens[0] == Token::Loop {
                 Expression::Loop(Box::new(get_sequence(&tokens[4..])))
+            } else if tokens[0] == Token::While {
+                let mut i = 0;
+                while i < len && tokens[i] != Token::Colon {
+                    i += 1;
+                }
+                Expression::Sequence(vec![
+                    Expression::If(
+                        Box::new(get_expression(&tokens[1..i])),
+                        Box::new(Expression::Break),
+                    ),
+                    get_sequence(&tokens[i + 3..]),
+                ])
             } else if tokens[1] == Token::Assign {
                 Expression::Assign(
                     Box::new(get_expression(&tokens[0..1])),
