@@ -1,7 +1,20 @@
 use std::process;
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Token {
+pub struct Token {
+    pub kind: TokenKind,
+    pub line: usize,
+    pub column: usize,
+}
+
+impl Token {
+    fn new(kind: TokenKind, line: usize, column: usize) -> Token {
+        Token { kind, line, column }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum TokenKind {
     // Literals
     Identifier(String),
     BoolLit(String),
@@ -25,6 +38,8 @@ pub enum Token {
     Div,
     Mod,
     Not,
+    And,
+    Or,
     Eq,
     NotEq,
     Less,
@@ -46,23 +61,24 @@ pub enum Token {
 pub fn lex(source: String) -> Vec<Token> {
     let mut tokens: Vec<Token> = Vec::new();
     let mut current_indent = 0;
+    let num_lines = source.lines().count();
 
     // Lex each line in the input
-    for line in source.lines() {
-        current_indent = add_indent(&mut tokens, line, current_indent);
-        add_tokens(&mut tokens, line);
-        tokens.push(Token::NewLine);
+    for (i, line) in source.lines().enumerate() {
+        current_indent = add_indent(&mut tokens, line, current_indent, i);
+        add_tokens(&mut tokens, line, i);
+        tokens.push(Token::new(TokenKind::NewLine, i, 0));
     }
 
     // Add dedent to finish at indentation level 0
-    for _ in 0..current_indent {
-        tokens.push(Token::Dedent);
+    for i in 0..current_indent {
+        tokens.push(Token::new(TokenKind::Dedent, num_lines + i as usize, 0));
     }
 
     tokens
 }
 
-fn add_indent(tokens: &mut Vec<Token>, line: &str, current_indent: u32) -> u32 {
+fn add_indent(tokens: &mut Vec<Token>, line: &str, current_indent: u32, line_num: usize) -> u32 {
     let line = line.as_bytes();
     let indent_size = 4;
     let mut line_indent = 0;
@@ -87,18 +103,18 @@ fn add_indent(tokens: &mut Vec<Token>, line: &str, current_indent: u32) -> u32 {
 
     if line_indent > current_indent {
         for _ in 0..line_indent - current_indent {
-            tokens.push(Token::Indent);
+            tokens.push(Token::new(TokenKind::Indent, line_num, 0));
         }
     } else {
         for _ in 0..current_indent - line_indent {
-            tokens.push(Token::Dedent);
+            tokens.push(Token::new(TokenKind::Dedent, line_num, 0));
         }
     }
 
     line_indent
 }
 
-fn add_tokens(tokens: &mut Vec<Token>, line: &str) {
+fn add_tokens(tokens: &mut Vec<Token>, line: &str, line_num: usize) {
     let mut start = 0;
     let mut end = 1;
     let len = line.len();
@@ -112,62 +128,68 @@ fn add_tokens(tokens: &mut Vec<Token>, line: &str) {
 
         // Try to create token until not possible
         while end < len
-            && get_token(line[start..end].to_string()).is_ok()
-            && get_token(line[start..=end].to_string()).is_ok()
+            && get_token_kind(line[start..end].to_string()).is_ok()
+            && get_token_kind(line[start..=end].to_string()).is_ok()
         {
             end += 1;
         }
 
         // Push token and skip if comment
-        let token = get_token(line[start..end].to_string()).unwrap();
-        match token {
-            Token::Comment => break,
-            _ => tokens.push(token),
+        let token_kind = get_token_kind(line[start..end].to_string()).unwrap();
+        match token_kind {
+            TokenKind::Comment => break,
+            _ => tokens.push(Token {
+                kind: token_kind,
+                line: line_num,
+                column: start,
+            }),
         }
         start = end;
     }
 }
 
-fn get_token(string: String) -> Result<Token, String> {
+fn get_token_kind(string: String) -> Result<TokenKind, String> {
     if string.parse::<i64>().is_ok() {
-        return Ok(Token::IntLit(string));
+        return Ok(TokenKind::IntLit(string));
     }
 
     Ok(match string.as_str() {
-        "var" => Token::Var,
-        "if" => Token::If,
-        "loop" => Token::Loop,
-        "while" => Token::While,
-        "break" => Token::Break,
+        "var" => TokenKind::Var,
+        "if" => TokenKind::If,
+        "loop" => TokenKind::Loop,
+        "while" => TokenKind::While,
+        "break" => TokenKind::Break,
 
-        "exit" => Token::Exit,
-        "print" => Token::Print,
+        "exit" => TokenKind::Exit,
+        "print" => TokenKind::Print,
 
-        "+" => Token::Add,
-        "-" => Token::Sub,
-        "*" => Token::Mul,
-        "/" => Token::Div,
-        "%" => Token::Mod,
-        "!" => Token::Not,
-        "==" => Token::Eq,
-        "!=" => Token::NotEq,
-        "<" => Token::Less,
-        "<=" => Token::LessEq,
-        ">" => Token::Greater,
-        ">=" => Token::GreaterEq,
+        "+" => TokenKind::Add,
+        "-" => TokenKind::Sub,
+        "*" => TokenKind::Mul,
+        "/" => TokenKind::Div,
+        "%" => TokenKind::Mod,
+        "!" => TokenKind::Not,
+        "and" => TokenKind::And,
+        "or" => TokenKind::Or,
+        "==" => TokenKind::Eq,
+        "!=" => TokenKind::NotEq,
+        "<" => TokenKind::Less,
+        "<=" => TokenKind::LessEq,
+        ">" => TokenKind::Greater,
+        ">=" => TokenKind::GreaterEq,
 
-        ":" => Token::Colon,
-        "=" => Token::Assign,
-        "(" => Token::OpenParen,
-        ")" => Token::CloseParen,
+        ":" => TokenKind::Colon,
+        "=" => TokenKind::Assign,
+        "(" => TokenKind::OpenParen,
+        ")" => TokenKind::CloseParen,
 
-        "//" => Token::Comment,
+        "//" => TokenKind::Comment,
 
-        "true" => Token::BoolLit(string),
-        "false" => Token::BoolLit(string),
+        "true" => TokenKind::BoolLit(string),
+        "false" => TokenKind::BoolLit(string),
         _ => {
             if is_valid_identifier(&string) {
-                Token::Identifier(string)
+                TokenKind::Identifier(string)
             } else {
                 return Err(format!("Invalid identifier \"{}\"", string));
             }

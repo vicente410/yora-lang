@@ -1,9 +1,21 @@
 use std::process;
 
-use crate::lexer::Token;
+use crate::lexer::*;
 
 #[derive(Debug, PartialEq)]
-pub enum Expression {
+pub struct Expression {
+    kind: ExpressionKind,
+    line: usize,
+    column: usize,
+}
+
+impl Expression {
+    fn new(kind: ExpressionKind, line: usize, column: usize) -> Expression {
+        Expression { kind, line, column }
+    }
+}
+#[derive(Debug, PartialEq)]
+pub enum ExpressionKind {
     // Literals
     Identifier(String),
     BoolLit(String),
@@ -28,6 +40,9 @@ pub enum Expression {
     Mul(Box<Expression>, Box<Expression>),
     Div(Box<Expression>, Box<Expression>),
     Mod(Box<Expression>, Box<Expression>),
+    Not(Box<Expression>),
+    And(Box<Expression>, Box<Expression>),
+    Or(Box<Expression>, Box<Expression>),
     Eq(Box<Expression>, Box<Expression>),
     NotEq(Box<Expression>, Box<Expression>),
     Less(Box<Expression>, Box<Expression>),
@@ -53,11 +68,11 @@ fn get_sequence(tokens: &[Token]) -> Expression {
     let mut end = 0;
 
     while end + 1 < tokens.len() {
-        if matches!(tokens[start], Token::If)
-            || matches!(tokens[start], Token::Loop)
-            || matches!(tokens[start], Token::While)
+        if matches!(tokens[start].kind, TokenKind::If)
+            || matches!(tokens[start].kind, TokenKind::Loop)
+            || matches!(tokens[start].kind, TokenKind::While)
         {
-            while end < tokens.len() && !matches!(tokens[end], Token::Colon) {
+            while end < tokens.len() && !matches!(tokens[end].kind, TokenKind::Colon) {
                 end += 1;
             }
             end += 2;
@@ -66,144 +81,181 @@ fn get_sequence(tokens: &[Token]) -> Expression {
 
             while end + 1 < tokens.len() && indent_level != 0 {
                 end += 1;
-                match tokens[end] {
-                    Token::Indent => indent_level += 1,
-                    Token::Dedent => indent_level -= 1,
+                match tokens[end].kind {
+                    TokenKind::Indent => indent_level += 1,
+                    TokenKind::Dedent => indent_level -= 1,
                     _ => {}
                 }
             }
         } else {
-            while end + 1 < tokens.len() && !matches!(tokens[end], Token::NewLine) {
+            while end + 1 < tokens.len() && !matches!(tokens[end].kind, TokenKind::NewLine) {
                 end += 1;
             }
         }
-        if tokens[start..end] != [Token::NewLine] && tokens[start..end] != [] {
-            sequence.push(get_expression(&tokens[start..end]));
+        if tokens.len() != 1 && tokens[start..end] != [] {
+            sequence.push(Expression::new(
+                get_expression(&tokens[start..end]).kind,
+                tokens[start].line,
+                tokens[start].column,
+            ));
         }
         start = end + 1;
         end += 1;
     }
 
-    Expression::Sequence(sequence)
+    Expression::new(ExpressionKind::Sequence(sequence), 0, 0)
 }
 
 fn get_expression(tokens: &[Token]) -> Expression {
     let len = tokens.len();
 
     if len == 1 {
-        return match &tokens[0] {
-            Token::Identifier(id) => Expression::Identifier(id.to_string()),
-            Token::BoolLit(bool) => Expression::BoolLit(bool.to_string()),
-            Token::IntLit(int) => Expression::IntLit(int.to_string()),
-            Token::Break => Expression::Break,
-            _ => {
-                println!("Unrecognized expression:");
-                dbg!(tokens);
-                process::exit(1);
-            }
-        };
+        return Expression::new(
+            match &tokens[0].kind {
+                TokenKind::Identifier(id) => ExpressionKind::Identifier(id.to_string()),
+                TokenKind::BoolLit(bool) => ExpressionKind::BoolLit(bool.to_string()),
+                TokenKind::IntLit(int) => ExpressionKind::IntLit(int.to_string()),
+                TokenKind::Break => ExpressionKind::Break,
+                _ => {
+                    println!("Unrecognized expression:");
+                    dbg!(tokens);
+                    process::exit(1);
+                }
+            },
+            tokens[0].line,
+            tokens[0].column,
+        );
     }
 
-    match &tokens[0] {
-        Token::Exit => Expression::Exit(Box::new(get_expression(&tokens[2..len - 1]))),
-        Token::Var => {
-            if matches!(&tokens[2], Token::Assign) {
-                Expression::Declare(
-                    Box::new(get_expression(&tokens[1..2])),
-                    Box::new(get_expression(&tokens[3..])),
-                )
-            } else {
-                println!("Unrecognized expression:");
-                dbg!(tokens);
-                process::exit(1);
+    Expression::new(
+        match &tokens[0].kind {
+            TokenKind::Exit => ExpressionKind::Exit(Box::new(get_expression(&tokens[2..len - 1]))),
+            TokenKind::Var => {
+                if matches!(&tokens[2].kind, TokenKind::Assign) {
+                    ExpressionKind::Declare(
+                        Box::new(get_expression(&tokens[1..2])),
+                        Box::new(get_expression(&tokens[3..])),
+                    )
+                } else {
+                    println!("Unrecognized expression:");
+                    dbg!(tokens);
+                    process::exit(1);
+                }
             }
-        }
-        Token::If => {
-            let mut i = 0;
-            while i < len && tokens[i] != Token::Colon {
-                i += 1;
-            }
-            Expression::If(
-                Box::new(get_expression(&tokens[1..i])),
-                Box::new(get_sequence(&tokens[i + 3..])),
-            )
-        }
-        Token::Loop => Expression::Loop(Box::new(get_sequence(&tokens[4..]))),
-        Token::While => {
-            let mut i = 0;
-            while i < len && tokens[i] != Token::Colon {
-                i += 1;
-            }
-            Expression::Loop(Box::new(Expression::Sequence(vec![
-                Expression::If(
+            TokenKind::If => {
+                let mut i = 0;
+                while i < len && tokens[i].kind != TokenKind::Colon {
+                    i += 1;
+                }
+                ExpressionKind::If(
                     Box::new(get_expression(&tokens[1..i])),
-                    Box::new(Expression::Break),
-                ),
-                get_sequence(&tokens[i + 3..]),
-            ])))
-        }
-        _ => {
-            if matches!(&tokens[1], Token::Assign) {
-                Expression::Assign(
-                    Box::new(get_expression(&tokens[0..1])),
-                    Box::new(get_expression(&tokens[2..])),
+                    Box::new(get_sequence(&tokens[i + 3..])),
                 )
-            } else if matches!(&tokens[2], Token::Assign) {
-                match tokens[1] {
-                    Token::Add | Token::Sub | Token::Mul | Token::Div | Token::Mod => {
-                        let mut new_tokens = Vec::from(tokens);
-                        new_tokens.remove(1);
-                        new_tokens.insert(2, tokens[0].clone());
-                        new_tokens.insert(3, tokens[1].clone());
-                        get_expression(&new_tokens)
-                    }
-                    _ => panic!("Unrecognized assign operation"),
+            }
+            TokenKind::Loop => ExpressionKind::Loop(Box::new(get_sequence(&tokens[4..]))),
+            TokenKind::While => {
+                let mut i = 0;
+                while i < len && tokens[i].kind != TokenKind::Colon {
+                    i += 1;
                 }
-            } else {
-                match &tokens[len - 2] {
-                    Token::Add
-                    | Token::Sub
-                    | Token::Mul
-                    | Token::Div
-                    | Token::Mod
-                    | Token::Eq
-                    | Token::NotEq
-                    | Token::Less
-                    | Token::LessEq
-                    | Token::Greater
-                    | Token::GreaterEq => {
-                        let arg1 = Box::new(get_expression(&tokens[0..len - 2]));
-                        let arg2 = Box::new(get_expression(&tokens[len - 1..]));
-                        get_operation(&tokens[len - 2], arg1, arg2)
+                ExpressionKind::Loop(Box::new(Expression::new(
+                    ExpressionKind::Sequence(vec![
+                        Expression::new(
+                            ExpressionKind::Not(Box::new(Expression::new(
+                                ExpressionKind::If(
+                                    Box::new(get_expression(&tokens[1..i])),
+                                    Box::new(Expression::new(ExpressionKind::Break, 0, 0)),
+                                ),
+                                0,
+                                0,
+                            ))),
+                            0,
+                            0,
+                        ),
+                        get_sequence(&tokens[i + 3..]),
+                    ]),
+                    0,
+                    0,
+                )))
+            }
+            TokenKind::Not => ExpressionKind::Not(Box::new(get_expression(&tokens[1..]))),
+            _ => {
+                if matches!(&tokens[1].kind, TokenKind::Assign) {
+                    ExpressionKind::Assign(
+                        Box::new(get_expression(&tokens[0..1])),
+                        Box::new(get_expression(&tokens[2..])),
+                    )
+                } else if matches!(&tokens[2].kind, TokenKind::Assign) {
+                    match tokens[1].kind {
+                        TokenKind::Add
+                        | TokenKind::Sub
+                        | TokenKind::Mul
+                        | TokenKind::Div
+                        | TokenKind::Mod => {
+                            let mut new_tokens = Vec::from(tokens);
+                            new_tokens.remove(1);
+                            new_tokens.insert(2, tokens[0].clone());
+                            new_tokens.insert(3, tokens[1].clone());
+                            get_expression(&new_tokens).kind
+                        }
+                        _ => panic!("Unrecognized assign operation"),
                     }
-                    _ => {
-                        println!("Unrecognized expression:");
-                        dbg!(tokens);
-                        process::exit(1);
+                } else {
+                    match &tokens[len - 2].kind {
+                        TokenKind::Add
+                        | TokenKind::Sub
+                        | TokenKind::Mul
+                        | TokenKind::Div
+                        | TokenKind::Mod
+                        | TokenKind::And
+                        | TokenKind::Or
+                        | TokenKind::Eq
+                        | TokenKind::NotEq
+                        | TokenKind::Less
+                        | TokenKind::LessEq
+                        | TokenKind::Greater
+                        | TokenKind::GreaterEq => {
+                            let arg1 = Box::new(get_expression(&tokens[0..len - 2]));
+                            let arg2 = Box::new(get_expression(&tokens[len - 1..]));
+                            get_operation(&tokens[len - 2], arg1, arg2).kind
+                        }
+                        _ => {
+                            println!("Unrecognized expression:");
+                            dbg!(tokens);
+                            process::exit(1);
+                        }
                     }
                 }
             }
-        }
-    }
+        },
+        tokens[0].line,
+        tokens[0].column,
+    )
 }
 
 fn get_operation(operation: &Token, arg1: Box<Expression>, arg2: Box<Expression>) -> Expression {
-    match operation {
-        Token::Add => Expression::Add(arg1, arg2),
-        Token::Sub => Expression::Sub(arg1, arg2),
-        Token::Mul => Expression::Mul(arg1, arg2),
-        Token::Div => Expression::Div(arg1, arg2),
-        Token::Mod => Expression::Mod(arg1, arg2),
-        Token::Eq => Expression::Eq(arg1, arg2),
-        Token::NotEq => Expression::NotEq(arg1, arg2),
-        Token::Less => Expression::Less(arg1, arg2),
-        Token::LessEq => Expression::LessEq(arg1, arg2),
-        Token::Greater => Expression::Greater(arg1, arg2),
-        Token::GreaterEq => Expression::GreaterEq(arg1, arg2),
-        _ => {
-            println!("Unrecognized operation:");
-            dbg!(operation);
-            process::exit(1);
-        }
-    }
+    Expression::new(
+        match operation.kind {
+            TokenKind::Add => ExpressionKind::Add(arg1, arg2),
+            TokenKind::Sub => ExpressionKind::Sub(arg1, arg2),
+            TokenKind::Mul => ExpressionKind::Mul(arg1, arg2),
+            TokenKind::Div => ExpressionKind::Div(arg1, arg2),
+            TokenKind::Mod => ExpressionKind::Mod(arg1, arg2),
+            TokenKind::And => ExpressionKind::And(arg1, arg2),
+            TokenKind::Or => ExpressionKind::Or(arg1, arg2),
+            TokenKind::Eq => ExpressionKind::Eq(arg1, arg2),
+            TokenKind::NotEq => ExpressionKind::NotEq(arg1, arg2),
+            TokenKind::Less => ExpressionKind::Less(arg1, arg2),
+            TokenKind::LessEq => ExpressionKind::LessEq(arg1, arg2),
+            TokenKind::Greater => ExpressionKind::Greater(arg1, arg2),
+            TokenKind::GreaterEq => ExpressionKind::GreaterEq(arg1, arg2),
+            _ => {
+                println!("Unrecognized operation:");
+                dbg!(operation);
+                process::exit(1);
+            }
+        },
+        operation.line,
+        operation.column,
+    )
 }

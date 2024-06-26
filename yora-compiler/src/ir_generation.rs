@@ -8,22 +8,17 @@ pub enum Ir {
     Assign(String, String),
     Label(String),
     Jmp(String),
-    JmpCmp(String, String, String, JmpType),
+    JmpCond(String, String),
     Add(String, String),
     Sub(String, String),
     Mul(String, String),
     Div(String, String),
     Mod(String, String),
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum JmpType {
-    Je,
-    Jne,
-    Jl,
-    Jle,
-    Jg,
-    Jge,
+    Not(String, String),
+    And(String, String),
+    Or(String, String),
+    Eq(String, String),
+    NotEq(),
 }
 
 struct Nums {
@@ -161,6 +156,12 @@ fn get_operation(operation: &Expression, arg1: String, arg2: String) -> Ir {
         Expression::Mul(..) => Ir::Mul(arg1, arg2),
         Expression::Div(..) => Ir::Div(arg1, arg2),
         Expression::Mod(..) => Ir::Mod(arg1, arg2),
+        Expression::Eq(..) => JmpType::Jne,
+        Expression::NotEq(..) => JmpType::Je,
+        Expression::Less(..) => JmpType::Jge,
+        Expression::LessEq(..) => JmpType::Jg,
+        Expression::Greater(..) => JmpType::Jle,
+        Expression::GreaterEq(..) => JmpType::Jl,
         _ => panic!("Unexpected operation."),
     }
 }
