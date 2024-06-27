@@ -36,53 +36,54 @@ fn analyze_expression(
         ExpressionKind::Declare(ref dest, ref src) => {
             analyze_expression(src, vars, errors);
 
+            let dest_val = get_value(dest);
+
             if get_type(src) != "bool" {
                 let src_val = get_value(src);
-                let dest_val = get_value(dest);
 
                 if !vars.contains_key(&src_val) && get_type(src) == "id" {
                     errors.push(ErrorTypes::UndeclaredVariable(
                         src_val, src.line, src.column,
                     ));
                 }
+            }
 
-                if !vars.contains_key(&dest_val) && get_type(dest) == "id" {
-                    vars.insert(dest_val, get_type(src));
-                } else {
-                    errors.push(ErrorTypes::NotAnIdentifier(
-                        dest_val,
-                        dest.line,
-                        dest.column,
-                    ));
-                }
+            if !vars.contains_key(&dest_val) && get_type(dest) == "id" {
+                vars.insert(dest_val, get_type(src));
+            } else {
+                errors.push(ErrorTypes::NotAnIdentifier(
+                    dest_val,
+                    dest.line,
+                    dest.column,
+                ));
             }
         }
         ExpressionKind::Assign(ref dest, ref src) => {
             analyze_expression(src, vars, errors);
 
+            let dest_val = get_value(dest);
+
             if get_type(src) != "bool" {
                 let src_val = get_value(src);
-                let dest_val = get_value(dest);
 
                 if !vars.contains_key(&src_val) && get_type(src) == "id" {
                     errors.push(ErrorTypes::UndeclaredVariable(
                         src_val, src.line, src.column,
                     ));
                 }
-
-                if !vars.contains_key(&dest_val) && get_type(dest) == "id" {
-                    errors.push(ErrorTypes::UndeclaredVariable(
-                        dest_val,
-                        dest.line,
-                        dest.column,
-                    ));
-                } else if !vars.contains_key(&dest_val) {
-                    errors.push(ErrorTypes::NotAnIdentifier(
-                        dest_val,
-                        dest.line,
-                        dest.column,
-                    ));
-                }
+            }
+            if !vars.contains_key(&dest_val) && get_type(dest) == "id" {
+                errors.push(ErrorTypes::UndeclaredVariable(
+                    dest_val,
+                    dest.line,
+                    dest.column,
+                ));
+            } else if !vars.contains_key(&dest_val) {
+                errors.push(ErrorTypes::NotAnIdentifier(
+                    dest_val,
+                    dest.line,
+                    dest.column,
+                ));
             }
         }
 
@@ -151,7 +152,9 @@ fn analyze_expression(
             }
         }
         ExpressionKind::If(ref cond, ref seq) => {
-            if get_type(cond) != "bool" {
+            if get_type(cond) != "bool" && get_type(cond) != "id"
+                || (get_type(cond) == "id" && vars[&get_value(cond)] != "bool")
+            {
                 errors.push(ErrorTypes::NotACondition(cond.line, cond.column));
             }
             analyze_expression(cond, vars, errors);

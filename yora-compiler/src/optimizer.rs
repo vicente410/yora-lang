@@ -77,6 +77,9 @@ fn replace_with_constants(ir: &mut Vec<Ir>, source: &String, constant: &String) 
                     };
                 }
             }
+            Ir::Set { .. } => {
+                needed = true;
+            }
             _ => {}
         }
     }
