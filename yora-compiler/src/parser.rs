@@ -5,8 +5,8 @@ use crate::lexer::*;
 #[derive(Debug, PartialEq)]
 pub struct Expression {
     pub kind: ExpressionKind,
-    line: usize,
-    column: usize,
+    pub line: usize,
+    pub column: usize,
 }
 
 impl Expression {

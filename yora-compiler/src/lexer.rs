@@ -65,14 +65,14 @@ pub fn lex(source: String) -> Vec<Token> {
 
     // Lex each line in the input
     for (i, line) in source.lines().enumerate() {
-        current_indent = add_indent(&mut tokens, line, current_indent, i);
-        add_tokens(&mut tokens, line, i);
-        tokens.push(Token::new(TokenKind::NewLine, i, 0));
+        current_indent = add_indent(&mut tokens, line, current_indent, i + 1);
+        add_tokens(&mut tokens, line, i + 1);
+        tokens.push(Token::new(TokenKind::NewLine, i + 1, 0));
     }
 
     // Add dedent to finish at indentation level 0
     for i in 0..current_indent {
-        tokens.push(Token::new(TokenKind::Dedent, num_lines + i as usize, 0));
+        tokens.push(Token::new(TokenKind::Dedent, num_lines + i as usize + 1, 0));
     }
 
     tokens
@@ -138,11 +138,7 @@ fn add_tokens(tokens: &mut Vec<Token>, line: &str, line_num: usize) {
         let token_kind = get_token_kind(line[start..end].to_string()).unwrap();
         match token_kind {
             TokenKind::Comment => break,
-            _ => tokens.push(Token {
-                kind: token_kind,
-                line: line_num,
-                column: start,
-            }),
+            _ => tokens.push(Token::new(token_kind, line_num, start + 1)),
         }
         start = end;
     }
