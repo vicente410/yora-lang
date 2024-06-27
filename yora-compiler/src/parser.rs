@@ -4,7 +4,7 @@ use crate::lexer::*;
 
 #[derive(Debug, PartialEq)]
 pub struct Expression {
-    kind: ExpressionKind,
+    pub kind: ExpressionKind,
     line: usize,
     column: usize,
 }
@@ -44,11 +44,11 @@ pub enum ExpressionKind {
     And(Box<Expression>, Box<Expression>),
     Or(Box<Expression>, Box<Expression>),
     Eq(Box<Expression>, Box<Expression>),
-    NotEq(Box<Expression>, Box<Expression>),
-    Less(Box<Expression>, Box<Expression>),
-    LessEq(Box<Expression>, Box<Expression>),
-    Greater(Box<Expression>, Box<Expression>),
-    GreaterEq(Box<Expression>, Box<Expression>),
+    Neq(Box<Expression>, Box<Expression>),
+    Lt(Box<Expression>, Box<Expression>),
+    Leq(Box<Expression>, Box<Expression>),
+    Gt(Box<Expression>, Box<Expression>),
+    Geq(Box<Expression>, Box<Expression>),
     /*Declaration(Identifier, Option<Expression>),
     Print(Box<Expression>),
     LoopBlock(Vec<Statement>),*/
@@ -92,7 +92,7 @@ fn get_sequence(tokens: &[Token]) -> Expression {
                 end += 1;
             }
         }
-        if tokens.len() != 1 && tokens[start..end] != [] {
+        if tokens.len() != 1 && !tokens.is_empty() {
             sequence.push(Expression::new(
                 get_expression(&tokens[start..end]).kind,
                 tokens[start].line,
@@ -244,11 +244,11 @@ fn get_operation(operation: &Token, arg1: Box<Expression>, arg2: Box<Expression>
             TokenKind::And => ExpressionKind::And(arg1, arg2),
             TokenKind::Or => ExpressionKind::Or(arg1, arg2),
             TokenKind::Eq => ExpressionKind::Eq(arg1, arg2),
-            TokenKind::NotEq => ExpressionKind::NotEq(arg1, arg2),
-            TokenKind::Less => ExpressionKind::Less(arg1, arg2),
-            TokenKind::LessEq => ExpressionKind::LessEq(arg1, arg2),
-            TokenKind::Greater => ExpressionKind::Greater(arg1, arg2),
-            TokenKind::GreaterEq => ExpressionKind::GreaterEq(arg1, arg2),
+            TokenKind::NotEq => ExpressionKind::Neq(arg1, arg2),
+            TokenKind::Less => ExpressionKind::Lt(arg1, arg2),
+            TokenKind::LessEq => ExpressionKind::Leq(arg1, arg2),
+            TokenKind::Greater => ExpressionKind::Gt(arg1, arg2),
+            TokenKind::GreaterEq => ExpressionKind::Geq(arg1, arg2),
             _ => {
                 println!("Unrecognized operation:");
                 dbg!(operation);

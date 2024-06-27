@@ -1,4 +1,4 @@
-use crate::parser::Expression;
+use crate::parser::*;
 use std::{collections::HashMap, ops::Deref, process};
 
 enum ErrorTypes {
@@ -32,8 +32,8 @@ fn analyze_expression(
     vars: &mut HashMap<String, String>,
     errors: &mut Vec<ErrorTypes>,
 ) {
-    match expr {
-        Expression::Declare(ref dest, ref src) => {
+    match &expr.kind {
+        ExpressionKind::Declare(ref dest, ref src) => {
             analyze_expression(src, vars, errors);
 
             let src_val = get_value(src);
@@ -49,7 +49,7 @@ fn analyze_expression(
                 errors.push(ErrorTypes::NotAnIdentifier(dest_val, 69));
             }
         }
-        Expression::Assign(ref dest, ref src) => {
+        ExpressionKind::Assign(ref dest, ref src) => {
             analyze_expression(src, vars, errors);
 
             let src_val = get_value(src);
@@ -66,11 +66,11 @@ fn analyze_expression(
             }
         }
 
-        Expression::Add(ref dest, ref src)
-        | Expression::Sub(ref dest, ref src)
-        | Expression::Mul(ref dest, ref src)
-        | Expression::Div(ref dest, ref src)
-        | Expression::Mod(ref dest, ref src) => {
+        ExpressionKind::Add(ref dest, ref src)
+        | ExpressionKind::Sub(ref dest, ref src)
+        | ExpressionKind::Mul(ref dest, ref src)
+        | ExpressionKind::Div(ref dest, ref src)
+        | ExpressionKind::Mod(ref dest, ref src) => {
             analyze_expression(src, vars, errors);
             analyze_expression(dest, vars, errors);
 
@@ -113,12 +113,12 @@ fn analyze_expression(
                 ));
             }
         }
-        Expression::Sequence(seq) => {
+        ExpressionKind::Sequence(seq) => {
             for expr in &seq[0..seq.len()] {
                 analyze_expression(expr, vars, errors);
             }
         }
-        Expression::If(cond, seq) => {
+        ExpressionKind::If(ref cond, ref seq) => {
             if get_type(cond) != "bool" {
                 errors.push(ErrorTypes::NotACondition(69));
             }
@@ -126,12 +126,12 @@ fn analyze_expression(
             analyze_expression(seq, vars, errors);
         }
 
-        Expression::Eq(cmp1, cmp2)
-        | Expression::NotEq(cmp1, cmp2)
-        | Expression::Less(cmp1, cmp2)
-        | Expression::LessEq(cmp1, cmp2)
-        | Expression::Greater(cmp1, cmp2)
-        | Expression::GreaterEq(cmp1, cmp2) => {
+        ExpressionKind::Eq(ref cmp1, ref cmp2)
+        | ExpressionKind::Neq(ref cmp1, ref cmp2)
+        | ExpressionKind::Lt(ref cmp1, ref cmp2)
+        | ExpressionKind::Leq(ref cmp1, ref cmp2)
+        | ExpressionKind::Gt(ref cmp1, ref cmp2)
+        | ExpressionKind::Geq(ref cmp1, ref cmp2) => {
             analyze_expression(cmp1, vars, errors);
             analyze_expression(cmp2, vars, errors);
 
@@ -173,8 +173,8 @@ fn analyze_expression(
                 ));
             }
         }
-        Expression::Loop(seq) => analyze_expression(seq, vars, errors),
-        Expression::Exit(val) => {
+        ExpressionKind::Loop(ref seq) => analyze_expression(seq, vars, errors),
+        ExpressionKind::Exit(ref val) => {
             analyze_expression(val, vars, errors);
             if (get_type(val) == "id"
                 && vars.contains_key(&get_value(val))
@@ -184,56 +184,62 @@ fn analyze_expression(
                 errors.push(ErrorTypes::InvalidExitCode(69));
             }
         }
-        Expression::Break
-        | Expression::Identifier(..)
-        | Expression::IntLit(..)
-        | Expression::BoolLit(..) => {}
+        ExpressionKind::Break
+        | ExpressionKind::Identifier(..)
+        | ExpressionKind::IntLit(..)
+        | ExpressionKind::BoolLit(..)
+        | ExpressionKind::Not(..)
+        | ExpressionKind::And(..)
+        | ExpressionKind::Or(..) => {}
     }
 }
 fn get_value(expr: &Expression) -> String {
-    match expr {
-        Expression::Exit(..) => {
+    match expr.kind {
+        ExpressionKind::Exit(..) => {
             println!("Can't evaluate exit");
             process::exit(1)
         }
-        Expression::Assign(ref _dest, ref _src) | Expression::Declare(ref _dest, ref _src) => {
+        ExpressionKind::Assign(ref _dest, ref _src)
+        | ExpressionKind::Declare(ref _dest, ref _src) => {
             println!("Can't evaluate assigns or declarations");
             process::exit(1)
         }
-        Expression::Add(ref dest, _)
-        | Expression::Sub(ref dest, _)
-        | Expression::Mul(ref dest, _)
-        | Expression::Div(ref dest, _)
-        | Expression::Mod(ref dest, _) => get_value(dest),
-        Expression::IntLit(int) => int.to_string(),
-        Expression::BoolLit(bool) => bool.to_string(),
-        Expression::Identifier(id) => id.to_string(),
-        Expression::If(_, seq) | Expression::Loop(seq) => match seq.deref() {
-            Expression::Sequence(sequence) => get_type(&sequence[sequence.len() - 1]),
-            _ => panic!("Sequence in the if is not a sequence."),
-        },
-        Expression::Break => "".to_string(),
-        Expression::Sequence(seq) => get_type(&seq[seq.len() - 1]),
+        ExpressionKind::Add(ref dest, _)
+        | ExpressionKind::Sub(ref dest, _)
+        | ExpressionKind::Mul(ref dest, _)
+        | ExpressionKind::Div(ref dest, _)
+        | ExpressionKind::Mod(ref dest, _) => get_value(dest),
+        ExpressionKind::IntLit(ref int) => int.to_string(),
+        ExpressionKind::BoolLit(ref bool) => bool.to_string(),
+        ExpressionKind::Identifier(ref id) => id.to_string(),
+        ExpressionKind::If(ref seq, ..) | ExpressionKind::Loop(ref seq) => {
+            match &seq.deref().kind {
+                ExpressionKind::Sequence(sequence) => get_type(&sequence[sequence.len() - 1]),
+                _ => panic!("Sequence in the if is not a sequence."),
+            }
+        }
+        ExpressionKind::Break => "".to_string(),
+        ExpressionKind::Sequence(ref seq) => get_type(&seq[seq.len() - 1]),
         _ => panic!("Invalid expression"),
     }
 }
 
 fn get_type(expr: &Expression) -> String {
-    match expr {
-        Expression::Identifier(..) => "id".to_string(),
-        Expression::IntLit(..) => "int".to_string(),
-        Expression::BoolLit(..)
-        | Expression::Eq(..)
-        | Expression::NotEq(..)
-        | Expression::Less(..)
-        | Expression::LessEq(..)
-        | Expression::Greater(..)
-        | Expression::GreaterEq(..) => "bool".to_string(),
-        Expression::Add(ref dest, _)
-        | Expression::Sub(ref dest, _)
-        | Expression::Mul(ref dest, _)
-        | Expression::Div(ref dest, _)
-        | Expression::Mod(ref dest, _) => get_type(dest),
+    match expr.kind {
+        ExpressionKind::Identifier(..) => "id".to_string(),
+        ExpressionKind::IntLit(..) => "int".to_string(),
+        ExpressionKind::BoolLit(..)
+        | ExpressionKind::Eq(..)
+        | ExpressionKind::Neq(..)
+        | ExpressionKind::Lt(..)
+        | ExpressionKind::Leq(..)
+        | ExpressionKind::Gt(..)
+        | ExpressionKind::Geq(..) => "bool".to_string(),
+        ExpressionKind::Add(ref dest, ..)
+        | ExpressionKind::Sub(ref dest, ..)
+        | ExpressionKind::Mul(ref dest, ..)
+        | ExpressionKind::Div(ref dest, ..)
+        | ExpressionKind::Mod(ref dest, ..) => get_type(dest),
         _ => {
             dbg!(&expr);
             panic!("Not a valid type")

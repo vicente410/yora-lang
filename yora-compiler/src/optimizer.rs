@@ -1,4 +1,4 @@
-use crate::ir_generation::Ir;
+use crate::ir_generation::*;
 
 pub fn optimize(ir: Vec<Ir>) -> Vec<Ir> {
     let mut optimized_ir = ir;
@@ -14,8 +14,8 @@ fn remove_self_assign(ir: Vec<Ir>) -> Vec<Ir> {
     let mut num_removed = 0;
 
     for (i, instruction) in ir.iter().enumerate() {
-        if let Ir::Assign(dest, src) = instruction {
-            if dest == src {
+        if let Ir::Op { dest, src, op } = instruction {
+            if *op == Op::Assign && dest == src {
                 new_ir.remove(i - num_removed);
                 num_removed += 1;
             }
@@ -30,8 +30,8 @@ fn constant_propagation(ir: Vec<Ir>) -> Vec<Ir> {
     let mut num_removed = 0;
 
     for (i, instruction) in ir.iter().enumerate() {
-        if let Ir::Assign(dest, src) = instruction {
-            if src.parse::<i64>().is_ok() {
+        if let Ir::Op { dest, src, op } = instruction {
+            if *op == Op::Assign && src.parse::<i64>().is_ok() {
                 let needed = replace_with_constants(&mut new_ir, dest, src);
                 if !needed {
                     new_ir.remove(i - num_removed);
@@ -48,50 +48,33 @@ fn replace_with_constants(ir: &mut Vec<Ir>, source: &String, constant: &String) 
     let mut needed = false;
     for instruction in ir {
         match instruction {
-            Ir::Add(dest, src) => {
+            Ir::Op { src, dest, op } => match op {
+                Op::Assign | Op::Add | Op::Sub | Op::And | Op::Or | Op::Not | Op::Cmp => {
+                    if src == source {
+                        *instruction = Ir::Op {
+                            dest: dest.to_string(),
+                            src: constant.to_string(),
+                            op: op.clone(),
+                        };
+                    }
+                }
+                Op::Mul | Op::Div | Op::Mod => {
+                    needed = true;
+                }
+            },
+            Ir::Exit { src } => {
                 if src == source {
-                    *instruction = Ir::Add(dest.to_string(), constant.to_string());
+                    *instruction = Ir::Exit {
+                        src: constant.to_string(),
+                    };
                 }
             }
-            Ir::Sub(dest, src) => {
+            Ir::JmpCond { src, label } => {
                 if src == source {
-                    *instruction = Ir::Sub(dest.to_string(), constant.to_string());
-                }
-            }
-            Ir::Mul(..) => {
-                needed = true;
-            }
-            Ir::Div(..) => {
-                needed = true;
-            }
-            Ir::Mod(..) => {
-                needed = true;
-            }
-            Ir::Assign(dest, src) => {
-                if src == source {
-                    *instruction = Ir::Assign(dest.to_string(), constant.to_string());
-                }
-            }
-            Ir::Exit(src) => {
-                if src == source {
-                    *instruction = Ir::Exit(constant.to_string());
-                }
-            }
-            Ir::JmpCmp(arg1, arg2, label, jmp_type) => {
-                if arg1 == source {
-                    *instruction = Ir::JmpCmp(
-                        constant.to_string(),
-                        arg2.to_string(),
-                        label.to_string(),
-                        jmp_type.clone(),
-                    );
-                } else if arg2 == source {
-                    *instruction = Ir::JmpCmp(
-                        arg1.to_string(),
-                        constant.to_string(),
-                        label.to_string(),
-                        jmp_type.clone(),
-                    );
+                    *instruction = Ir::JmpCond {
+                        src: constant.to_string(),
+                        label: label.to_string(),
+                    };
                 }
             }
             _ => {}
