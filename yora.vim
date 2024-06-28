@@ -1,12 +1,12 @@
 syn keyword functions print exit
-syn keyword keywords var if loop while break
+syn keyword keywords var if else then loop while break continue and or
 syn region strings start="\"" end="\""
 syn region comments start="/\*" end="\*/"
 syn match comments "//.*$"
 
 let b:current_syntax = "yora"
 
-hi def link functions	GruvboxBlue
-hi def link keywords	GruvboxPurple
-hi def link strings		GruvboxGreen
-hi def link comments	GruvboxGray
+hi def link functions	function
+hi def link keywords	keyword
+hi def link strings		string
+hi def link comments	comment
