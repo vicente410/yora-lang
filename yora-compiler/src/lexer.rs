@@ -1,203 +1,192 @@
+use std::fmt;
 use std::process;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Token {
+    pub str: String,
     pub kind: TokenKind,
     pub line: usize,
-    pub column: usize,
-}
-
-impl Token {
-    fn new(kind: TokenKind, line: usize, column: usize) -> Token {
-        Token { kind, line, column }
-    }
+    pub col: usize,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TokenKind {
-    // Literals
-    Identifier(String),
-    BoolLit(String),
-    IntLit(String),
+    Keyword,
+    Operator,
+    Separator,
+    Identifier,
 
-    //Keywords
-    Var,
-    If,
-    Loop,
-    While,
-    Break,
+    //Literals
+    IntLit,
+    BoolLit,
+}
 
-    // Built-in functions
-    Exit,
-    Print,
+impl Token {
+    fn new(buffer: &Buffer) -> Token {
+        Token {
+            str: buffer.str.clone(),
+            kind: Token::get_token_kind(&buffer.str),
+            line: buffer.y,
+            col: buffer.x,
+        }
+    }
 
-    // Operators
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Mod,
-    Not,
-    And,
-    Or,
-    Eq,
-    NotEq,
-    Less,
-    LessEq,
-    Greater,
-    GreaterEq,
+    fn get_token_kind(string: &String) -> TokenKind {
+        if string.parse::<i64>().is_ok() {
+            return TokenKind::IntLit;
+        }
 
-    // Other
-    Assign,
-    Indent,
-    Dedent,
-    NewLine,
-    OpenParen,
-    CloseParen,
-    Colon,
-    Comment,
+        match string.as_str() {
+            "var" | "if" | "loop" | "while" | "break" => TokenKind::Keyword,
+
+            "=" | "+" | "-" | "*" | "/" | "%" | "+=" | "-=" | "*=" | "/=" | "%=" | "!" | "and"
+            | "or" | "==" | "!=" | "<" | "<=" | ">" | ">=" => TokenKind::Operator,
+
+            ":" | "(" | ")" => TokenKind::Separator,
+
+            "true" | "false" => TokenKind::BoolLit,
+
+            _ => {
+                if Token::is_valid_identifier(string) {
+                    TokenKind::Identifier
+                } else {
+                    println!("Invalid identifier:\n{}", string);
+                    process::exit(1);
+                }
+            }
+        }
+    }
+
+    fn is_valid_identifier(string: &String) -> bool {
+        for ch in string.chars() {
+            if !ch.is_alphanumeric() && ch != '_' {
+                return false;
+            }
+        }
+        !string.is_empty() && string != "_"
+    }
+}
+
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}:{}\t{}\t\"{}\"",
+            self.line, self.col, self.kind, self.str
+        )
+    }
+}
+
+impl fmt::Display for TokenKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                TokenKind::Keyword => "key",
+                TokenKind::Operator => "op",
+                TokenKind::Separator => "sep",
+                TokenKind::Identifier => "id",
+                TokenKind::IntLit => "int",
+                TokenKind::BoolLit => "bool",
+            }
+        )
+    }
+}
+
+struct Buffer {
+    str: String,
+    first_ch: char,
+    x: usize,
+    y: usize,
+}
+
+impl Buffer {
+    fn new() -> Buffer {
+        Buffer {
+            str: String::new(),
+            first_ch: '\0',
+            x: 1,
+            y: 1,
+        }
+    }
+
+    fn push(&mut self, ch: char, cursor: &Cursor) {
+        if self.str.is_empty() {
+            self.first_ch = ch;
+            self.x = cursor.x;
+            self.y = cursor.y;
+        }
+        self.str.push(ch);
+    }
+
+    fn clear(&mut self) {
+        self.str.clear();
+    }
+
+    fn should_tokenize(&self, ch: char) -> bool {
+        !(self.str.is_empty()
+            || (Buffer::is_id_or_num(self.first_ch) && Buffer::is_id_or_num(ch))
+            || (Buffer::is_symbol(self.first_ch) && Buffer::is_symbol(ch)))
+    }
+
+    fn is_symbol(ch: char) -> bool {
+        "=+-*/%!<>:()".contains(ch)
+    }
+
+    fn is_id_or_num(ch: char) -> bool {
+        ch.is_alphanumeric() || ch == '_'
+    }
+}
+
+struct Cursor {
+    x: usize,
+    y: usize,
+}
+
+impl Cursor {
+    fn new() -> Cursor {
+        Cursor { x: 1, y: 1 }
+    }
+
+    fn advance(&mut self, ch: char) {
+        if ch == '\n' {
+            self.x = 1;
+            self.y += 1;
+        } else if ch == '\t' {
+            self.x += 4;
+        } else {
+            self.x += 1;
+        }
+    }
 }
 
 pub fn lex(source: String) -> Vec<Token> {
     let mut tokens: Vec<Token> = Vec::new();
-    let mut current_indent = 0;
-    let num_lines = source.lines().count();
+    let mut buffer = Buffer::new();
+    let mut cursor = Cursor::new();
+    let mut chars = source.chars();
 
-    // Lex each line in the input
-    for (i, line) in source.lines().enumerate() {
-        current_indent = add_indent(&mut tokens, line, current_indent, i + 1);
-        add_tokens(&mut tokens, line, i + 1);
-        tokens.push(Token::new(TokenKind::NewLine, i + 1, 0));
-    }
-
-    // Add dedent to finish at indentation level 0
-    for i in 0..current_indent {
-        tokens.push(Token::new(TokenKind::Dedent, num_lines + i as usize + 1, 0));
+    while let Some(ch) = chars.next() {
+        if buffer.str == "//" {
+            while let Some(next_ch) = chars.next() {
+                cursor.advance(next_ch);
+                if next_ch == '\n' {
+                    break;
+                }
+            }
+            buffer.clear();
+            continue;
+        }
+        if buffer.should_tokenize(ch) {
+            tokens.push(Token::new(&buffer));
+            buffer.clear();
+        }
+        if !ch.is_whitespace() {
+            buffer.push(ch, &cursor);
+        }
+        cursor.advance(ch);
     }
 
     tokens
-}
-
-fn add_indent(tokens: &mut Vec<Token>, line: &str, current_indent: u32, line_num: usize) -> u32 {
-    let line = line.as_bytes();
-    let indent_size = 4;
-    let mut line_indent = 0;
-    let mut i = 0;
-
-    if line.is_empty() {
-        return current_indent;
-    }
-
-    while line[i].is_ascii_whitespace() {
-        if line[i] == b'\t' {
-            line_indent += 1;
-            i += 1;
-        } else if line[i..i + indent_size] == *b"    " {
-            line_indent += 1;
-            i += 4;
-        } else {
-            println!("Indentation error");
-            process::exit(1);
-        }
-    }
-
-    if line_indent > current_indent {
-        for _ in 0..line_indent - current_indent {
-            tokens.push(Token::new(TokenKind::Indent, line_num, 0));
-        }
-    } else {
-        for _ in 0..current_indent - line_indent {
-            tokens.push(Token::new(TokenKind::Dedent, line_num, 0));
-        }
-    }
-
-    line_indent
-}
-
-fn add_tokens(tokens: &mut Vec<Token>, line: &str, line_num: usize) {
-    let mut start = 0;
-    let mut end = 1;
-    let len = line.len();
-
-    while end < len {
-        // Skip whitespaces before a token
-        while start < len && line.as_bytes()[start].is_ascii_whitespace() {
-            start += 1;
-        }
-        end = start + 1;
-
-        // Try to create token until not possible
-        while end < len
-            && get_token_kind(line[start..end].to_string()).is_ok()
-            && get_token_kind(line[start..=end].to_string()).is_ok()
-        {
-            end += 1;
-        }
-
-        // Push token and skip if comment
-        let token_kind = get_token_kind(line[start..end].to_string()).unwrap();
-        match token_kind {
-            TokenKind::Comment => break,
-            _ => tokens.push(Token::new(token_kind, line_num, start + 1)),
-        }
-        start = end;
-    }
-}
-
-fn get_token_kind(string: String) -> Result<TokenKind, String> {
-    if string.parse::<i64>().is_ok() {
-        return Ok(TokenKind::IntLit(string));
-    }
-
-    Ok(match string.as_str() {
-        "var" => TokenKind::Var,
-        "if" => TokenKind::If,
-        "loop" => TokenKind::Loop,
-        "while" => TokenKind::While,
-        "break" => TokenKind::Break,
-
-        "exit" => TokenKind::Exit,
-        "print" => TokenKind::Print,
-
-        "+" => TokenKind::Add,
-        "-" => TokenKind::Sub,
-        "*" => TokenKind::Mul,
-        "/" => TokenKind::Div,
-        "%" => TokenKind::Mod,
-        "!" => TokenKind::Not,
-        "and" => TokenKind::And,
-        "or" => TokenKind::Or,
-        "==" => TokenKind::Eq,
-        "!=" => TokenKind::NotEq,
-        "<" => TokenKind::Less,
-        "<=" => TokenKind::LessEq,
-        ">" => TokenKind::Greater,
-        ">=" => TokenKind::GreaterEq,
-
-        ":" => TokenKind::Colon,
-        "=" => TokenKind::Assign,
-        "(" => TokenKind::OpenParen,
-        ")" => TokenKind::CloseParen,
-
-        "//" => TokenKind::Comment,
-
-        "true" => TokenKind::BoolLit(string),
-        "false" => TokenKind::BoolLit(string),
-        _ => {
-            if is_valid_identifier(&string) {
-                TokenKind::Identifier(string)
-            } else {
-                return Err(format!("Invalid identifier \"{}\"", string));
-            }
-        }
-    })
-}
-
-fn is_valid_identifier(string: &String) -> bool {
-    for char in string.chars() {
-        if !char.is_alphabetic() && char != '_' {
-            return false;
-        }
-    }
-    string != "_" && !string.is_empty()
 }
