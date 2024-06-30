@@ -59,10 +59,11 @@ pub enum ExpressionKind {
 }
 
 pub fn parse(tokens: Vec<Token>) -> Vec<Expression> {
-    vec![get_sequence(&tokens[..])]
+    //vec![get_sequence(&tokens[..])]
+    vec![Expression::new(ExpressionKind::Break, 0, 0)]
 }
 
-fn get_sequence(tokens: &[Token]) -> Expression {
+/*fn get_sequence(tokens: &[Token]) -> Expression {
     let mut sequence: Vec<Expression> = Vec::new();
     let mut start = 0;
     let mut end = 0;
@@ -258,4 +259,4 @@ fn get_operation(operation: &Token, arg1: Box<Expression>, arg2: Box<Expression>
         operation.line,
         operation.column,
     )
-}
+}*/
