@@ -97,9 +97,7 @@ impl Compiler {
         let tokens = lex(source);
 
         if self.flags.contains(&Flag::Debug(DebugOptions::Tokens)) {
-            for token in &tokens {
-                println!("{}", token);
-            }
+            dbg!(&tokens);
             process::exit(0);
         }
 
