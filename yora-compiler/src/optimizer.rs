@@ -59,7 +59,9 @@ fn replace_with_constants(ir: &mut Vec<Ir>, source: &String, constant: &String) 
                     }
                 }
                 Op::Mul | Op::Div | Op::Mod => {
-                    needed = true;
+                    if src == source || dest == source {
+                        needed = true;
+                    }
                 }
             },
             Ir::Exit { src } => {
@@ -76,9 +78,6 @@ fn replace_with_constants(ir: &mut Vec<Ir>, source: &String, constant: &String) 
                         label: label.to_string(),
                     };
                 }
-            }
-            Ir::Set { .. } => {
-                needed = true;
             }
             _ => {}
         }

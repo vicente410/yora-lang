@@ -5,7 +5,6 @@ use crate::ir_generation::*;
 pub fn generate_asm(ir: Vec<Ir>) -> String {
     let mut asm = String::from("global _start\n_start:\n\tmov rbp, rsp\n");
     let mut symbol_table: HashMap<String, String> = HashMap::new();
-    let mut num_regs = 0;
     let regs = ["rbx", "r10", "r11", "r12", "r13", "r14", "r15"];
 
     for instruction in ir {
@@ -17,16 +16,7 @@ pub fn generate_asm(ir: Vec<Ir>) -> String {
             } => match op {
                 Op::Assign => {
                     if !symbol_table.contains_key(dest) {
-                        if num_regs < regs.len() {
-                            symbol_table.insert(dest.to_string(), regs[num_regs].to_string());
-                        } else {
-                            asm.push_str("\tsub rsp, 8\n");
-                            symbol_table.insert(
-                                dest.to_string(),
-                                format!("qword [rbp-{}]", (num_regs - regs.len()) * 8),
-                            );
-                        }
-                        num_regs += 1;
+                        insert_reg(dest.clone(), regs, &mut symbol_table, &mut asm);
                     }
                     &get_instruction(
                         get_value(src, &symbol_table),
@@ -74,20 +64,11 @@ pub fn generate_asm(ir: Vec<Ir>) -> String {
             ),
             Ir::Set { dest, cond } => {
                 if !symbol_table.contains_key(&dest) {
-                    if num_regs < regs.len() {
-                        symbol_table.insert(dest.to_string(), regs[num_regs].to_string());
-                    } else {
-                        asm.push_str("\tsub rsp, 8\n");
-                        symbol_table.insert(
-                            dest.to_string(),
-                            format!("qword [rbp-{}]", (num_regs - regs.len()) * 8),
-                        );
-                    }
-                    num_regs += 1;
+                    insert_reg(dest.clone(), regs, &mut symbol_table, &mut asm);
                 };
                 &format!(
                     "\tset{} {}b\n",
-                    get_cond(cond),
+                    get_cond(&cond),
                     get_value(&dest, &symbol_table)
                 )
             }
@@ -106,14 +87,14 @@ fn get_value(value: &String, symbol_table: &HashMap<String, String>) -> String {
     }
 }
 
-fn get_cond(cond: Cond) -> String {
+fn get_cond(cond: &Cond) -> &str {
     match cond {
-        Cond::Eq => "e".to_string(),
-        Cond::Neq => "ne".to_string(),
-        Cond::Lt => "l".to_string(),
-        Cond::Leq => "le".to_string(),
-        Cond::Gt => "g".to_string(),
-        Cond::Geq => "ge".to_string(),
+        Cond::Eq => "e",
+        Cond::Neq => "ne",
+        Cond::Lt => "l",
+        Cond::Leq => "le",
+        Cond::Gt => "g",
+        Cond::Geq => "ge",
     }
 }
 
@@ -149,5 +130,24 @@ fn get_instruction(src_val: String, dest_val: String, instruction: &Ir) -> Strin
         }
     } else {
         panic!();
+    }
+}
+
+fn insert_reg(
+    dest: String,
+    regs: [&str; 7],
+    symbol_table: &mut HashMap<String, String>,
+    asm: &mut String,
+) {
+    let num_regs = symbol_table.len();
+
+    if num_regs < regs.len() {
+        symbol_table.insert(dest.to_string(), regs[num_regs].to_string());
+    } else {
+        asm.push_str("\tsub rsp, 8\n");
+        symbol_table.insert(
+            dest.to_string(),
+            format!("qword [rbp-{}]", (num_regs - regs.len()) * 8),
+        );
     }
 }

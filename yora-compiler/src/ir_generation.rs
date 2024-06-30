@@ -80,10 +80,20 @@ fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, nums: &mut Nums) -> Strin
         | ExpressionKind::Mul(ref dest, ref src)
         | ExpressionKind::Div(ref dest, ref src)
         | ExpressionKind::Mod(ref dest, ref src) => {
+            nums.tmp += 1;
+            let destination = format!("t{}", nums.tmp);
+
             let arg1 = get_value(dest, tmp_vec, nums);
             let arg2 = get_value(src, tmp_vec, nums);
-            tmp_vec.push(get_operation(expr, arg1.clone(), arg2));
-            arg1
+
+            tmp_vec.push(Ir::Op {
+                dest: destination.clone(),
+                src: arg2.clone(),
+                op: Op::Assign,
+            });
+
+            tmp_vec.push(get_operation(expr, destination.clone(), arg1));
+            destination
         }
         ExpressionKind::Eq(ref dest, ref src)
         | ExpressionKind::Neq(ref dest, ref src)
