@@ -168,6 +168,35 @@ impl Analyzer {
                     ));
                 }
             }
+            ExpressionKind::And(ref dest, ref src) | ExpressionKind::Or(ref dest, ref src) => {
+                self.analyze_expression(src);
+                self.analyze_expression(dest);
+
+                let type1 = self.get_type(src);
+                let type2 = self.get_type(dest);
+
+                if type1 != "bool" || type2 != "bool" {
+                    self.errors.insert(Error::new(
+                        ErrorKind::CannotMakeOperation { type1, type2 },
+                        expr.line,
+                        expr.col,
+                    ));
+                }
+            }
+            ExpressionKind::Not(ref arg) => {
+                self.analyze_expression(arg);
+
+                let type1 = self.get_type(arg);
+
+                if type1 != "bool" {
+                    self.errors.insert(Error::new(
+                        // Todo: add proper error type
+                        ErrorKind::NotACondition,
+                        expr.line,
+                        expr.col,
+                    ));
+                }
+            }
             ExpressionKind::Loop(ref seq) => self.analyze_expression(seq),
             ExpressionKind::Exit(ref val) => {
                 self.analyze_expression(val);
@@ -181,10 +210,7 @@ impl Analyzer {
             | ExpressionKind::Break
             | ExpressionKind::Identifier(..)
             | ExpressionKind::IntLit(..)
-            | ExpressionKind::BoolLit(..)
-            | ExpressionKind::Not(..)
-            | ExpressionKind::And(..)
-            | ExpressionKind::Or(..) => {}
+            | ExpressionKind::BoolLit(..) => {}
         }
     }
 
@@ -208,6 +234,7 @@ impl Analyzer {
             ExpressionKind::BoolLit(..)
             | ExpressionKind::And(..)
             | ExpressionKind::Or(..)
+            | ExpressionKind::Not(..)
             | ExpressionKind::Eq(..)
             | ExpressionKind::Neq(..)
             | ExpressionKind::Lt(..)

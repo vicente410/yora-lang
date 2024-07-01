@@ -263,6 +263,12 @@ impl IrGenerator<'_> {
                 self.inter_repr.push(Ir::Op {
                     dest: destination.clone(),
                     src: arg1.clone(),
+                    op: Op::Assign,
+                });
+
+                self.inter_repr.push(Ir::Op {
+                    dest: destination.clone(),
+                    src: destination.clone(),
                     op: Op::Not,
                 });
 
