@@ -79,7 +79,9 @@ fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, nums: &mut Nums) -> Strin
         | ExpressionKind::Sub(ref dest, ref src)
         | ExpressionKind::Mul(ref dest, ref src)
         | ExpressionKind::Div(ref dest, ref src)
-        | ExpressionKind::Mod(ref dest, ref src) => {
+        | ExpressionKind::Mod(ref dest, ref src)
+        | ExpressionKind::And(ref dest, ref src)
+        | ExpressionKind::Or(ref dest, ref src) => {
             nums.tmp += 1;
             let destination = format!("t{}", nums.tmp);
 
@@ -183,10 +185,6 @@ fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, nums: &mut Nums) -> Strin
             });
             format!("t{}", nums.tmp)
         }
-        _ => {
-            dbg!(expr);
-            panic!("Invalid expression");
-        }
     }
 }
 
@@ -200,6 +198,8 @@ fn get_operation(operation: &Expression, arg1: String, arg2: String) -> Ir {
             ExpressionKind::Mul(..) => Op::Mul,
             ExpressionKind::Div(..) => Op::Div,
             ExpressionKind::Mod(..) => Op::Mod,
+            ExpressionKind::And(..) => Op::And,
+            ExpressionKind::Or(..) => Op::Or,
             _ => panic!("Unexpected operation"),
         },
     }

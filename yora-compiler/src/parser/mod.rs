@@ -220,18 +220,27 @@ fn get_expression(tokens: &[Token]) -> Expression {
                     );
                     get_expression(&new_tokens).kind
                 }
-                _ => match &tokens[len - 2].kind {
-                    TokenKind::Operator => {
-                        let arg1 = Box::new(get_expression(&tokens[0..len - 2]));
-                        let arg2 = Box::new(get_expression(&tokens[len - 1..]));
-                        get_operation(&tokens[len - 2], arg1, arg2).kind
+                _ => {
+                    let mut pos = 0;
+                    let mut priority = 0;
+                    for (i, token) in tokens.iter().enumerate() {
+                        if token.kind == TokenKind::Operator {
+                            if priority <= get_op_priority(&token) {
+                                pos = i;
+                                priority = get_op_priority(&token);
+                            }
+                        }
                     }
-                    _ => {
+                    if priority != 0 {
+                        let arg1 = Box::new(get_expression(&tokens[0..pos]));
+                        let arg2 = Box::new(get_expression(&tokens[pos + 1..]));
+                        get_operation(&tokens[pos], arg1, arg2).kind
+                    } else {
                         println!("Unrecognized expression:");
                         dbg!(tokens);
                         process::exit(1);
                     }
-                },
+                }
             },
         },
         tokens[0].line,
@@ -264,4 +273,19 @@ fn get_operation(operation: &Token, arg1: Box<Expression>, arg2: Box<Expression>
         operation.line,
         operation.col,
     )
+}
+
+fn get_op_priority(operation: &Token) -> u8 {
+    match operation.str.as_str() {
+        "+" | "%" | "-" => 1,
+        "*" | "/" => 2,
+        "!" => 3,
+        "==" | "!=" | "<" | "<=" | ">" | ">=" => 4,
+        "and" | "or" => 5,
+        _ => {
+            println!("Unrecognized operation:");
+            dbg!(operation);
+            process::exit(1);
+        }
+    }
 }

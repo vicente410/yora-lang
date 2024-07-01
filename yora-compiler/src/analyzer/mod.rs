@@ -193,6 +193,8 @@ impl Analyzer {
             }
             ExpressionKind::IntLit(..) => "int".to_string(),
             ExpressionKind::BoolLit(..)
+            | ExpressionKind::And(..)
+            | ExpressionKind::Or(..)
             | ExpressionKind::Eq(..)
             | ExpressionKind::Neq(..)
             | ExpressionKind::Lt(..)
