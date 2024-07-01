@@ -49,26 +49,6 @@ fn get_operation(operation: &Op) -> &str {
     }
 }
 
-fn get_instruction(src_val: String, dest_val: String, instruction: &Ir) -> String {
-    if let Ir::Op { op, .. } = instruction {
-        if src_val.contains('[') && dest_val.contains('[') {
-            format!(
-                "\tpush rax\n\
-                \tmov rax, {}\n\
-                \t{} {}, rax\n\
-                \tpop rax\n",
-                src_val,
-                get_operation(op),
-                dest_val
-            )
-        } else {
-            format!("\t{} {}, {}\n", get_operation(op), dest_val, src_val)
-        }
-    } else {
-        panic!();
-    }
-}
-
 impl Generator {
     fn generate_asm(&mut self, ir: Vec<Ir>) {
         for instruction in ir {
@@ -85,7 +65,7 @@ impl Generator {
                                 get_size_for_type(self.type_table[dest].clone()),
                             );
                         }
-                        &get_instruction(self.get_value(src), self.get_value(dest), &instruction)
+                        &self.get_instruction(src.to_string(), dest.to_string(), &instruction)
                     }
                     Op::Mul | Op::Div => &format!(
                         "\tmov rax, {}\n\
@@ -106,7 +86,7 @@ impl Generator {
                         self.get_value(dest),
                     ),
                     Op::Add | Op::Sub | Op::Not | Op::Cmp | Op::And | Op::Or => {
-                        &get_instruction(self.get_value(src), self.get_value(dest), &instruction)
+                        &self.get_instruction(src.to_string(), dest.to_string(), &instruction)
                     }
                 },
                 Ir::Label(label) => &format!("{}:\n", label),
@@ -130,7 +110,13 @@ impl Generator {
                             get_size_for_type(self.type_table[&dest].clone()),
                         );
                     };
-                    &format!("\tset{} {}b\n", get_cond(&cond), self.get_value(&dest))
+                    if self.get_value(&dest).contains("rbp") {
+                        &format!("\tset{} {}\n", get_cond(&cond), self.get_value(&dest))
+                    } else if self.get_value(&dest).contains("rbx") {
+                        &format!("\tset{} bl\n", get_cond(&cond))
+                    } else {
+                        &format!("\tset{} {}b\n", get_cond(&cond), self.get_value(&dest))
+                    }
                 }
             };
             self.asm.push_str(string);
@@ -162,6 +148,37 @@ impl Generator {
                 ),
             );
             self.current_stack += size;
+        }
+    }
+
+    fn get_instruction(&self, src: String, dest: String, instruction: &Ir) -> String {
+        let src_val = self.get_value(&src);
+        let dest_val = self.get_value(&dest);
+
+        if let Ir::Op { op, .. } = instruction {
+            if src_val.contains('[') && dest_val.contains('[') {
+                let reg = if self.type_table[&src] == "bool" {
+                    "al".to_string()
+                } else {
+                    "rax".to_string()
+                };
+
+                format!(
+                    "\tpush rax\n\
+                \tmov {}, {}\n\
+                \t{} {}, {}\n\
+                \tpop rax\n",
+                    reg,
+                    src_val,
+                    get_operation(op),
+                    dest_val,
+                    reg
+                )
+            } else {
+                format!("\t{} {}, {}\n", get_operation(op), dest_val, src_val)
+            }
+        } else {
+            panic!();
         }
     }
 }
