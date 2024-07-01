@@ -44,14 +44,14 @@ struct Nums {
     loops: u32,
 }
 
-pub struct IrGenerator {
-    type_table: HashMap<String, String>,
+pub struct IrGenerator<'a> {
+    type_table: &'a mut HashMap<String, String>,
     nums: Nums,
     inter_repr: Vec<Ir>,
 }
 
-impl IrGenerator {
-    fn new(type_table: HashMap<String, String>) -> IrGenerator {
+impl IrGenerator<'_> {
+    fn new(type_table: &mut HashMap<String, String>) -> IrGenerator {
         IrGenerator {
             type_table,
             nums: Nums {
@@ -305,7 +305,7 @@ impl IrGenerator {
 }
 
 pub fn generate_ir(ast: Vec<Expression>, type_table: &mut HashMap<String, String>) -> Vec<Ir> {
-    let mut generator = IrGenerator::new(type_table.clone());
+    let mut generator = IrGenerator::new(type_table);
 
     generator.gen_ir(ast);
 
