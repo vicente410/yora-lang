@@ -85,9 +85,15 @@ impl Generator {
                         self.get_value(src),
                         self.get_value(dest),
                     ),
-                    Op::Add | Op::Sub | Op::Not | Op::Cmp | Op::And | Op::Or => {
+                    Op::Add | Op::Sub | Op::Cmp | Op::And | Op::Or => {
                         &self.get_instruction(src.to_string(), dest.to_string(), &instruction)
                     }
+                    Op::Not => &format!(
+                        "\tnot {}\n\
+                        \tand {}, 1\n",
+                        self.get_value(dest),
+                        self.get_value(dest),
+                    ),
                 },
                 Ir::Label(label) => &format!("{}:\n", label),
                 Ir::Jmp { label } => &format!("\tjmp {}\n", label),
