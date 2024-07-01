@@ -117,7 +117,9 @@ impl Compiler {
         let ir = optimize(generate_ir(ast));
 
         if self.flags.contains(&Flag::Debug(DebugOptions::Ir)) {
-            dbg!(&ir);
+            for instr in ir {
+                println!("{}", instr);
+            }
             process::exit(0);
         }
 
