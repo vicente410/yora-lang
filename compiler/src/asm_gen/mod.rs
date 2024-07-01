@@ -144,7 +144,7 @@ impl Generator {
             self.symbol_table
                 .insert(dest.to_string(), self.regs[num_regs].to_string());
         } else {
-            self.asm.push_str(format!("\tsub rsp, {}\n", size).as_str());
+            //self.asm.push_str(format!("\tsub rsp, {}\n", size).as_str());
             self.symbol_table.insert(
                 dest.to_string(),
                 format!(
