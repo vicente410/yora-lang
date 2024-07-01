@@ -104,7 +104,7 @@ impl IrGenerator<'_> {
 
                 self.inter_repr.push(Ir::Op {
                     dest: destination.clone(),
-                    src: arg2.clone(),
+                    src: arg1.clone(),
                     op: Op::Assign,
                 });
 
@@ -112,7 +112,7 @@ impl IrGenerator<'_> {
                     .insert(destination.clone(), self.type_table[&arg2].clone());
 
                 self.inter_repr
-                    .push(IrGenerator::get_operation(expr, destination.clone(), arg1));
+                    .push(IrGenerator::get_operation(expr, destination.clone(), arg2));
                 destination
             }
             ExpressionKind::Eq(ref dest, ref src)
