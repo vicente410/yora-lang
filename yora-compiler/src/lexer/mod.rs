@@ -143,7 +143,7 @@ pub fn lex(source: String) -> Vec<Token> {
 
     while let Some(ch) = chars.next() {
         if buffer.str == "//" {
-            while let Some(next_ch) = chars.next() {
+            for next_ch in chars.by_ref() {
                 cursor.advance(next_ch);
                 if next_ch == '\n' {
                     break;

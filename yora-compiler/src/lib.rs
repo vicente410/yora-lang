@@ -112,9 +112,9 @@ impl Compiler {
             process::exit(0);
         }
 
-        analyze(&ast);
-
-        let ir = optimize(generate_ir(ast));
+        let type_table = &mut analyze(&ast);
+        let (ir, type_table) = generate_ir(ast.clone(), type_table);
+        // let ir = optimize(ir);
 
         if self.flags.contains(&Flag::Debug(DebugOptions::Ir)) {
             for instr in ir {
@@ -123,7 +123,7 @@ impl Compiler {
             process::exit(0);
         }
 
-        generate_asm(ir)
+        generate_asm(ir, type_table)
     }
 
     fn assemble(&self) {

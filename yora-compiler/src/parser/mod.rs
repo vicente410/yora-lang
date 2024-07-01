@@ -75,7 +75,7 @@ fn get_sequence(tokens: &[Token]) -> Expression {
 
     if tokens.len() == 1 {
         sequence.push(Expression::new(
-            get_expression(&tokens).kind,
+            get_expression(tokens).kind,
             tokens[start].line,
             tokens[start].col,
         ));
@@ -253,11 +253,9 @@ fn get_expression(tokens: &[Token]) -> Expression {
                     let mut pos = 0;
                     let mut priority = 0;
                     for (i, token) in tokens.iter().enumerate() {
-                        if token.kind == TokenKind::Operator {
-                            if priority <= get_op_priority(&token) {
-                                pos = i;
-                                priority = get_op_priority(&token);
-                            }
+                        if token.kind == TokenKind::Operator && priority <= get_op_priority(token) {
+                            pos = i;
+                            priority = get_op_priority(token);
                         }
                     }
                     if priority != 0 {
@@ -306,8 +304,8 @@ fn get_operation(operation: &Token, arg1: Box<Expression>, arg2: Box<Expression>
 
 fn get_op_priority(operation: &Token) -> u8 {
     match operation.str.as_str() {
-        "+" | "%" | "-" => 1,
-        "*" | "/" => 2,
+        "*" | "/" => 1,
+        "+" | "%" | "-" => 2,
         "!" => 3,
         "==" | "!=" | "<" | "<=" | ">" | ">=" => 4,
         "and" | "or" => 5,

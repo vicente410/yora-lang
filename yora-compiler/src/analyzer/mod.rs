@@ -46,7 +46,7 @@ struct Analyzer {
     symbol_table: HashMap<String, String>,
 }
 
-pub fn analyze(ast: &Vec<Expression>) {
+pub fn analyze(ast: &Vec<Expression>) -> HashMap<String, String> {
     let mut analyzer = Analyzer::new();
 
     for expr in ast {
@@ -60,6 +60,8 @@ pub fn analyze(ast: &Vec<Expression>) {
     if !analyzer.errors.is_empty() {
         process::exit(1);
     }
+
+    analyzer.symbol_table
 }
 
 impl Analyzer {
