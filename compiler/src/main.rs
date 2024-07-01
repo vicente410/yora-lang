@@ -1,6 +1,6 @@
 use std::env;
 use std::process;
-use yora_compiler::*;
+use yorac::*;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -61,7 +61,7 @@ fn parse_args(args: Vec<String>) -> (String, String, Vec<Flag>) {
 
             "-h" | "--help" => {
                 print!(
-                    "Usage: yora-compiler [options] file\n\
+                    "Usage: yorac [options] file\n\
                         Option:\n\
                         \t-h, --help\t\t\tDisplay this message\n\
                         \t-o, --output <filename>\t\tWrite output to <filename>\n\

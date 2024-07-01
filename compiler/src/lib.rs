@@ -112,8 +112,8 @@ impl Compiler {
             process::exit(0);
         }
 
-        let type_table = &mut analyze(&ast);
-        let ir = generate_ir(ast.clone(), type_table);
+        let mut type_table = analyze(&ast);
+        let ir = generate_ir(ast.clone(), &mut type_table);
         // let ir = optimize(ir);
 
         if self.flags.contains(&Flag::Debug(DebugOptions::Ir)) {
@@ -123,7 +123,7 @@ impl Compiler {
             process::exit(0);
         }
 
-        generate_asm(ir, type_table)
+        generate_asm(ir, &mut type_table)
     }
 
     fn assemble(&self) {
