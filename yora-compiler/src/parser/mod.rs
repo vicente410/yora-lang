@@ -27,7 +27,9 @@ pub enum ExpressionKind {
     // Control flow
     Sequence(Vec<Expression>),
     If(Box<Expression>, Box<Expression>),
+    IfElse(Box<Expression>, Box<Expression>, Box<Expression>),
     Loop(Box<Expression>),
+    Continue,
     Break,
 
     // Variables
@@ -71,6 +73,13 @@ fn get_sequence(tokens: &[Token]) -> Expression {
     let mut mid = 0;
     let mut end = 0;
 
+    if tokens.len() == 1 {
+        sequence.push(Expression::new(
+            get_expression(&tokens).kind,
+            tokens[start].line,
+            tokens[start].col,
+        ));
+    }
     while end + 1 < tokens.len() {
         if tokens[start].str == "if" || tokens[start].str == "loop" || tokens[start].str == "while"
         {
@@ -86,14 +95,33 @@ fn get_sequence(tokens: &[Token]) -> Expression {
             }
 
             sequence.push(match tokens[start].str.as_str() {
-                "if" => Expression::new(
-                    ExpressionKind::If(
-                        Box::new(get_expression(&tokens[start + 1..mid])),
-                        Box::new(get_sequence(&tokens[mid + 1..end])),
-                    ),
-                    tokens[start].line,
-                    tokens[start].col,
-                ),
+                "if" => {
+                    if end < tokens.len() && tokens[end].str == "else" {
+                        let end_if = end;
+                        end += 1;
+                        while end < tokens.len() && tokens[end_if].col < tokens[end].col {
+                            end += 1;
+                        }
+                        Expression::new(
+                            ExpressionKind::IfElse(
+                                Box::new(get_expression(&tokens[start + 1..mid])),
+                                Box::new(get_sequence(&tokens[mid + 1..end_if])),
+                                Box::new(get_sequence(&tokens[end_if + 2..end])),
+                            ),
+                            tokens[start].line,
+                            tokens[start].col,
+                        )
+                    } else {
+                        Expression::new(
+                            ExpressionKind::If(
+                                Box::new(get_expression(&tokens[start + 1..mid])),
+                                Box::new(get_sequence(&tokens[mid + 1..end])),
+                            ),
+                            tokens[start].line,
+                            tokens[start].col,
+                        )
+                    }
+                }
                 "loop" => Expression::new(
                     ExpressionKind::Loop(Box::new(get_sequence(&tokens[mid + 1..end]))),
                     tokens[start].line,
@@ -157,6 +185,7 @@ fn get_expression(tokens: &[Token]) -> Expression {
                 TokenKind::BoolLit => ExpressionKind::BoolLit(tokens[0].str.to_string()),
                 TokenKind::IntLit => ExpressionKind::IntLit(tokens[0].str.to_string()),
                 TokenKind::Keyword => match tokens[0].str.as_str() {
+                    "continue" => ExpressionKind::Continue,
                     "break" => ExpressionKind::Break,
                     _ => {
                         println!("Unrecognized expression:");

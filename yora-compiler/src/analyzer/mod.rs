@@ -136,6 +136,16 @@ impl Analyzer {
                         .insert(Error::new(ErrorKind::NotACondition, cond.line, cond.col));
                 }
             }
+            ExpressionKind::IfElse(ref cond, ref if_seq, ref else_seq) => {
+                self.analyze_expression(cond);
+                self.analyze_expression(if_seq);
+                self.analyze_expression(else_seq);
+
+                if self.get_type(cond) != "bool" {
+                    self.errors
+                        .insert(Error::new(ErrorKind::NotACondition, cond.line, cond.col));
+                }
+            }
             ExpressionKind::Eq(ref cmp1, ref cmp2)
             | ExpressionKind::Neq(ref cmp1, ref cmp2)
             | ExpressionKind::Lt(ref cmp1, ref cmp2)
@@ -165,7 +175,8 @@ impl Analyzer {
                         .insert(Error::new(ErrorKind::InvalidExitCode, val.line, val.col));
                 }
             }
-            ExpressionKind::Break
+            ExpressionKind::Continue
+            | ExpressionKind::Break
             | ExpressionKind::Identifier(..)
             | ExpressionKind::IntLit(..)
             | ExpressionKind::BoolLit(..)

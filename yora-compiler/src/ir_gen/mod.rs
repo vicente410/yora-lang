@@ -153,6 +153,23 @@ fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, nums: &mut Nums) -> Strin
             tmp_vec.push(Ir::Label(format!("end_if_{}", current_ifs)));
             seq_value
         }
+        ExpressionKind::IfElse(cond, if_seq, else_seq) => {
+            nums.ifs += 1;
+            let current_ifs = nums.ifs;
+            let src = get_value(cond, tmp_vec, nums);
+            tmp_vec.push(Ir::JmpCond {
+                src,
+                label: format!("else_{}", current_ifs),
+            });
+            let if_seq_value = get_value(if_seq, tmp_vec, nums);
+            tmp_vec.push(Ir::Jmp {
+                label: format!("end_if_{}", current_ifs),
+            });
+            tmp_vec.push(Ir::Label(format!("else_{}", current_ifs)));
+            get_value(else_seq, tmp_vec, nums);
+            tmp_vec.push(Ir::Label(format!("end_if_{}", current_ifs)));
+            if_seq_value
+        }
         ExpressionKind::Loop(seq) => {
             tmp_vec.push(Ir::Label(format!("loop_{}", nums.loops)));
             let seq_value = get_value(seq, tmp_vec, nums);
@@ -166,6 +183,12 @@ fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, nums: &mut Nums) -> Strin
         ExpressionKind::Break => {
             tmp_vec.push(Ir::Jmp {
                 label: format!("loop_end_{}", nums.loops),
+            });
+            "".to_string()
+        }
+        ExpressionKind::Continue => {
+            tmp_vec.push(Ir::Jmp {
+                label: format!("loop_{}", nums.loops),
             });
             "".to_string()
         }

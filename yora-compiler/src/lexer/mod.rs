@@ -37,7 +37,7 @@ impl Token {
         }
 
         match string.as_str() {
-            "var" | "if" | "loop" | "while" | "break" => TokenKind::Keyword,
+            "var" | "if" | "else" | "loop" | "while" | "continue" | "break" => TokenKind::Keyword,
 
             "=" | "+" | "-" | "*" | "/" | "%" | "+=" | "-=" | "*=" | "/=" | "%=" | "!" | "and"
             | "or" | "==" | "!=" | "<" | "<=" | ">" | ">=" => TokenKind::Operator,
