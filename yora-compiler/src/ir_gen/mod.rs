@@ -173,7 +173,20 @@ fn get_value(expr: &Expression, tmp_vec: &mut Vec<Ir>, nums: &mut Nums) -> Strin
             }
             get_value(&seq[seq.len() - 1], tmp_vec, nums)
         }
-        _ => panic!("Invalid expression"),
+        ExpressionKind::Not(arg) => {
+            nums.tmp += 1;
+            let arg1 = get_value(arg, tmp_vec, nums);
+            tmp_vec.push(Ir::Op {
+                dest: format!("t{}", nums.tmp),
+                src: arg1.clone(),
+                op: Op::Not,
+            });
+            format!("t{}", nums.tmp)
+        }
+        _ => {
+            dbg!(expr);
+            panic!("Invalid expression");
+        }
     }
 }
 

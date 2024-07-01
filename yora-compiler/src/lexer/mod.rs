@@ -22,7 +22,7 @@ pub enum TokenKind {
 }
 
 impl Token {
-    fn new(buffer: &Buffer) -> Token {
+    pub fn new(buffer: &Buffer) -> Token {
         Token {
             str: buffer.str.clone(),
             kind: Token::get_token_kind(&buffer.str),
@@ -94,11 +94,11 @@ impl fmt::Display for TokenKind {
     }
 }
 
-struct Buffer {
-    str: String,
-    first_ch: char,
-    x: usize,
-    y: usize,
+pub struct Buffer {
+    pub str: String,
+    pub first_ch: char,
+    pub x: usize,
+    pub y: usize,
 }
 
 impl Buffer {

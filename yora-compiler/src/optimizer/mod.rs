@@ -1,4 +1,4 @@
-use crate::ir_generation::*;
+use crate::ir_gen::*;
 
 pub fn optimize(ir: Vec<Ir>) -> Vec<Ir> {
     let mut optimized_ir = ir;

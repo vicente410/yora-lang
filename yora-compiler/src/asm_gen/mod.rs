@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::ir_generation::*;
+use crate::ir_gen::*;
 
 pub fn generate_asm(ir: Vec<Ir>) -> String {
     let mut asm = String::from("global _start\n_start:\n\tmov rbp, rsp\n");

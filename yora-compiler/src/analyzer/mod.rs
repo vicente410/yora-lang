@@ -20,18 +20,18 @@ enum ErrorKind {
 struct Error {
     kind: ErrorKind,
     line: usize,
-    column: usize,
+    col: usize,
 }
 
 impl Error {
-    fn new(kind: ErrorKind, line: usize, column: usize) -> Error {
-        Error { kind, line, column }
+    fn new(kind: ErrorKind, line: usize, col: usize) -> Error {
+        Error { kind, line, col }
     }
 }
 
 impl Ord for Error {
     fn cmp(&self, other: &Self) -> Ordering {
-        (self.line, &self.column).cmp(&(other.line, &other.column))
+        (self.line, &self.col).cmp(&(other.line, &other.col))
     }
 }
 
@@ -84,7 +84,7 @@ impl Analyzer {
                         self.errors.insert(Error::new(
                             ErrorKind::InvalidIdentifier,
                             dest.line,
-                            dest.column,
+                            dest.col,
                         ));
                     }
                 };
@@ -99,7 +99,7 @@ impl Analyzer {
                     self.errors.insert(Error::new(
                         ErrorKind::InvalidAssignment { type1, type2 },
                         src.line,
-                        dest.column,
+                        dest.col,
                     ));
                 }
             }
@@ -118,7 +118,7 @@ impl Analyzer {
                     self.errors.insert(Error::new(
                         ErrorKind::CannotMakeOperation { type1, type2 },
                         expr.line,
-                        expr.column,
+                        expr.col,
                     ));
                 }
             }
@@ -132,11 +132,8 @@ impl Analyzer {
                 self.analyze_expression(seq);
 
                 if self.get_type(cond) != "bool" {
-                    self.errors.insert(Error::new(
-                        ErrorKind::NotACondition,
-                        cond.line,
-                        cond.column,
-                    ));
+                    self.errors
+                        .insert(Error::new(ErrorKind::NotACondition, cond.line, cond.col));
                 }
             }
             ExpressionKind::Eq(ref cmp1, ref cmp2)
@@ -155,7 +152,7 @@ impl Analyzer {
                     self.errors.insert(Error::new(
                         ErrorKind::InvalidComparison { type1, type2 },
                         cmp1.line,
-                        cmp1.column,
+                        cmp1.col,
                     ));
                 }
             }
@@ -164,11 +161,8 @@ impl Analyzer {
                 self.analyze_expression(val);
 
                 if self.get_type(val) != "int" {
-                    self.errors.insert(Error::new(
-                        ErrorKind::InvalidExitCode,
-                        val.line,
-                        val.column,
-                    ));
+                    self.errors
+                        .insert(Error::new(ErrorKind::InvalidExitCode, val.line, val.col));
                 }
             }
             ExpressionKind::Break
@@ -192,7 +186,7 @@ impl Analyzer {
                             var: id.to_string(),
                         },
                         expr.line,
-                        expr.column,
+                        expr.col,
                     ));
                     "null".to_string()
                 }
@@ -222,44 +216,44 @@ fn print_error(error: &Error) {
     match &error.kind {
         ErrorKind::UndeclaredVariable { var } => {
             println!(
-                "Variable with name {var} undeclared [line {}: column {}]",
-                error.line, error.column
+                "Variable with name {var} undeclared [line {}: col {}]",
+                error.line, error.col
             )
         }
         ErrorKind::CannotMakeOperation { type1, type2 } => {
             println!(
-                "Can't make an operation between ints, types {type1} and {type2} were given [line {}: column {}]",
-                error.line, error.column
+                "Can't make an operation between ints, types {type1} and {type2} were given [line {}: col {}]",
+                error.line, error.col
             )
         }
         ErrorKind::NotACondition => {
             println!(
-                "Invalid condition for if statement [line {}: column {}]",
-                error.line, error.column
+                "Invalid condition for if statement [line {}: col {}]",
+                error.line, error.col
             )
         }
         ErrorKind::InvalidComparison { type1, type2 } => {
             println!(
-                "Can't compare type {type1} with type {type2} [line {}: column {}]",
-                error.line, error.column
+                "Can't compare type {type1} with type {type2} [line {}: col {}]",
+                error.line, error.col
             )
         }
         ErrorKind::InvalidExitCode => {
             println!(
-                "Exit codes can only be ints [line {}: column {}]",
-                error.line, error.column
+                "Exit codes can only be ints [line {}: col {}]",
+                error.line, error.col
             )
         }
         ErrorKind::InvalidAssignment { type1, type2 } => {
             println!(
-                "Can't assign variable with type {type1} to expression with type {type2} [line {}: column {}]",
-                error.line, error.column
+                "Can't assign variable with type {type1} to expression with type {type2} [line {}: col {}]",
+                error.line, error.col
             )
         }
         ErrorKind::InvalidIdentifier => {
             println!(
-                "Destination is not a valid identifier [line {}: column {}]",
-                error.line, error.column
+                "Destination is not a valid identifier [line {}: col {}]",
+                error.line, error.col
             )
         }
     }

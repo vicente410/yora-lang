@@ -1,21 +1,21 @@
-use asm_generation::*;
-use ir_generation::*;
+use analyzer::analyze;
+use asm_gen::*;
+use ir_gen::*;
 use lexer::*;
 use optimizer::optimize;
 use parser::*;
-use semantic_analyzer::analyze;
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
 use std::process;
 use std::process::Command;
 
-pub mod asm_generation;
-pub mod ir_generation;
+pub mod analyzer;
+pub mod asm_gen;
+pub mod ir_gen;
 pub mod lexer;
 pub mod optimizer;
 pub mod parser;
-pub mod semantic_analyzer;
 
 #[derive(Eq, Debug, Hash, PartialEq)]
 pub enum Flag {
@@ -106,7 +106,9 @@ impl Compiler {
         let ast = parse(tokens);
 
         if self.flags.contains(&Flag::Debug(DebugOptions::Ast)) {
-            dbg!(&ast);
+            for expr in &ast {
+                println!("{}", expr);
+            }
             process::exit(0);
         }
 
