@@ -130,7 +130,7 @@ fn get_if_expr(tokens: &[Token]) -> Expression {
             )
         } else {
             ExpressionKind::If(
-                Box::new(get_expression(&tokens[1..start_seq])),
+                Box::new(get_expression(&tokens[start..start_seq])),
                 Box::new(get_sequence(&tokens[start_seq..])),
             )
         },
