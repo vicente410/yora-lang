@@ -63,7 +63,7 @@ pub fn parse(tokens: Vec<Token>) -> Vec<Expression> {
 fn get_sequence(tokens: &[Token]) -> Expression {
     let mut sequence: Vec<Expression> = Vec::new();
     let mut start = 0;
-    let mut end = 0;
+    let mut end = 1;
 
     if tokens.len() == 1 {
         sequence.push(Expression::new(
@@ -77,15 +77,15 @@ fn get_sequence(tokens: &[Token]) -> Expression {
         {
             // find last token in the block
             while end + 1 < tokens.len()
-                && (tokens[start].col < tokens[end].col || tokens[end].str == "else")
+                && (tokens[end].str == "else" || tokens[start].col < tokens[end].col)
             {
                 end += 1;
             }
 
             sequence.push(match tokens[start].str.as_str() {
-                "if" => get_if_expr(&tokens[start..end]),
-                "loop" => get_loop_expr(&tokens[start..end]),
-                "while" => get_while_expr(&tokens[start..end]),
+                "if" => get_if_expr(&tokens[start..=end]),
+                "loop" => get_loop_expr(&tokens[start..=end]),
+                "while" => get_while_expr(&tokens[start..=end]),
                 _ => panic!(),
             })
         } else {
@@ -111,7 +111,7 @@ fn get_if_expr(tokens: &[Token]) -> Expression {
     let mut end_seq = 1;
 
     // find end of condition
-    while start_seq < tokens.len() && tokens[0].line == tokens[start_seq].line {
+    while start_seq + 1 < tokens.len() && tokens[0].line == tokens[start_seq].line {
         start_seq += 1;
     }
 
@@ -128,6 +128,7 @@ fn get_if_expr(tokens: &[Token]) -> Expression {
                 Box::new(get_sequence(&tokens[end_seq + 1..])),
             )
         } else {
+            println!("aaaaaaaaaa");
             ExpressionKind::If(
                 Box::new(get_expression(&tokens[1..start_seq])),
                 Box::new(get_sequence(&tokens[start_seq..])),
