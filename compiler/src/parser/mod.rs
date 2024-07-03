@@ -73,10 +73,7 @@ fn get_sequence(tokens: &[Token]) -> Expression {
         ));
     }
     while end + 1 < tokens.len() {
-        if tokens[start].str == "if"
-            || tokens[start].str == "loop"
-            || tokens[start].str == "while"
-            || tokens[start].str == "else"
+        if tokens[start].str == "if" || tokens[start].str == "loop" || tokens[start].str == "while"
         {
             // find last token in the block
             while end + 1 < tokens.len()
@@ -87,7 +84,6 @@ fn get_sequence(tokens: &[Token]) -> Expression {
 
             sequence.push(match tokens[start].str.as_str() {
                 "if" => get_if_expr(&tokens[start..=end]),
-                "else" => get_if_expr(&tokens[start..=end]),
                 "loop" => get_loop_expr(&tokens[start..=end]),
                 "while" => get_while_expr(&tokens[start..=end]),
                 _ => panic!(),
@@ -111,8 +107,9 @@ fn get_sequence(tokens: &[Token]) -> Expression {
 }
 
 fn get_if_expr(tokens: &[Token]) -> Expression {
-    let mut start_seq = 0;
-    let mut end_seq = 1;
+    let start = if tokens[0].str == "else" { 2 } else { 1 };
+    let mut start_seq = start;
+    let mut end_seq = start + 1;
 
     // find end of condition
     while start_seq + 1 < tokens.len() && tokens[0].line == tokens[start_seq].line {
@@ -127,9 +124,9 @@ fn get_if_expr(tokens: &[Token]) -> Expression {
     Expression::new(
         if tokens[end_seq].str == "else" {
             ExpressionKind::IfElse(
-                Box::new(get_expression(&tokens[1..start_seq])),
+                Box::new(get_expression(&tokens[start..start_seq])),
                 Box::new(get_sequence(&tokens[start_seq..end_seq])),
-                Box::new(get_sequence(&tokens[end_seq + 1..])),
+                Box::new(get_else_expr(&tokens[end_seq..])),
             )
         } else {
             ExpressionKind::If(
@@ -144,8 +141,9 @@ fn get_if_expr(tokens: &[Token]) -> Expression {
 
 fn get_else_expr(tokens: &[Token]) -> Expression {
     if tokens[1].str == "if" {
+        get_if_expr(tokens)
     } else {
-        get_sequence(&tokens[start_seq..])
+        get_sequence(&tokens[1..])
     }
 }
 
