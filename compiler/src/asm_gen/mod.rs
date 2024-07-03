@@ -138,6 +138,13 @@ impl Generator {
                                     get_size_for_type(self.type_table[dest].clone()),
                                 );
                             };
+
+                            self.asm.push_str(&format!(
+                                "\tcmp {}, {}\n",
+                                self.get_value(src1),
+                                self.get_value(src2),
+                            ));
+
                             if self.get_value(&dest).contains("rbp") {
                                 &format!("\tset{} {}\n", get_rel_op(&op), self.get_value(&dest))
                             } else if self.get_value(&dest).contains("rbx") {
@@ -152,7 +159,7 @@ impl Generator {
                 Ir::Goto { label } => &format!("\tjmp {}\n", label),
                 Ir::IfGoto { src, label } => &format!(
                     "\tcmp {}, 0\n\
-                    \tjne {}\n",
+                    \tje {}\n",
                     self.get_value(&src),
                     label
                 ),
