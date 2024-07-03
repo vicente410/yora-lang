@@ -5,7 +5,7 @@ syn match number '\d\+'
 syn keyword boolean true false
 syn region strings start="\"" end="\""
 "syn region comments start="/\*" end="\*/"
-syn match comments "//.*$"
+syn match comments "#.*$"
 
 let b:current_syntax = "yora"
 
