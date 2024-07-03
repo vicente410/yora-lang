@@ -64,7 +64,21 @@ impl Generator {
                                 get_size_for_type(self.type_table[dest].clone()),
                             );
                         }
-                        &self.get_instruction(src.to_string(), dest.to_string(), &instruction)
+
+                        let src_val = self.get_value(src);
+                        let dest_val = self.get_value(dest);
+
+                        if src_val.contains("[") && dest_val.contains("[") {
+                            &format!(
+                                "\tpush rax\n\
+                                \tmov rax, {}\n\
+                                \tmov {}, rax\n\
+                                \tpop rax\n",
+                                src_val, dest_val,
+                            )
+                        } else {
+                            &format!("\tmov {}, {}\n", dest_val, src_val)
+                        }
                     }
                     Op1::Not => &format!(
                         "\tnot {}\n\
@@ -78,29 +92,62 @@ impl Generator {
                     ref src1,
                     ref op,
                     ref src2,
-                } => match op {
-                    Op2::Add | Op2::Sub | Op2::And | Op2::Or => {
-                        &self.get_instruction(src.to_string(), dest.to_string(), &instruction)
+                } => {
+                    if !self.symbol_table.contains_key(dest) {
+                        self.insert_reg(
+                            dest.clone(),
+                            get_size_for_type(self.type_table[dest].clone()),
+                        );
                     }
-                    Op2::Mul | Op2::Div => &format!(
-                        "\tmov rax, {}\n\
-                        \t{} {}\n\
-                        \tmov {}, rax\n",
-                        self.get_value(dest),
-                        get_arit_op(op),
-                        self.get_value(src),
-                        self.get_value(dest),
-                    ),
-                    Op2::Mod => &format!(
-                        "\tmov rax, {}\n\
-                        \t{} {}\n\
-                        \tmov {}, rdx\n",
-                        self.get_value(dest),
-                        get_arit_op(op),
-                        self.get_value(src),
-                        self.get_value(dest),
-                    ),
-                },
+
+                    match op {
+                        Op2::Add | Op2::Sub | Op2::And | Op2::Or => &self.get_instruction_op(
+                            src1.to_string(),
+                            src2.to_string(),
+                            dest.to_string(),
+                            &instruction,
+                        ),
+                        Op2::Mul | Op2::Div => &format!(
+                            "\tmov {}, {}\n\
+                            \tmov rax, {}\n\
+                            \t{} {}\n\
+                            \tmov {}, rax\n",
+                            self.get_value(dest),
+                            self.get_value(src2),
+                            self.get_value(src1),
+                            get_arit_op(op),
+                            self.get_value(dest),
+                            self.get_value(dest),
+                        ),
+                        Op2::Mod => &format!(
+                            "\tmov {}, {}\n\
+                            \tmov rax, {}\n\
+                            \t{} {}\n\
+                            \tmov {}, rdx\n",
+                            self.get_value(dest),
+                            self.get_value(src1),
+                            self.get_value(src2),
+                            get_arit_op(op),
+                            self.get_value(dest),
+                            self.get_value(dest),
+                        ),
+                        Op2::Eq | Op2::Neq | Op2::Lt | Op2::Leq | Op2::Gt | Op2::Geq => {
+                            if !self.symbol_table.contains_key(dest) {
+                                self.insert_reg(
+                                    dest.clone(),
+                                    get_size_for_type(self.type_table[dest].clone()),
+                                );
+                            };
+                            if self.get_value(&dest).contains("rbp") {
+                                &format!("\tset{} {}\n", get_rel_op(&op), self.get_value(&dest))
+                            } else if self.get_value(&dest).contains("rbx") {
+                                &format!("\tset{} bl\n", get_rel_op(&op))
+                            } else {
+                                &format!("\tset{} {}b\n", get_rel_op(&op), self.get_value(&dest))
+                            }
+                        }
+                    }
+                }
                 Ir::Label(label) => &format!("{}:\n", label),
                 Ir::Goto { label } => &format!("\tjmp {}\n", label),
                 Ir::IfGoto { src, label } => &format!(
@@ -109,27 +156,18 @@ impl Generator {
                     self.get_value(&src),
                     label
                 ),
-                Ir::Param { src } => &format!("mov rdi, {}", self.get_value(&src)),
-                Ir::Call { label } => &format!("call {}", label),
-                Ir::Set { dest, cond } => {
-                    if !self.symbol_table.contains_key(&dest) {
-                        self.insert_reg(
-                            dest.clone(),
-                            get_size_for_type(self.type_table[&dest].clone()),
-                        );
-                    };
-                    if self.get_value(&dest).contains("rbp") {
-                        &format!("\tset{} {}\n", get_rel_op(&cond), self.get_value(&dest))
-                    } else if self.get_value(&dest).contains("rbx") {
-                        &format!("\tset{} bl\n", get_rel_op(&cond))
-                    } else {
-                        &format!("\tset{} {}b\n", get_rel_op(&cond), self.get_value(&dest))
-                    }
-                }
+                Ir::Param { src } => &format!("\tmov rdi, {}\n", self.get_value(&src)),
+                Ir::Call { label } => &format!("\tcall {}\n", label),
                 Ir::Ret { src } => "", // todo
             };
             self.asm.push_str(string);
         }
+        self.asm.push_str(
+            "\n\tmov rdi, 0\n\
+        exit:\n\
+            \tmov rax, 60\n\
+            \tsyscall\n",
+        )
     }
 
     fn get_value(&self, value: &String) -> String {
@@ -160,13 +198,20 @@ impl Generator {
         }
     }
 
-    fn get_instruction(&self, src: String, dest: String, instruction: &Ir) -> String {
-        let src_val = self.get_value(&src);
+    fn get_instruction_op(
+        &mut self,
+        src1: String,
+        src2: String,
+        dest: String,
+        instruction: &Ir,
+    ) -> String {
+        let src_val1 = self.get_value(&src1);
+        let src_val2 = self.get_value(&src2);
         let dest_val = self.get_value(&dest);
 
         if let Ir::Op2 { op, .. } = instruction {
-            if src_val.contains('[') && dest_val.contains('[') {
-                let reg = if self.type_table[&src] == "bool" {
+            if src_val1.contains('[') && src_val2.contains('[') {
+                let reg = if self.type_table[&src1] == "bool" {
                     "al".to_string()
                 } else {
                     "rax".to_string()
@@ -174,17 +219,28 @@ impl Generator {
 
                 format!(
                     "\tpush rax\n\
-                \tmov {}, {}\n\
-                \t{} {}, {}\n\
-                \tpop rax\n",
+                    \tmov {}, {}\n\
+                    \tmov {}, {}\n\
+                    \t{} {}, {}\n\
+                    \tpop rax\n",
                     reg,
-                    src_val,
+                    src_val1,
+                    dest_val,
+                    src_val2,
                     get_arit_op(op),
                     dest_val,
                     reg
                 )
             } else {
-                format!("\t{} {}, {}\n", get_arit_op(op), dest_val, src_val)
+                format!(
+                    "\tmov {}, {}\n\
+                     \t{} {}, {}\n",
+                    dest_val,
+                    src_val1,
+                    get_arit_op(op),
+                    dest_val,
+                    src_val2
+                )
             }
         } else {
             panic!();

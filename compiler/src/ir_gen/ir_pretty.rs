@@ -55,7 +55,6 @@ impl fmt::Display for Op1 {
             "{}",
             match self {
                 Op1::Ass => "",
-                Op1::Neg => "-",
                 Op1::Not => "!",
             }
         )
