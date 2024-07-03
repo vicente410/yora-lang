@@ -73,7 +73,10 @@ fn get_sequence(tokens: &[Token]) -> Expression {
         ));
     }
     while end + 1 < tokens.len() {
-        if tokens[start].str == "if" || tokens[start].str == "loop" || tokens[start].str == "while"
+        if tokens[start].str == "if"
+            || tokens[start].str == "loop"
+            || tokens[start].str == "while"
+            || tokens[start].str == "else"
         {
             // find last token in the block
             while end + 1 < tokens.len()
@@ -84,6 +87,7 @@ fn get_sequence(tokens: &[Token]) -> Expression {
 
             sequence.push(match tokens[start].str.as_str() {
                 "if" => get_if_expr(&tokens[start..=end]),
+                "else" => get_if_expr(&tokens[start..=end]),
                 "loop" => get_loop_expr(&tokens[start..=end]),
                 "while" => get_while_expr(&tokens[start..=end]),
                 _ => panic!(),
@@ -128,7 +132,6 @@ fn get_if_expr(tokens: &[Token]) -> Expression {
                 Box::new(get_sequence(&tokens[end_seq + 1..])),
             )
         } else {
-            println!("aaaaaaaaaa");
             ExpressionKind::If(
                 Box::new(get_expression(&tokens[1..start_seq])),
                 Box::new(get_sequence(&tokens[start_seq..])),
@@ -137,6 +140,13 @@ fn get_if_expr(tokens: &[Token]) -> Expression {
         tokens[0].line,
         tokens[0].col,
     )
+}
+
+fn get_else_expr(tokens: &[Token]) -> Expression {
+    if tokens[1].str == "if" {
+    } else {
+        get_sequence(&tokens[start_seq..])
+    }
 }
 
 fn get_loop_expr(tokens: &[Token]) -> Expression {
