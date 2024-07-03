@@ -54,10 +54,6 @@ pub enum ExpressionKind {
     Leq(Box<Expression>, Box<Expression>),
     Gt(Box<Expression>, Box<Expression>),
     Geq(Box<Expression>, Box<Expression>),
-    /*Not(&'a Expression),
-    And(&'a Expression, &'a Expression),
-    Or(&'a Expression, &'a Expression),
-    Xor(&'a Expression, &'a Expression),*/
 }
 
 pub fn parse(tokens: Vec<Token>) -> Vec<Expression> {
@@ -67,7 +63,6 @@ pub fn parse(tokens: Vec<Token>) -> Vec<Expression> {
 fn get_sequence(tokens: &[Token]) -> Expression {
     let mut sequence: Vec<Expression> = Vec::new();
     let mut start = 0;
-    let mut mid = 0;
     let mut end = 0;
 
     if tokens.len() == 1 {
@@ -80,78 +75,18 @@ fn get_sequence(tokens: &[Token]) -> Expression {
     while end + 1 < tokens.len() {
         if tokens[start].str == "if" || tokens[start].str == "loop" || tokens[start].str == "while"
         {
-            // find ':'
-            while mid < tokens.len() && tokens[mid].str != ":" {
-                mid += 1;
-            }
-            end = mid + 1;
-
             // find last token in the block
-            while end < tokens.len() && tokens[start].col < tokens[end].col {
+            while end + 1 < tokens.len()
+                && (tokens[start].col < tokens[end].col || tokens[end].str == "else")
+            {
                 end += 1;
             }
 
             sequence.push(match tokens[start].str.as_str() {
-                "if" => {
-                    if end < tokens.len() && tokens[end].str == "else" {
-                        let end_if = end;
-                        end += 1;
-                        while end < tokens.len() && tokens[end_if].col < tokens[end].col {
-                            end += 1;
-                        }
-                        Expression::new(
-                            ExpressionKind::IfElse(
-                                Box::new(get_expression(&tokens[start + 1..mid])),
-                                Box::new(get_sequence(&tokens[mid + 1..end_if])),
-                                Box::new(get_sequence(&tokens[end_if + 2..end])),
-                            ),
-                            tokens[start].line,
-                            tokens[start].col,
-                        )
-                    } else {
-                        Expression::new(
-                            ExpressionKind::If(
-                                Box::new(get_expression(&tokens[start + 1..mid])),
-                                Box::new(get_sequence(&tokens[mid + 1..end])),
-                            ),
-                            tokens[start].line,
-                            tokens[start].col,
-                        )
-                    }
-                }
-                "loop" => Expression::new(
-                    ExpressionKind::Loop(Box::new(get_sequence(&tokens[mid + 1..end]))),
-                    tokens[start].line,
-                    tokens[start].col,
-                ),
-                "while" => Expression::new(
-                    ExpressionKind::Loop(Box::new(Expression::new(
-                        ExpressionKind::Sequence(vec![
-                            Expression::new(
-                                ExpressionKind::If(
-                                    Box::new(Expression::new(
-                                        ExpressionKind::Not(Box::new(get_expression(
-                                            &tokens[start + 1..mid],
-                                        ))),
-                                        tokens[start + 1].line,
-                                        tokens[start + 1].col,
-                                    )),
-                                    Box::new(Expression::new(ExpressionKind::Break, 0, 0)),
-                                ),
-                                0,
-                                0,
-                            ),
-                            get_sequence(&tokens[mid + 1..end]),
-                        ]),
-                        tokens[mid + 1].line,
-                        tokens[mid + 1].col,
-                    ))),
-                    tokens[start].line,
-                    tokens[start].col,
-                ),
-                _ => {
-                    panic!();
-                }
+                "if" => get_if_expr(&tokens[start..end]),
+                "loop" => get_loop_expr(&tokens[start..end]),
+                "while" => get_while_expr(&tokens[start..end]),
+                _ => panic!(),
             })
         } else {
             while end < tokens.len() && tokens[start].line == tokens[end].line {
@@ -165,11 +100,83 @@ fn get_sequence(tokens: &[Token]) -> Expression {
         }
 
         start = end;
-        mid = start;
         end += 1;
     }
 
     Expression::new(ExpressionKind::Sequence(sequence), 0, 0)
+}
+
+fn get_if_expr(tokens: &[Token]) -> Expression {
+    let mut start_seq = 0;
+    let mut end_seq = 1;
+
+    // find end of condition
+    while start_seq < tokens.len() && tokens[0].line == tokens[start_seq].line {
+        start_seq += 1;
+    }
+
+    // find end of first block
+    while end_seq + 1 < tokens.len() && tokens[0].col < tokens[end_seq].col {
+        end_seq += 1;
+    }
+
+    Expression::new(
+        if tokens[end_seq].str == "else" {
+            ExpressionKind::IfElse(
+                Box::new(get_expression(&tokens[1..start_seq])),
+                Box::new(get_sequence(&tokens[start_seq..end_seq])),
+                Box::new(get_sequence(&tokens[end_seq + 1..])),
+            )
+        } else {
+            ExpressionKind::If(
+                Box::new(get_expression(&tokens[1..start_seq])),
+                Box::new(get_sequence(&tokens[start_seq..])),
+            )
+        },
+        tokens[0].line,
+        tokens[0].col,
+    )
+}
+
+fn get_loop_expr(tokens: &[Token]) -> Expression {
+    Expression::new(
+        ExpressionKind::Loop(Box::new(get_sequence(&tokens[1..]))),
+        tokens[0].line,
+        tokens[0].col,
+    )
+}
+
+fn get_while_expr(tokens: &[Token]) -> Expression {
+    let mut start_seq = 0;
+
+    // find end of condition
+    while start_seq < tokens.len() && tokens[0].line == tokens[start_seq].line {
+        start_seq += 1;
+    }
+
+    Expression::new(
+        ExpressionKind::Loop(Box::new(Expression::new(
+            ExpressionKind::Sequence(vec![
+                Expression::new(
+                    ExpressionKind::If(
+                        Box::new(Expression::new(
+                            ExpressionKind::Not(Box::new(get_expression(&tokens[1..start_seq]))),
+                            tokens[1].line,
+                            tokens[1].col,
+                        )),
+                        Box::new(Expression::new(ExpressionKind::Break, 0, 0)),
+                    ),
+                    0,
+                    0,
+                ),
+                get_sequence(&tokens[start_seq..]),
+            ]),
+            tokens[start_seq].line,
+            tokens[start_seq].col,
+        ))),
+        tokens[start_seq].line,
+        tokens[start_seq].col,
+    )
 }
 
 fn get_expression(tokens: &[Token]) -> Expression {

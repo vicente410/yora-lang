@@ -5,7 +5,7 @@ syn keyword boolean true false
 syn region string start="\"" end="\""
 syn keyword type i8 i16 i32 i64 u8 u16 u32 u64 f32 f64 bool
 syn match function "\<\h\w*\ze\_s\{-}(\%(\*\h\w*)\_s\{-}(\)\@!"
-syn match comments "#.*$"
+syn match comment "#.*$"
 "syn region comments start="/\*" end="\*/"
 
 let b:current_syntax = "yora"
