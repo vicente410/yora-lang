@@ -1,55 +1,62 @@
 use std::fmt;
 
-use crate::Cond;
 use crate::Ir;
-use crate::Op;
+use crate::Op1;
+use crate::Op2;
 
 impl fmt::Display for Ir {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Ir::Op { dest, src, op } => write!(f, "    {} {} {}", dest, op, src),
-            Ir::Exit { src } => write!(f, "exit {}", src),
-            Ir::Set { dest, cond } => write!(f, "set{} {}", cond, dest),
+            Ir::Op1 { dest, op, src } => write!(f, "    {} = {}{}", dest, op, src),
+            Ir::Op2 {
+                dest,
+                src1,
+                op,
+                src2,
+            } => write!(f, "    {} = {} {} {}", dest, src1, op, src2),
             Ir::Label(str) => write!(f, "{}:", str),
-            Ir::Jmp { label } => write!(f, "jmp {}", label),
-            Ir::JmpCond { src, label } => write!(f, "if {} jmp {}", src, label),
+            Ir::Goto { label } => write!(f, "    goto {}", label),
+            Ir::IfGoto { src, label } => write!(f, "    if {} goto {}", src, label),
+            Ir::Param { src } => write!(f, "    param {}", src),
+            Ir::Call { label } => write!(f, "    call {}", label),
+            Ir::Ret { src } => write!(f, "    ret {}", src),
         }
     }
 }
 
-impl fmt::Display for Op {
+impl fmt::Display for Op2 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{}",
             match self {
-                Op::Assign => ":=",
-                Op::Add => "+=",
-                Op::Sub => "-=",
-                Op::Mul => "*=",
-                Op::Div => "/=",
-                Op::Mod => "%=",
-                Op::Not => "!=",
-                Op::And => "&=",
-                Op::Or => "|=",
-                Op::Cmp => "cmp",
+                Op2::Add => "+",
+                Op2::Sub => "-",
+                Op2::Mul => "*",
+                Op2::Div => "/",
+                Op2::Mod => "%",
+                Op2::And => "&",
+                Op2::Or => "|",
+                Op2::Eq => "==",
+                Op2::Neq => "!=",
+                Op2::Lt => "<",
+                Op2::Leq => "<=",
+                Op2::Gt => ">",
+                Op2::Geq => ">=",
             }
         )
     }
 }
 
-impl fmt::Display for Cond {
+impl fmt::Display for Op1 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{}",
             match self {
-                Cond::Eq => "e",
-                Cond::Neq => "ne",
-                Cond::Lt => "l",
-                Cond::Leq => "le",
-                Cond::Gt => "g",
-                Cond::Geq => "ge",
+                Op1::Ass => "",
+                Op1::Neg => "-",
+                Op1::Not => "!",
             }
         )
     }

@@ -3,13 +3,13 @@ use crate::ir_gen::*;
 pub fn optimize(ir: Vec<Ir>) -> Vec<Ir> {
     let mut optimized_ir = ir;
 
-    optimized_ir = remove_self_assign(optimized_ir);
-    optimized_ir = constant_propagation(optimized_ir);
+    //optimized_ir = remove_self_assign(optimized_ir);
+    //optimized_ir = constant_propagation(optimized_ir);
 
     optimized_ir
 }
 
-fn remove_self_assign(ir: Vec<Ir>) -> Vec<Ir> {
+/*fn remove_self_assign(ir: Vec<Ir>) -> Vec<Ir> {
     let mut new_ir = ir.clone();
     let mut num_removed = 0;
 
@@ -83,4 +83,4 @@ fn replace_with_constants(ir: &mut Vec<Ir>, source: &String, constant: &String) 
         }
     }
     needed
-}
+}*/

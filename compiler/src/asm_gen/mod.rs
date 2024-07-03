@@ -19,11 +19,11 @@ pub fn generate_asm(ir: Vec<Ir>, type_table: &mut HashMap<String, String>) -> St
         current_stack: 0,
     };
 
-    generator.generate_asm(ir);
+    //generator.generate_asm(ir);
     generator.asm
 }
 
-fn get_cond(cond: &Cond) -> &str {
+/*fn get_cond(cond: &Cond) -> &str {
     match cond {
         Cond::Eq => "e",
         Cond::Neq => "ne",
@@ -205,4 +205,4 @@ fn get_size_for_type(type_to_check: String) -> usize {
         "bool" => 1,
         _ => panic!("Invalid type."),
     }
-}
+}*/

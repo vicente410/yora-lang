@@ -6,30 +6,60 @@ pub mod ir_pretty;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Ir {
-    Op { dest: String, src: String, op: Op },
-    Exit { src: String },
-    Set { dest: String, cond: Cond },
+    // Operations
+    Op1 {
+        // operations of arity 1
+        dest: String,
+        op: Op1,
+        src: String,
+    },
+    Op2 {
+        // operations of arity 2
+        dest: String,
+        src1: String,
+        op: Op2,
+        src2: String,
+    },
+
+    // Control-flow
     Label(String),
-    Jmp { label: String },
-    JmpCond { src: String, label: String },
+    Goto {
+        label: String,
+    },
+    IfGoto {
+        // if src != 0 goto label
+        src: String,
+        label: String,
+    },
+
+    // Funcion calls
+    Param {
+        src: String,
+    },
+    Call {
+        label: String,
+    },
+    Ret {
+        src: String,
+    },
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Op {
-    Assign,
-    Cmp,
+pub enum Op1 {
+    Ass,
+    Neg,
+    Not,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Op2 {
     Add,
     Sub,
     Mul,
     Div,
     Mod,
-    Not,
     And,
     Or,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum Cond {
     Eq,
     Neq,
     Lt,
@@ -71,121 +101,101 @@ impl IrGenerator<'_> {
 
     fn get_value(&mut self, expr: &Expression) -> String {
         match &expr.kind {
+            ExpressionKind::Identifier(id) => id.to_string(),
+            ExpressionKind::IntLit(int) => int.to_string(),
+            ExpressionKind::BoolLit(bool) => {
+                if bool == "true" {
+                    "1".to_string()
+                } else {
+                    "0".to_string()
+                }
+            }
             ExpressionKind::Exit(val) => {
                 let arg = self.get_value(val);
-                self.inter_repr.push(Ir::Exit { src: arg.clone() });
+                self.inter_repr.push(Ir::Param { src: arg.clone() });
+                self.inter_repr.push(Ir::Call {
+                    label: "exit".to_string(),
+                });
                 arg
             }
             ExpressionKind::Assign(ref dest, ref src)
             | ExpressionKind::Declare(ref dest, ref src) => {
-                let arg1 = self.get_value(dest);
-                let arg2 = self.get_value(src);
-
-                self.inter_repr.push(Ir::Op {
-                    dest: arg1.clone(),
-                    src: arg2,
-                    op: Op::Assign,
-                });
-
-                arg1
-            }
-            ExpressionKind::Add(ref dest, ref src)
-            | ExpressionKind::Sub(ref dest, ref src)
-            | ExpressionKind::Mul(ref dest, ref src)
-            | ExpressionKind::Div(ref dest, ref src)
-            | ExpressionKind::Mod(ref dest, ref src)
-            | ExpressionKind::And(ref dest, ref src)
-            | ExpressionKind::Or(ref dest, ref src) => {
-                self.nums.tmp += 1;
-                let destination = format!("t{}", self.nums.tmp);
-
-                let arg1 = self.get_value(dest);
-                let arg2 = self.get_value(src);
-
-                self.inter_repr.push(Ir::Op {
-                    dest: destination.clone(),
-                    src: arg1.clone(),
-                    op: Op::Assign,
-                });
-
-                self.type_table
-                    .insert(destination.clone(), self.type_table[&arg2].clone());
-
-                self.inter_repr
-                    .push(IrGenerator::get_operation(expr, destination.clone(), arg2));
-                destination
-            }
-            ExpressionKind::Eq(ref dest, ref src)
-            | ExpressionKind::Neq(ref dest, ref src)
-            | ExpressionKind::Lt(ref dest, ref src)
-            | ExpressionKind::Leq(ref dest, ref src)
-            | ExpressionKind::Gt(ref dest, ref src)
-            | ExpressionKind::Geq(ref dest, ref src) => {
-                let arg1 = self.get_value(dest);
-                let arg2 = self.get_value(src);
-
-                self.inter_repr.push(Ir::Op {
-                    dest: arg1.clone(),
-                    src: arg2,
-                    op: Op::Cmp,
-                });
-
-                self.nums.tmp += 1;
-                let destination = format!("t{}", self.nums.tmp);
-
-                self.type_table
-                    .insert(destination.clone(), "bool".to_string());
-
-                self.inter_repr.push(Ir::Set {
-                    dest: destination,
-                    cond: IrGenerator::get_condition(expr),
-                });
-
-                format!("t{}", self.nums.tmp)
-            }
-            ExpressionKind::IntLit(int) => {
-                self.nums.tmp += 1;
-
-                let destination = format!("t{}", self.nums.tmp);
-
-                self.inter_repr.push(Ir::Op {
-                    dest: destination.clone(),
-                    src: int.to_string(),
-                    op: Op::Assign,
-                });
-
-                self.type_table
-                    .insert(destination.clone(), "int".to_string());
-
-                destination
-            }
-            ExpressionKind::BoolLit(bool) => {
-                self.nums.tmp += 1;
-                let destination = format!("t{}", self.nums.tmp);
-
-                self.inter_repr.push(Ir::Op {
-                    dest: destination.clone(),
-                    src: if bool == "true" {
-                        "1".to_string()
-                    } else {
-                        "0".to_string()
+                let dest_str = self.get_value(dest);
+                // no need to call get_value on not because temporary value can be assigned
+                // directly
+                let instruction = match &src.kind {
+                    ExpressionKind::Not(expr) => Ir::Op1 {
+                        dest: dest_str.clone(),
+                        op: Op1::Not,
+                        src: self.get_value(&expr),
                     },
-                    op: Op::Assign,
+                    ExpressionKind::Add(ref src1, ref src2)
+                    | ExpressionKind::Sub(ref src1, ref src2)
+                    | ExpressionKind::Mul(ref src1, ref src2)
+                    | ExpressionKind::Div(ref src1, ref src2)
+                    | ExpressionKind::Mod(ref src1, ref src2)
+                    | ExpressionKind::And(ref src1, ref src2)
+                    | ExpressionKind::Or(ref src1, ref src2)
+                    | ExpressionKind::Eq(ref src1, ref src2)
+                    | ExpressionKind::Neq(ref src1, ref src2)
+                    | ExpressionKind::Lt(ref src1, ref src2)
+                    | ExpressionKind::Leq(ref src1, ref src2)
+                    | ExpressionKind::Gt(ref src1, ref src2)
+                    | ExpressionKind::Geq(ref src1, ref src2) => Ir::Op2 {
+                        dest: dest_str.clone(),
+                        src1: self.get_value(src1),
+                        op: IrGenerator::get_operation(&src),
+                        src2: self.get_value(src2),
+                    },
+                    _ => Ir::Op1 {
+                        dest: dest_str.clone(),
+                        op: Op1::Ass,
+                        src: self.get_value(src),
+                    },
+                };
+                self.inter_repr.push(instruction);
+
+                dest_str
+            }
+            ExpressionKind::Add(ref src1, ref src2)
+            | ExpressionKind::Sub(ref src1, ref src2)
+            | ExpressionKind::Mul(ref src1, ref src2)
+            | ExpressionKind::Div(ref src1, ref src2)
+            | ExpressionKind::Mod(ref src1, ref src2)
+            | ExpressionKind::And(ref src1, ref src2)
+            | ExpressionKind::Or(ref src1, ref src2)
+            | ExpressionKind::Eq(ref src1, ref src2)
+            | ExpressionKind::Neq(ref src1, ref src2)
+            | ExpressionKind::Lt(ref src1, ref src2)
+            | ExpressionKind::Leq(ref src1, ref src2)
+            | ExpressionKind::Gt(ref src1, ref src2)
+            | ExpressionKind::Geq(ref src1, ref src2) => {
+                self.nums.tmp += 1;
+                let dest = format!("t{}", self.nums.tmp);
+
+                let arg1 = self.get_value(src1);
+                let arg2 = self.get_value(src2);
+
+                self.inter_repr.push(Ir::Op2 {
+                    dest: dest.clone(),
+                    src1: arg1.clone(),
+                    op: IrGenerator::get_operation(expr),
+                    src2: arg2.clone(),
                 });
 
                 self.type_table
-                    .insert(destination.clone(), "bool".to_string());
+                    .insert(dest.clone(), IrGenerator::get_op_type(expr));
 
-                destination
+                dest
             }
-            ExpressionKind::Identifier(id) => id.to_string(),
+
             ExpressionKind::If(cond, seq) => {
                 // todo: remove current_ifs
                 self.nums.ifs += 1;
                 let current_ifs = self.nums.ifs;
                 let src = self.get_value(cond);
 
-                self.inter_repr.push(Ir::JmpCond {
+                self.inter_repr.push(Ir::IfGoto {
                     src,
                     label: format!("end_if_{}", current_ifs),
                 });
@@ -203,13 +213,13 @@ impl IrGenerator<'_> {
 
                 let src = self.get_value(cond);
 
-                self.inter_repr.push(Ir::JmpCond {
+                self.inter_repr.push(Ir::IfGoto {
                     src,
                     label: format!("else_{}", current_ifs),
                 });
 
                 let if_seq_value = self.get_value(if_seq);
-                self.inter_repr.push(Ir::Jmp {
+                self.inter_repr.push(Ir::Goto {
                     label: format!("end_if_{}", current_ifs),
                 });
 
@@ -226,7 +236,7 @@ impl IrGenerator<'_> {
                     .push(Ir::Label(format!("loop_{}", self.nums.loops)));
                 let seq_value = self.get_value(seq);
 
-                self.inter_repr.push(Ir::Jmp {
+                self.inter_repr.push(Ir::Goto {
                     label: format!("loop_{}", self.nums.loops),
                 });
 
@@ -237,13 +247,13 @@ impl IrGenerator<'_> {
                 seq_value
             }
             ExpressionKind::Break => {
-                self.inter_repr.push(Ir::Jmp {
+                self.inter_repr.push(Ir::Goto {
                     label: format!("loop_end_{}", self.nums.loops),
                 });
                 "".to_string()
             }
             ExpressionKind::Continue => {
-                self.inter_repr.push(Ir::Jmp {
+                self.inter_repr.push(Ir::Goto {
                     label: format!("loop_{}", self.nums.loops),
                 });
                 "".to_string()
@@ -260,16 +270,10 @@ impl IrGenerator<'_> {
 
                 let arg1 = self.get_value(arg);
 
-                self.inter_repr.push(Ir::Op {
+                self.inter_repr.push(Ir::Op1 {
                     dest: destination.clone(),
                     src: arg1.clone(),
-                    op: Op::Assign,
-                });
-
-                self.inter_repr.push(Ir::Op {
-                    dest: destination.clone(),
-                    src: destination.clone(),
-                    op: Op::Not,
+                    op: Op1::Not,
                 });
 
                 self.type_table
@@ -280,32 +284,41 @@ impl IrGenerator<'_> {
         }
     }
 
-    fn get_operation(operation: &Expression, arg1: String, arg2: String) -> Ir {
-        Ir::Op {
-            dest: arg1,
-            src: arg2,
-            op: match operation.kind {
-                ExpressionKind::Add(..) => Op::Add,
-                ExpressionKind::Sub(..) => Op::Sub,
-                ExpressionKind::Mul(..) => Op::Mul,
-                ExpressionKind::Div(..) => Op::Div,
-                ExpressionKind::Mod(..) => Op::Mod,
-                ExpressionKind::And(..) => Op::And,
-                ExpressionKind::Or(..) => Op::Or,
-                _ => panic!("Unexpected operation"),
-            },
+    fn get_operation(expr: &Expression) -> Op2 {
+        match expr.kind {
+            ExpressionKind::Add(..) => Op2::Add,
+            ExpressionKind::Sub(..) => Op2::Sub,
+            ExpressionKind::Mul(..) => Op2::Mul,
+            ExpressionKind::Div(..) => Op2::Div,
+            ExpressionKind::Mod(..) => Op2::Mod,
+            ExpressionKind::And(..) => Op2::And,
+            ExpressionKind::Or(..) => Op2::Or,
+            ExpressionKind::Eq(..) => Op2::Eq,
+            ExpressionKind::Neq(..) => Op2::Neq,
+            ExpressionKind::Lt(..) => Op2::Lt,
+            ExpressionKind::Leq(..) => Op2::Leq,
+            ExpressionKind::Gt(..) => Op2::Gt,
+            ExpressionKind::Geq(..) => Op2::Geq,
+            _ => panic!("Given expression does not correspond to an operation."),
         }
     }
 
-    fn get_condition(expr: &Expression) -> Cond {
-        match &expr.kind {
-            ExpressionKind::Eq(..) => Cond::Eq,
-            ExpressionKind::Neq(..) => Cond::Neq,
-            ExpressionKind::Lt(..) => Cond::Lt,
-            ExpressionKind::Leq(..) => Cond::Leq,
-            ExpressionKind::Gt(..) => Cond::Gt,
-            ExpressionKind::Geq(..) => Cond::Geq,
-            _ => panic!("Invalid condition"),
+    fn get_op_type(expr: &Expression) -> String {
+        match expr.kind {
+            ExpressionKind::Add(..)
+            | ExpressionKind::Sub(..)
+            | ExpressionKind::Mul(..)
+            | ExpressionKind::Div(..)
+            | ExpressionKind::Mod(..) => "int".to_string(),
+            ExpressionKind::And(..)
+            | ExpressionKind::Or(..)
+            | ExpressionKind::Eq(..)
+            | ExpressionKind::Neq(..)
+            | ExpressionKind::Lt(..)
+            | ExpressionKind::Leq(..)
+            | ExpressionKind::Gt(..)
+            | ExpressionKind::Geq(..) => "bool".to_string(),
+            _ => panic!("Given expression does not correspond to an operation."),
         }
     }
 }
