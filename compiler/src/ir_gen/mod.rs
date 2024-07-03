@@ -47,7 +47,6 @@ pub enum Ir {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Op1 {
     Ass,
-    Neg,
     Not,
 }
 

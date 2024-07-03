@@ -54,9 +54,6 @@ pub enum ExpressionKind {
     Leq(Box<Expression>, Box<Expression>),
     Gt(Box<Expression>, Box<Expression>),
     Geq(Box<Expression>, Box<Expression>),
-    /*Declaration(Identifier, Option<Expression>),
-    Print(Box<Expression>),
-    LoopBlock(Vec<Statement>),*/
     /*Not(&'a Expression),
     And(&'a Expression, &'a Expression),
     Or(&'a Expression, &'a Expression),
