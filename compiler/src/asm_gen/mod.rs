@@ -152,7 +152,7 @@ impl Generator {
                 Ir::Goto { label } => &format!("\tjmp {}\n", label),
                 Ir::IfGoto { src, label } => &format!(
                     "\tcmp {}, 0\n\
-                    \tje {}\n",
+                    \tjne {}\n",
                     self.get_value(&src),
                     label
                 ),

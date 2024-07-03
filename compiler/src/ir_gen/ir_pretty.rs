@@ -16,7 +16,7 @@ impl fmt::Display for Ir {
             } => write!(f, "    {} = {} {} {}", dest, src1, op, src2),
             Ir::Label(str) => write!(f, "{}:", str),
             Ir::Goto { label } => write!(f, "    goto {}", label),
-            Ir::IfGoto { src, label } => write!(f, "    if {} goto {}", src, label),
+            Ir::IfGoto { src, label } => write!(f, "    if !{} goto {}", src, label),
             Ir::Param { src } => write!(f, "    param {}", src),
             Ir::Call { label } => write!(f, "    call {}", label),
             Ir::Ret { src } => write!(f, "    ret {}", src),
