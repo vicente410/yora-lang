@@ -1,0 +1,29 @@
+# Showcase of Yora 0.1.0, written by Bruno Vicente.
+#
+# This program calculates thee nth prime number.
+# The prime number sequence is as follows:
+#     2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, ...
+#
+# Exit is limited to 8 bits so results larger than 255
+# will not be correctly displayed
+
+var nth_prime = 50 # nth prime number to calculate
+
+var checking = 3 # goes through all numbers until nth prime is found
+var num_found = 1 # number of prime numbers found
+
+if nth_prime <= 1 # nth 1 or invalid
+	exit(2) # exit with 2
+
+while num_found < nth_prime # repeat until nth number is found
+	var div = 2 # used to test if current number has divisors
+	# repeat until number is not prime or divisor equals it
+	while div < checking or checking % div == 0
+		div += 1 # next divisor
+	
+	if div == checking # if checked number is prime
+		num_found += 1 # increment number of primes found
+	if num_found != nth_prime # if not the last iteration
+		checking += 1 # next number to check
+
+exit(checking) # exit with last number checked

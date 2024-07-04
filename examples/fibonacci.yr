@@ -1,0 +1,25 @@
+# Showcase of Yora 0.1.0, written by Bruno Vicente.
+#
+# This program calculates the nth fibonacci number.
+# The fibonacci sequence is as follows:
+#     0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, ...
+#
+# Exit is limited to 8 bits so results larger than 255
+# will not be correctly displayed.
+
+var nth = 13 # nth fibonacci number to calculate
+
+var curr = 1 # i'th fibonacci number
+var prev = 0 # (i-1)'th fibonnaci number
+var i = 2 # current iteration
+
+if nth <= 1 # nth is 1 or invalid
+	exit(0) # exit with 0
+
+while i < nth # repeat until current iteration is nth
+	var next = prev + curr # calculate next number
+	prev = curr # shift previous to current
+	curr = next # shift current to next
+	i += 1 # next iteration
+
+exit(curr) # exit with result
