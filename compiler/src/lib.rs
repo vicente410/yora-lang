@@ -107,7 +107,7 @@ impl Compiler {
             process::exit(0);
         }
 
-        let ast = parse(tokens);
+        let mut ast = parse(tokens);
 
         if self.flags.contains(&Flag::Debug(DebugOptions::Ast)) {
             for expr in &ast {
@@ -116,7 +116,7 @@ impl Compiler {
             process::exit(0);
         }
 
-        let mut type_table = analyze(&ast, &mut errors);
+        let mut type_table = analyze(&mut ast, &mut errors);
         let mut ir = generate_ir(ast.clone(), &mut type_table);
 
         if self.flags.contains(&Flag::Optimize) {

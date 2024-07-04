@@ -8,11 +8,11 @@ struct Analyzer<'a> {
     errors: &'a mut Errors,
 }
 
-pub fn analyze(ast: &Vec<Expression>, errors: &mut Errors) -> HashMap<String, String> {
+pub fn analyze(ast: &mut Vec<Expression>, errors: &mut Errors) -> HashMap<String, String> {
     let mut analyzer = Analyzer::new(errors);
 
     for expr in ast {
-        analyzer.analyze_expression(expr);
+        analyzer.check(expr);
     }
 
     if analyzer.errors.should_abort() {
@@ -30,10 +30,11 @@ impl Analyzer<'_> {
         }
     }
 
-    fn analyze_expression(&mut self, expr: &Expression) {
+    fn check(&mut self, expr: &Expression) {
         match &expr.kind {
-            ExpressionKind::Declare(ref dest, ref src) => {
-                self.analyze_expression(src);
+            ExpressionKind::Declare(ref dest, ref src)
+            | ExpressionKind::Assign(ref dest, ref src) => {
+                self.check(src);
 
                 match &dest.kind {
                     ExpressionKind::Identifier(id) => {
@@ -46,9 +47,48 @@ impl Analyzer<'_> {
                     }
                 };
             }
-            ExpressionKind::Assign(ref dest, ref src) => {
-                self.analyze_expression(src);
+            ExpressionKind::Op(ref arg1, _, ref arg2) => {
+                self.check(arg1);
+                self.check(arg2);
 
+                self.check_type(expr);
+            }
+            ExpressionKind::Sequence(seq) => {
+                for expr in &seq[0..seq.len()] {
+                    self.check(expr);
+                }
+            }
+            ExpressionKind::If(ref cond, ref seq) => {
+                self.check(cond);
+                self.check(seq);
+
+                self.check_type(expr);
+            }
+            ExpressionKind::IfElse(ref cond, ref if_seq, ref else_seq) => {
+                self.check(cond);
+                self.check(if_seq);
+                self.check(else_seq);
+
+                self.check_type(expr);
+            }
+            ExpressionKind::Not(ref arg) => {
+                self.check(arg);
+
+                self.check_type(expr);
+            }
+            ExpressionKind::Loop(ref seq) => self.check(seq),
+            ExpressionKind::Exit(ref val) => {
+                self.check(val);
+
+                self.check_type(expr);
+            }
+            _ => {}
+        }
+    }
+
+    fn check_type(&mut self, expr: &Expression) {
+        match &expr.kind {
+            ExpressionKind::Assign(ref dest, ref src) => {
                 let type1 = self.get_type(src);
                 let type2 = self.get_type(dest);
 
@@ -64,11 +104,9 @@ impl Analyzer<'_> {
                 }
             }
             ExpressionKind::Op(ref arg1, op, ref arg2) => {
-                self.analyze_expression(arg1);
-                self.analyze_expression(arg2);
-
                 let type1 = self.get_type(arg1);
                 let type2 = self.get_type(arg2);
+
                 if match op {
                     Op::And | Op::Or => type1 != "bool" || type2 != "bool",
                     _ => type1 != "int" || type2 != "int",
@@ -84,67 +122,23 @@ impl Analyzer<'_> {
                     );
                 }
             }
-            ExpressionKind::Sequence(seq) => {
-                for expr in &seq[0..seq.len()] {
-                    self.analyze_expression(expr);
-                }
-            }
-            ExpressionKind::If(ref cond, ref seq) => {
-                self.analyze_expression(cond);
-                self.analyze_expression(seq);
-
-                let type1 = self.get_type(cond);
-
-                if type1 != "bool" {
-                    self.errors.add(
-                        ErrorKind::MismatchedTypes {
-                            expected: "bool".to_string(),
-                            found: type1,
-                        },
-                        cond.line,
-                        cond.col,
-                    );
-                }
-            }
-            ExpressionKind::IfElse(ref cond, ref if_seq, ref else_seq) => {
-                self.analyze_expression(cond);
-                self.analyze_expression(if_seq);
-                self.analyze_expression(else_seq);
-
-                let type1 = self.get_type(cond);
-
-                if type1 != "bool" {
-                    self.errors.add(
-                        ErrorKind::MismatchedTypes {
-                            expected: "bool".to_string(),
-                            found: type1,
-                        },
-                        cond.line,
-                        cond.col,
-                    );
-                }
-            }
-            ExpressionKind::Not(ref arg) => {
-                self.analyze_expression(arg);
-
+            ExpressionKind::If(ref arg, ..)
+            | ExpressionKind::IfElse(ref arg, ..)
+            | ExpressionKind::Not(ref arg) => {
                 let type1 = self.get_type(arg);
 
                 if type1 != "bool" {
                     self.errors.add(
-                        // Todo: add proper error type
                         ErrorKind::MismatchedTypes {
                             expected: "bool".to_string(),
                             found: type1,
                         },
-                        expr.line,
-                        expr.col,
+                        arg.line,
+                        arg.col,
                     );
                 }
             }
-            ExpressionKind::Loop(ref seq) => self.analyze_expression(seq),
             ExpressionKind::Exit(ref val) => {
-                self.analyze_expression(val);
-
                 let type1 = self.get_type(val);
 
                 if type1 != "int" {
@@ -158,11 +152,7 @@ impl Analyzer<'_> {
                     );
                 }
             }
-            ExpressionKind::Continue
-            | ExpressionKind::Break
-            | ExpressionKind::Identifier(..)
-            | ExpressionKind::IntLit(..)
-            | ExpressionKind::BoolLit(..) => {}
+            _ => {}
         }
     }
 

@@ -24,7 +24,7 @@ impl Errors {
 
     pub fn print_and_abort(&self) {
         for err in &self.errors {
-            Errors::print_error(&err);
+            Errors::print_error(err);
         }
         process::exit(1);
     }
