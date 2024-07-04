@@ -269,41 +269,42 @@ impl IrGenerator<'_> {
 
     fn get_condition(&mut self, cond: &Expression, kind: &ExpressionKind, num: u32) {
         if let ExpressionKind::Op(src1, op, src2) = &cond.kind {
-            let src1 = self.get_value(src1);
-            let src2 = self.get_value(src2);
-            self.inter_repr.push(Ir::IfGoto {
-                src1,
-                src2,
-                cond: match op {
-                    Op::Eq => Cond::Neq,
-                    Op::Neq => Cond::Eq,
-                    Op::Lt => Cond::Geq,
-                    Op::Leq => Cond::Gt,
-                    Op::Gt => Cond::Leq,
-                    Op::Geq => Cond::Lt,
-                    _ => panic!("Must be a boolean expression"),
-                },
-                label: match kind {
-                    ExpressionKind::If(..) => format!("end_if_{}", num),
-                    ExpressionKind::IfElse(..) => format!("else_{}", num),
-                    ExpressionKind::While(..) => format!("loop_end_{}", num),
-                    _ => panic!("Not a condition expression"),
-                },
-            })
-        } else {
-            let cond_value = self.get_value(cond);
-            self.inter_repr.push(Ir::IfGoto {
-                src1: cond_value,
-                src2: "0".to_string(),
-                cond: Cond::Eq,
-                label: match kind {
-                    ExpressionKind::If(..) => format!("end_if_{}", num),
-                    ExpressionKind::IfElse(..) => format!("else_{}", num),
-                    ExpressionKind::While(..) => format!("loop_end_{}", num),
-                    _ => panic!("Not a condition expression"),
-                },
-            });
+            if *op != Op::And && *op != Op::Or {
+                let src1 = self.get_value(src1);
+                let src2 = self.get_value(src2);
+                return self.inter_repr.push(Ir::IfGoto {
+                    src1,
+                    src2,
+                    cond: match op {
+                        Op::Eq => Cond::Neq,
+                        Op::Neq => Cond::Eq,
+                        Op::Lt => Cond::Geq,
+                        Op::Leq => Cond::Gt,
+                        Op::Gt => Cond::Leq,
+                        Op::Geq => Cond::Lt,
+                        _ => panic!("Must be a boolean expression"),
+                    },
+                    label: match kind {
+                        ExpressionKind::If(..) => format!("end_if_{}", num),
+                        ExpressionKind::IfElse(..) => format!("else_{}", num),
+                        ExpressionKind::While(..) => format!("loop_end_{}", num),
+                        _ => panic!("Not a condition expression"),
+                    },
+                });
+            }
         }
+        let cond_value = self.get_value(cond);
+        self.inter_repr.push(Ir::IfGoto {
+            src1: cond_value,
+            src2: "0".to_string(),
+            cond: Cond::Eq,
+            label: match kind {
+                ExpressionKind::If(..) => format!("end_if_{}", num),
+                ExpressionKind::IfElse(..) => format!("else_{}", num),
+                ExpressionKind::While(..) => format!("loop_end_{}", num),
+                _ => panic!("Not a condition expression"),
+            },
+        });
     }
 }
 

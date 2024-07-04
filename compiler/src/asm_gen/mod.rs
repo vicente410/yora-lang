@@ -116,7 +116,36 @@ impl AsmGenerator {
                             dest.to_string(),
                             &instruction,
                         ),
-                        Op::Mul | Op::Div => &format!(
+                        Op::Mul => {
+                            if src2 == dest {
+                                &format!(
+                                    "\tmov {}, {}\n\
+                                    \tmov rax, {}\n\
+                                    \t{} {}\n\
+                                    \tmov {}, rax\n",
+                                    self.get_value(dest),
+                                    self.get_value(src2),
+                                    self.get_value(src1),
+                                    get_arit_op(op),
+                                    self.get_value(dest),
+                                    self.get_value(dest),
+                                )
+                            } else {
+                                &format!(
+                                    "\tmov {}, {}\n\
+                                    \tmov rax, {}\n\
+                                    \t{} {}\n\
+                                    \tmov {}, rax\n",
+                                    self.get_value(dest),
+                                    self.get_value(src1),
+                                    self.get_value(src2),
+                                    get_arit_op(op),
+                                    self.get_value(dest),
+                                    self.get_value(dest),
+                                )
+                            }
+                        }
+                        Op::Div => &format!(
                             "\tmov {}, {}\n\
                             \tmov rax, {}\n\
                             \t{} {}\n\
