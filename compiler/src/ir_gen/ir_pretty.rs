@@ -22,13 +22,7 @@ impl fmt::Display for Ir {
                 src2,
                 cond,
                 label,
-            } => {
-                if *cond == Cond::Eq && src2 == "0" {
-                    write!(f, "    if !{} goto {}", src1, label)
-                } else {
-                    write!(f, "    if {} {} {} goto {}", src1, cond, src2, label)
-                }
-            }
+            } => write!(f, "    if {} {} {} goto {}", src1, cond, src2, label),
             Ir::Param { src } => write!(f, "    param {}", src),
             Ir::Call { label } => write!(f, "    call {}", label),
             Ir::Ret { src } => write!(f, "    ret {}", src),

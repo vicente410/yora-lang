@@ -186,34 +186,38 @@ impl IrGenerator<'_> {
                 if_seq_value
             }
             ExpressionKind::Loop(seq) => {
+                self.nums.loops += 1;
+                let current_loops = self.nums.loops;
+
                 self.inter_repr
-                    .push(Ir::Label(format!("loop_{}", self.nums.loops)));
+                    .push(Ir::Label(format!("loop_{}", current_loops)));
                 let seq_value = self.get_value(seq);
 
                 self.inter_repr.push(Ir::Goto {
-                    label: format!("loop_{}", self.nums.loops),
+                    label: format!("loop_{}", current_loops),
                 });
 
                 self.inter_repr
-                    .push(Ir::Label(format!("loop_end_{}", self.nums.loops)));
-                self.nums.loops += 1;
+                    .push(Ir::Label(format!("loop_end_{}", current_loops)));
 
                 seq_value
             }
             ExpressionKind::While(cond, seq) => {
-                self.inter_repr
-                    .push(Ir::Label(format!("loop_{}", self.nums.loops)));
+                self.nums.loops += 1;
+                let current_loops = self.nums.loops;
 
-                self.get_condition(cond, &expr.kind, self.nums.loops);
+                self.inter_repr
+                    .push(Ir::Label(format!("loop_{}", current_loops)));
+
+                self.get_condition(cond, &expr.kind, current_loops);
 
                 let seq_value = self.get_value(seq);
                 self.inter_repr.push(Ir::Goto {
-                    label: format!("loop_{}", self.nums.loops),
+                    label: format!("loop_{}", current_loops),
                 });
 
                 self.inter_repr
-                    .push(Ir::Label(format!("loop_end_{}", self.nums.loops)));
-                self.nums.loops += 1;
+                    .push(Ir::Label(format!("loop_end_{}", current_loops)));
 
                 seq_value
             }

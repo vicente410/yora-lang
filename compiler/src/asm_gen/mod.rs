@@ -88,8 +88,8 @@ impl AsmGenerator {
                         // todo: does not account yet for stack, find generic way of dealing
                         // with stack operations instead of this mess
                         "\tmov {}, {}\n\
-                            \tnot {}\n\
-                            \tand {}, 1\n",
+                        \tnot {}\n\
+                        \tand {}, 1\n",
                         self.get_value(dest),
                         self.get_value(src),
                         self.get_value(dest),
@@ -131,11 +131,12 @@ impl AsmGenerator {
                         Op::Mod => &format!(
                             "\tmov {}, {}\n\
                             \tmov rax, {}\n\
+                            \tmov rdx, 0\n\
                             \t{} {}\n\
                             \tmov {}, rdx\n",
                             self.get_value(dest),
-                            self.get_value(src1),
                             self.get_value(src2),
+                            self.get_value(src1),
                             get_arit_op(op),
                             self.get_value(dest),
                             self.get_value(dest),
