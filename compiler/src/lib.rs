@@ -1,5 +1,6 @@
 use analyzer::analyze;
 use asm_gen::*;
+use errors::Errors;
 use ir_gen::*;
 use lexer::*;
 use optimizer::optimize;
@@ -12,6 +13,7 @@ use std::process::Command;
 
 pub mod analyzer;
 pub mod asm_gen;
+pub mod errors;
 pub mod ir_gen;
 pub mod lexer;
 pub mod optimizer;
@@ -95,6 +97,7 @@ impl Compiler {
     }
 
     fn get_assembly(&self, source: String) -> String {
+        let mut errors = Errors::new();
         let tokens = lex(source);
 
         if self.flags.contains(&Flag::Debug(DebugOptions::Tokens)) {
@@ -113,7 +116,7 @@ impl Compiler {
             process::exit(0);
         }
 
-        let mut type_table = analyze(&ast);
+        let mut type_table = analyze(&ast, &mut errors);
         let mut ir = generate_ir(ast.clone(), &mut type_table);
 
         if self.flags.contains(&Flag::Optimize) {
