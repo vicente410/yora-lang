@@ -15,12 +15,10 @@ enum ErrorKind {
         type1: String,
         type2: String,
     },
-    NotACondition,
-    InvalidAssignment {
-        type1: String,
-        type2: String,
+    MismatchedTypes {
+        expected: String,
+        found: String,
     },
-    InvalidExitCode,
     InvalidIdentifier,
 }
 
@@ -107,7 +105,10 @@ impl Analyzer {
 
                 if type1 != type2 {
                     self.errors.insert(Error::new(
-                        ErrorKind::InvalidAssignment { type1, type2 },
+                        ErrorKind::MismatchedTypes {
+                            expected: type1,
+                            found: type2,
+                        },
                         src.line,
                         dest.col,
                     ));
@@ -143,9 +144,17 @@ impl Analyzer {
                 self.analyze_expression(cond);
                 self.analyze_expression(seq);
 
-                if self.get_type(cond) != "bool" {
-                    self.errors
-                        .insert(Error::new(ErrorKind::NotACondition, cond.line, cond.col));
+                let type1 = self.get_type(cond);
+
+                if type1 != "bool" {
+                    self.errors.insert(Error::new(
+                        ErrorKind::MismatchedTypes {
+                            expected: "bool".to_string(),
+                            found: type1,
+                        },
+                        cond.line,
+                        cond.col,
+                    ));
                 }
             }
             ExpressionKind::IfElse(ref cond, ref if_seq, ref else_seq) => {
@@ -153,9 +162,17 @@ impl Analyzer {
                 self.analyze_expression(if_seq);
                 self.analyze_expression(else_seq);
 
-                if self.get_type(cond) != "bool" {
-                    self.errors
-                        .insert(Error::new(ErrorKind::NotACondition, cond.line, cond.col));
+                let type1 = self.get_type(cond);
+
+                if type1 != "bool" {
+                    self.errors.insert(Error::new(
+                        ErrorKind::MismatchedTypes {
+                            expected: "bool".to_string(),
+                            found: type1,
+                        },
+                        cond.line,
+                        cond.col,
+                    ));
                 }
             }
             ExpressionKind::Not(ref arg) => {
@@ -166,7 +183,10 @@ impl Analyzer {
                 if type1 != "bool" {
                     self.errors.insert(Error::new(
                         // Todo: add proper error type
-                        ErrorKind::NotACondition,
+                        ErrorKind::MismatchedTypes {
+                            expected: "bool".to_string(),
+                            found: type1,
+                        },
                         expr.line,
                         expr.col,
                     ));
@@ -176,9 +196,17 @@ impl Analyzer {
             ExpressionKind::Exit(ref val) => {
                 self.analyze_expression(val);
 
-                if self.get_type(val) != "int" {
-                    self.errors
-                        .insert(Error::new(ErrorKind::InvalidExitCode, val.line, val.col));
+                let type1 = self.get_type(val);
+
+                if type1 != "int" {
+                    self.errors.insert(Error::new(
+                        ErrorKind::MismatchedTypes {
+                            expected: "int".to_string(),
+                            found: type1,
+                        },
+                        val.line,
+                        val.col,
+                    ));
                 }
             }
             ExpressionKind::Continue
@@ -206,7 +234,7 @@ impl Analyzer {
                 }
             }
             ExpressionKind::IntLit(..) => "int".to_string(),
-            ExpressionKind::BoolLit(..) => "bool".to_string(),
+            ExpressionKind::BoolLit(..) | ExpressionKind::Not(..) => "bool".to_string(),
             ExpressionKind::Op(_, op, _) => match op {
                 Op::And | Op::Or | Op::Eq | Op::Neq | Op::Lt | Op::Leq | Op::Gt | Op::Geq => {
                     "bool".to_string()
@@ -225,39 +253,24 @@ fn print_error(error: &Error) {
     match &error.kind {
         ErrorKind::UndeclaredVariable { var } => {
             println!(
-                "Variable with name {var} undeclared [line {}: col {}]",
+                "{}:{}: use of undeclared variable '{var}'",
                 error.line, error.col
             )
         }
         ErrorKind::OperationNotImplemented { op, type1, type2 } => {
             println!(
-                "Operation '{}' not implemented for types {type1} and {type2} [line {}: col {}]",
-                op, error.line, error.col
+                "{}:{}: operation '{}' not implemented between types '{type1}' and '{type2}'",
+                error.line, error.col, op
             )
         }
-        ErrorKind::NotACondition => {
+        ErrorKind::MismatchedTypes { expected, found } => {
             println!(
-                "Invalid condition for if statement [line {}: col {}]",
-                error.line, error.col
-            )
-        }
-        ErrorKind::InvalidExitCode => {
-            println!(
-                "Exit codes can only be ints [line {}: col {}]",
-                error.line, error.col
-            )
-        }
-        ErrorKind::InvalidAssignment { type1, type2 } => {
-            println!(
-                "Can't assign variable with type {type1} to expression with type {type2} [line {}: col {}]",
-                error.line, error.col
+                "{}:{}: mismatched types\n\texpected '{}', found '{}'",
+                error.line, error.col, expected, found
             )
         }
         ErrorKind::InvalidIdentifier => {
-            println!(
-                "Destination is not a valid identifier [line {}: col {}]",
-                error.line, error.col
-            )
+            println!("{}:{}: invalid identifier", error.line, error.col)
         }
     }
 }

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::ir_gen::*;
 use crate::parser::Op;
 
-struct Generator {
+struct AsmGenerator {
     asm: String,
     symbol_table: HashMap<String, String>,
     type_table: HashMap<String, String>,
@@ -12,7 +12,7 @@ struct Generator {
 }
 
 pub fn generate_asm(ir: Vec<Ir>, type_table: &mut HashMap<String, String>) -> String {
-    let mut generator = Generator {
+    let mut generator = AsmGenerator {
         asm: String::from("global _start\n_start:\n\tmov rbp, rsp\n"),
         symbol_table: HashMap::new(),
         type_table: type_table.clone(),
@@ -49,7 +49,7 @@ fn get_arit_op(op: &Op) -> &str {
     }
 }
 
-impl Generator {
+impl AsmGenerator {
     fn generate_asm(&mut self, ir: Vec<Ir>) {
         for instruction in ir {
             let string = match instruction {
