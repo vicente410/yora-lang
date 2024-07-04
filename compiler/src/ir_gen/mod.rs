@@ -29,7 +29,9 @@ pub enum Ir {
     },
     IfGoto {
         // if src != 0 goto label
-        src: String,
+        src1: String,
+        src2: String,
+        cond: Cond,
         label: String,
     },
 
@@ -43,6 +45,16 @@ pub enum Ir {
     Ret {
         src: String,
     },
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Cond {
+    Eq,
+    Neq,
+    Lt,
+    Leq,
+    Gt,
+    Geq,
 }
 
 struct Nums {
@@ -147,7 +159,9 @@ impl IrGenerator<'_> {
                 let src = self.get_value(cond);
 
                 self.inter_repr.push(Ir::IfGoto {
-                    src,
+                    src1: src,
+                    src2: "0".to_string(),
+                    cond: Cond::Eq,
                     label: format!("end_if_{}", current_ifs),
                 });
 
@@ -165,7 +179,9 @@ impl IrGenerator<'_> {
                 let src = self.get_value(cond);
 
                 self.inter_repr.push(Ir::IfGoto {
-                    src,
+                    src1: src,
+                    src2: "0".to_string(),
+                    cond: Cond::Eq,
                     label: format!("else_{}", current_ifs),
                 });
 
@@ -187,6 +203,29 @@ impl IrGenerator<'_> {
                     .push(Ir::Label(format!("loop_{}", self.nums.loops)));
                 let seq_value = self.get_value(seq);
 
+                self.inter_repr.push(Ir::Goto {
+                    label: format!("loop_{}", self.nums.loops),
+                });
+
+                self.inter_repr
+                    .push(Ir::Label(format!("loop_end_{}", self.nums.loops)));
+                self.nums.loops += 1;
+
+                seq_value
+            }
+            ExpressionKind::While(cond, seq) => {
+                self.inter_repr
+                    .push(Ir::Label(format!("loop_{}", self.nums.loops)));
+
+                let cond_value = self.get_value(cond);
+                self.inter_repr.push(Ir::IfGoto {
+                    src1: cond_value,
+                    src2: "0".to_string(),
+                    cond: Cond::Eq,
+                    label: format!("loop_end_{}", self.nums.loops),
+                });
+
+                let seq_value = self.get_value(seq);
                 self.inter_repr.push(Ir::Goto {
                     label: format!("loop_{}", self.nums.loops),
                 });

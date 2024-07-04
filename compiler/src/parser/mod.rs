@@ -29,6 +29,7 @@ pub enum ExpressionKind {
     If(Box<Expression>, Box<Expression>),
     IfElse(Box<Expression>, Box<Expression>, Box<Expression>),
     Loop(Box<Expression>),
+    While(Box<Expression>, Box<Expression>),
     Continue,
     Break,
 
@@ -169,25 +170,10 @@ fn get_while_expr(tokens: &[Token]) -> Expression {
     }
 
     Expression::new(
-        ExpressionKind::Loop(Box::new(Expression::new(
-            ExpressionKind::Sequence(vec![
-                Expression::new(
-                    ExpressionKind::If(
-                        Box::new(Expression::new(
-                            ExpressionKind::Not(Box::new(get_expression(&tokens[1..start_seq]))),
-                            tokens[1].line,
-                            tokens[1].col,
-                        )),
-                        Box::new(Expression::new(ExpressionKind::Break, 0, 0)),
-                    ),
-                    0,
-                    0,
-                ),
-                get_sequence(&tokens[start_seq..]),
-            ]),
-            tokens[start_seq].line,
-            tokens[start_seq].col,
-        ))),
+        ExpressionKind::While(
+            Box::new(get_expression(&tokens[1..start_seq])),
+            Box::new(get_sequence(&tokens[start_seq..])),
+        ),
         tokens[start_seq].line,
         tokens[start_seq].col,
     )

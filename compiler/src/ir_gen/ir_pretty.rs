@@ -1,5 +1,6 @@
 use std::fmt;
 
+use crate::Cond;
 use crate::Ir;
 use crate::Op;
 
@@ -16,7 +17,18 @@ impl fmt::Display for Ir {
             } => write!(f, "    {} = {} {} {}", dest, src1, op, src2),
             Ir::Label(str) => write!(f, "{}:", str),
             Ir::Goto { label } => write!(f, "    goto {}", label),
-            Ir::IfGoto { src, label } => write!(f, "    if !{} goto {}", src, label),
+            Ir::IfGoto {
+                src1,
+                src2,
+                cond,
+                label,
+            } => {
+                if *cond == Cond::Eq && src2 == "0" {
+                    write!(f, "    if !{} goto {}", src1, label)
+                } else {
+                    write!(f, "    if {} {} {} goto {}", src1, cond, src2, label)
+                }
+            }
             Ir::Param { src } => write!(f, "    param {}", src),
             Ir::Call { label } => write!(f, "    call {}", label),
             Ir::Ret { src } => write!(f, "    ret {}", src),
@@ -43,6 +55,23 @@ impl fmt::Display for Op {
                 Op::Leq => "<=",
                 Op::Gt => ">",
                 Op::Geq => ">=",
+            }
+        )
+    }
+}
+
+impl fmt::Display for Cond {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Cond::Eq => "==",
+                Cond::Neq => "!=",
+                Cond::Lt => "<",
+                Cond::Leq => "<=",
+                Cond::Gt => ">",
+                Cond::Geq => ">=",
             }
         )
     }

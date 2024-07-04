@@ -13,7 +13,7 @@ struct AsmGenerator {
 
 pub fn generate_asm(ir: Vec<Ir>, type_table: &mut HashMap<String, String>) -> String {
     let mut generator = AsmGenerator {
-        asm: String::from("global _start\n_start:\n\tmov rbp, rsp\n"),
+        asm: String::from("global _start\n_start:\n"),
         symbol_table: HashMap::new(),
         type_table: type_table.clone(),
         regs: ["rbx", "r10", "r11", "r12", "r13", "r14", "r15"],
@@ -168,10 +168,17 @@ impl AsmGenerator {
                 }
                 Ir::Label(label) => &format!("{}:\n", label),
                 Ir::Goto { label } => &format!("\tjmp {}\n", label),
-                Ir::IfGoto { src, label } => &format!(
-                    "\tcmp {}, 0\n\
-                    \tje {}\n",
-                    self.get_value(&src),
+                Ir::IfGoto {
+                    src1,
+                    src2,
+                    cond,
+                    label,
+                } => &format!(
+                    "\tcmp {}, {}\n\
+                    \tj{} {}\n",
+                    self.get_value(&src1),
+                    self.get_value(&src2),
+                    get_cond_str(cond),
                     label
                 ),
                 Ir::Param { src } => &format!("\tmov rdi, {}\n", self.get_value(&src)),
@@ -282,4 +289,16 @@ fn get_size_for_type(type_to_check: String) -> usize {
         "bool" => 1,
         _ => panic!("Invalid type."),
     }
+}
+
+fn get_cond_str(cond: Cond) -> String {
+    match cond {
+        Cond::Eq => "e",
+        Cond::Neq => "ne",
+        Cond::Lt => "l",
+        Cond::Leq => "le",
+        Cond::Gt => "g",
+        Cond::Geq => "ge",
+    }
+    .to_string()
 }

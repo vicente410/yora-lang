@@ -4,7 +4,7 @@ use crate::errors::*;
 use crate::parser::*;
 
 struct Analyzer<'a> {
-    symbol_table: HashMap<String, String>,
+    type_table: HashMap<String, String>,
     errors: &'a mut Errors,
 }
 
@@ -12,34 +12,34 @@ pub fn analyze(ast: &mut Vec<Expression>, errors: &mut Errors) -> HashMap<String
     let mut analyzer = Analyzer::new(errors);
 
     for expr in ast {
-        analyzer.check(expr);
+        analyzer.analyze(expr);
     }
 
     if analyzer.errors.should_abort() {
         analyzer.errors.print_and_abort();
     }
 
-    analyzer.symbol_table
+    analyzer.type_table
 }
 
 impl Analyzer<'_> {
     fn new(errors: &mut Errors) -> Analyzer {
         Analyzer {
-            symbol_table: HashMap::new(),
+            type_table: HashMap::new(),
             errors,
         }
     }
 
-    fn check(&mut self, expr: &Expression) {
+    fn analyze(&mut self, expr: &Expression) {
         match &expr.kind {
             ExpressionKind::Declare(ref dest, ref src)
             | ExpressionKind::Assign(ref dest, ref src) => {
-                self.check(src);
+                self.analyze(src);
 
                 match &dest.kind {
                     ExpressionKind::Identifier(id) => {
                         let type_to_add = self.get_type(src);
-                        self.symbol_table.insert(id.to_string(), type_to_add);
+                        self.type_table.insert(id.to_string(), type_to_add);
                     }
                     _ => {
                         self.errors
@@ -48,37 +48,43 @@ impl Analyzer<'_> {
                 };
             }
             ExpressionKind::Op(ref arg1, _, ref arg2) => {
-                self.check(arg1);
-                self.check(arg2);
+                self.analyze(arg1);
+                self.analyze(arg2);
 
                 self.check_type(expr);
             }
             ExpressionKind::Sequence(seq) => {
                 for expr in &seq[0..seq.len()] {
-                    self.check(expr);
+                    self.analyze(expr);
                 }
             }
             ExpressionKind::If(ref cond, ref seq) => {
-                self.check(cond);
-                self.check(seq);
+                self.analyze(cond);
+                self.analyze(seq);
 
                 self.check_type(expr);
             }
             ExpressionKind::IfElse(ref cond, ref if_seq, ref else_seq) => {
-                self.check(cond);
-                self.check(if_seq);
-                self.check(else_seq);
+                self.analyze(cond);
+                self.analyze(if_seq);
+                self.analyze(else_seq);
 
                 self.check_type(expr);
             }
             ExpressionKind::Not(ref arg) => {
-                self.check(arg);
+                self.analyze(arg);
 
                 self.check_type(expr);
             }
-            ExpressionKind::Loop(ref seq) => self.check(seq),
+            ExpressionKind::Loop(ref seq) => self.analyze(seq),
+            ExpressionKind::While(ref cond, ref seq) => {
+                self.analyze(cond);
+                self.analyze(seq);
+
+                self.check_type(expr);
+            }
             ExpressionKind::Exit(ref val) => {
-                self.check(val);
+                self.analyze(val);
 
                 self.check_type(expr);
             }
@@ -124,6 +130,7 @@ impl Analyzer<'_> {
             }
             ExpressionKind::If(ref arg, ..)
             | ExpressionKind::IfElse(ref arg, ..)
+            | ExpressionKind::While(ref arg, ..)
             | ExpressionKind::Not(ref arg) => {
                 let type1 = self.get_type(arg);
 
@@ -159,8 +166,8 @@ impl Analyzer<'_> {
     fn get_type(&mut self, expr: &Expression) -> String {
         match &expr.kind {
             ExpressionKind::Identifier(id) => {
-                if self.symbol_table.contains_key(id) {
-                    (*self.symbol_table[id]).to_string()
+                if self.type_table.contains_key(id) {
+                    (*self.type_table[id]).to_string()
                 } else {
                     self.errors.add(
                         ErrorKind::UndeclaredVariable {
