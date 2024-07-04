@@ -2,7 +2,7 @@ use analyzer::analyze;
 use asm_gen::*;
 use ir_gen::*;
 use lexer::*;
-//use optimizer::optimize;
+use optimizer::optimize;
 use parser::*;
 use std::fs;
 use std::fs::File;
@@ -21,6 +21,7 @@ pub mod parser;
 pub enum Flag {
     Debug(DebugOptions),
     Assembly,
+    Optimize,
 }
 
 #[derive(Eq, Debug, Hash, PartialEq)]
@@ -113,8 +114,11 @@ impl Compiler {
         }
 
         let mut type_table = analyze(&ast);
-        let ir = generate_ir(ast.clone(), &mut type_table);
-        // let ir = optimize(ir);
+        let mut ir = generate_ir(ast.clone(), &mut type_table);
+
+        if self.flags.contains(&Flag::Optimize) {
+            ir = optimize(ir);
+        }
 
         if self.flags.contains(&Flag::Debug(DebugOptions::Ir)) {
             for instr in ir {

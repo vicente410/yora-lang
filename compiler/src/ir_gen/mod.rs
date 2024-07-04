@@ -103,7 +103,7 @@ impl IrGenerator<'_> {
                 let instruction = match &src.kind {
                     ExpressionKind::Not(expr) => Ir::Not {
                         dest: dest_str.clone(),
-                        src: self.get_value(&expr),
+                        src: self.get_value(expr),
                     },
                     ExpressionKind::Op(ref src1, op, ref src2) => Ir::Op {
                         dest: dest_str.clone(),
@@ -135,7 +135,7 @@ impl IrGenerator<'_> {
                 });
 
                 self.type_table
-                    .insert(dest.clone(), IrGenerator::get_op_type(&op));
+                    .insert(dest.clone(), IrGenerator::get_op_type(op));
 
                 dest
             }

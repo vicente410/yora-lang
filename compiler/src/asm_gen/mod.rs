@@ -64,7 +64,7 @@ impl AsmGenerator {
                     let src_val = self.get_value(src);
                     let dest_val = self.get_value(dest);
 
-                    if src_val.contains("[") && dest_val.contains("[") {
+                    if src_val.contains('[') && dest_val.contains('[') {
                         &format!(
                             "\tpush rax\n\
                                     \tmov rax, {}\n\
@@ -148,7 +148,7 @@ impl AsmGenerator {
                                 );
                             };
 
-                            let dest = self.get_value(&dest);
+                            let dest = self.get_value(dest);
 
                             self.asm.push_str(&format!(
                                 "\tcmp {}, {}\n",
@@ -157,11 +157,11 @@ impl AsmGenerator {
                             ));
 
                             if self.get_value(&dest).contains("rbp") {
-                                &format!("\tset{} {}\n", get_rel_op(&op), dest)
+                                &format!("\tset{} {}\n", get_rel_op(op), dest)
                             } else if self.get_value(&dest).contains("rbx") {
-                                &format!("\tset{} bl\n", get_rel_op(&op))
+                                &format!("\tset{} bl\n", get_rel_op(op))
                             } else {
-                                &format!("\tset{} {}b\n", get_rel_op(&op), dest)
+                                &format!("\tset{} {}b\n", get_rel_op(op), dest)
                             }
                         }
                     }

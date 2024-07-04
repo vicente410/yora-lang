@@ -1,11 +1,11 @@
 use std::fmt;
-use std::io;
 
 use crate::Expression;
 use crate::ExpressionKind;
 use crate::Op;
 
-fn walk(expr: &Expression, prefix: &str) -> io::Result<()> {
+fn walk(expr: &Expression, prefix: &str) -> String {
+    let mut result = String::new();
     let sons: Vec<_> = get_sons(expr.clone());
     let mut index = sons.len();
 
@@ -14,19 +14,19 @@ fn walk(expr: &Expression, prefix: &str) -> io::Result<()> {
         index -= 1;
 
         if index == 0 {
-            println!("{}└── {}", prefix, string);
+            result.push_str(&format!("{}└── {}\n", prefix, string));
             if !get_sons(expr.clone()).is_empty() {
-                walk(&son, &format!("{}    ", prefix))?;
+                result.push_str(&walk(&son, &format!("{}    ", prefix)));
             }
         } else {
-            println!("{}├── {}", prefix, string);
+            result.push_str(&format!("{}├── {}\n", prefix, string));
             if !get_sons(expr.clone()).is_empty() {
-                walk(&son, &format!("{}│   ", prefix))?;
+                result.push_str(&walk(&son, &format!("{}│   ", prefix)));
             }
         }
     }
 
-    Ok(())
+    result
 }
 
 fn get_expr_str(expr: &Expression) -> String {
@@ -84,8 +84,6 @@ fn get_sons(expr: Expression) -> Vec<Expression> {
 
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
-        println!("{}", get_expr_str(self));
-        let _ = walk(self, "");
-        write!(f, "")
+        write!(f, "{}\n{}", get_expr_str(self), walk(self, ""))
     }
 }

@@ -2,12 +2,12 @@ use crate::ir_gen::*;
 
 pub fn optimize(ir: Vec<Ir>) -> Vec<Ir> {
     //let mut optimized_ir = ir;
-    let optimized_ir = ir;
 
     //optimized_ir = remove_self_assign(optimized_ir);
     //optimized_ir = constant_propagation(optimized_ir);
 
-    optimized_ir
+    //optimized_ir
+    ir
 }
 
 /*fn remove_self_assign(ir: Vec<Ir>) -> Vec<Ir> {
