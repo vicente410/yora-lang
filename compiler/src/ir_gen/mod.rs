@@ -156,14 +156,8 @@ impl IrGenerator<'_> {
                 // todo: remove current_ifs
                 self.nums.ifs += 1;
                 let current_ifs = self.nums.ifs;
-                let src = self.get_value(cond);
 
-                self.inter_repr.push(Ir::IfGoto {
-                    src1: src,
-                    src2: "0".to_string(),
-                    cond: Cond::Eq,
-                    label: format!("end_if_{}", current_ifs),
-                });
+                self.get_condition(cond, &expr.kind, current_ifs);
 
                 let seq_value = self.get_value(seq);
 
@@ -176,14 +170,7 @@ impl IrGenerator<'_> {
                 self.nums.ifs += 1;
                 let current_ifs = self.nums.ifs;
 
-                let src = self.get_value(cond);
-
-                self.inter_repr.push(Ir::IfGoto {
-                    src1: src,
-                    src2: "0".to_string(),
-                    cond: Cond::Eq,
-                    label: format!("else_{}", current_ifs),
-                });
+                self.get_condition(cond, &expr.kind, current_ifs);
 
                 let if_seq_value = self.get_value(if_seq);
                 self.inter_repr.push(Ir::Goto {
@@ -217,13 +204,7 @@ impl IrGenerator<'_> {
                 self.inter_repr
                     .push(Ir::Label(format!("loop_{}", self.nums.loops)));
 
-                let cond_value = self.get_value(cond);
-                self.inter_repr.push(Ir::IfGoto {
-                    src1: cond_value,
-                    src2: "0".to_string(),
-                    cond: Cond::Eq,
-                    label: format!("loop_end_{}", self.nums.loops),
-                });
+                self.get_condition(cond, &expr.kind, self.nums.loops);
 
                 let seq_value = self.get_value(seq);
                 self.inter_repr.push(Ir::Goto {
@@ -279,6 +260,45 @@ impl IrGenerator<'_> {
             Op::And | Op::Or | Op::Eq | Op::Neq | Op::Lt | Op::Leq | Op::Gt | Op::Geq => {
                 "bool".to_string()
             }
+        }
+    }
+
+    fn get_condition(&mut self, cond: &Expression, kind: &ExpressionKind, num: u32) {
+        if let ExpressionKind::Op(src1, op, src2) = &cond.kind {
+            let src1 = self.get_value(src1);
+            let src2 = self.get_value(src2);
+            self.inter_repr.push(Ir::IfGoto {
+                src1,
+                src2,
+                cond: match op {
+                    Op::Eq => Cond::Neq,
+                    Op::Neq => Cond::Eq,
+                    Op::Lt => Cond::Geq,
+                    Op::Leq => Cond::Gt,
+                    Op::Gt => Cond::Leq,
+                    Op::Geq => Cond::Lt,
+                    _ => panic!("Must be a boolean expression"),
+                },
+                label: match kind {
+                    ExpressionKind::If(..) => format!("end_if_{}", num),
+                    ExpressionKind::IfElse(..) => format!("else_{}", num),
+                    ExpressionKind::While(..) => format!("loop_end_{}", num),
+                    _ => panic!("Not a condition expression"),
+                },
+            })
+        } else {
+            let cond_value = self.get_value(cond);
+            self.inter_repr.push(Ir::IfGoto {
+                src1: cond_value,
+                src2: "0".to_string(),
+                cond: Cond::Eq,
+                label: match kind {
+                    ExpressionKind::If(..) => format!("end_if_{}", num),
+                    ExpressionKind::IfElse(..) => format!("else_{}", num),
+                    ExpressionKind::While(..) => format!("loop_end_{}", num),
+                    _ => panic!("Not a condition expression"),
+                },
+            });
         }
     }
 }
