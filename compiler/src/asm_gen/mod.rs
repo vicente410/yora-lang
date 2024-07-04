@@ -56,37 +56,44 @@ impl Generator {
                     ref dest,
                     ref op,
                     ref src,
-                } => match op {
-                    Op1::Ass => {
-                        if !self.symbol_table.contains_key(&dest.clone()) {
-                            self.insert_reg(
-                                dest.clone(),
-                                get_size_for_type(self.type_table[dest].clone()),
-                            );
-                        }
-
-                        let src_val = self.get_value(src);
-                        let dest_val = self.get_value(dest);
-
-                        if src_val.contains("[") && dest_val.contains("[") {
-                            &format!(
-                                "\tpush rax\n\
-                                \tmov rax, {}\n\
-                                \tmov {}, rax\n\
-                                \tpop rax\n",
-                                src_val, dest_val,
-                            )
-                        } else {
-                            &format!("\tmov {}, {}\n", dest_val, src_val)
-                        }
+                } => {
+                    if !self.symbol_table.contains_key(&dest.clone()) {
+                        self.insert_reg(
+                            dest.clone(),
+                            get_size_for_type(self.type_table[dest].clone()),
+                        );
                     }
-                    Op1::Not => &format!(
-                        "\tnot {}\n\
-                        \tand {}, 1\n",
-                        self.get_value(dest),
-                        self.get_value(dest),
-                    ),
-                },
+
+                    match op {
+                        Op1::Ass => {
+                            let src_val = self.get_value(src);
+                            let dest_val = self.get_value(dest);
+
+                            if src_val.contains("[") && dest_val.contains("[") {
+                                &format!(
+                                    "\tpush rax\n\
+                                    \tmov rax, {}\n\
+                                    \tmov {}, rax\n\
+                                    \tpop rax\n",
+                                    src_val, dest_val,
+                                )
+                            } else {
+                                &format!("\tmov {}, {}\n", dest_val, src_val)
+                            }
+                        }
+                        Op1::Not => &format!(
+                            // todo: does not account yet for stack, find generic way of dealing
+                            // with stack operations instead of this mess
+                            "\tmov {}, {}\n\
+                            \tnot {}\n\
+                            \tand {}, 1\n",
+                            self.get_value(dest),
+                            self.get_value(src),
+                            self.get_value(dest),
+                            self.get_value(dest),
+                        ),
+                    }
+                }
                 Ir::Op2 {
                     ref dest,
                     ref src1,
@@ -139,6 +146,8 @@ impl Generator {
                                 );
                             };
 
+                            let dest = self.get_value(&dest);
+
                             self.asm.push_str(&format!(
                                 "\tcmp {}, {}\n",
                                 self.get_value(src1),
@@ -146,11 +155,11 @@ impl Generator {
                             ));
 
                             if self.get_value(&dest).contains("rbp") {
-                                &format!("\tset{} {}\n", get_rel_op(&op), self.get_value(&dest))
+                                &format!("\tset{} {}\n", get_rel_op(&op), dest)
                             } else if self.get_value(&dest).contains("rbx") {
                                 &format!("\tset{} bl\n", get_rel_op(&op))
                             } else {
-                                &format!("\tset{} {}b\n", get_rel_op(&op), self.get_value(&dest))
+                                &format!("\tset{} {}b\n", get_rel_op(&op), dest)
                             }
                         }
                     }
@@ -165,7 +174,7 @@ impl Generator {
                 ),
                 Ir::Param { src } => &format!("\tmov rdi, {}\n", self.get_value(&src)),
                 Ir::Call { label } => &format!("\tcall {}\n", label),
-                Ir::Ret { src } => "", // todo
+                Ir::Ret { .. } => "", // todo
             };
             self.asm.push_str(string);
         }

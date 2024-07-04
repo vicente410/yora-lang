@@ -76,16 +76,16 @@ fn get_sequence(tokens: &[Token]) -> Expression {
         if tokens[start].str == "if" || tokens[start].str == "loop" || tokens[start].str == "while"
         {
             // find last token in the block
-            while end + 1 < tokens.len()
+            while end < tokens.len()
                 && (tokens[end].str == "else" || tokens[start].col < tokens[end].col)
             {
                 end += 1;
             }
 
             sequence.push(match tokens[start].str.as_str() {
-                "if" => get_if_expr(&tokens[start..=end]),
-                "loop" => get_loop_expr(&tokens[start..=end]),
-                "while" => get_while_expr(&tokens[start..=end]),
+                "if" => get_if_expr(&tokens[start..end]),
+                "loop" => get_loop_expr(&tokens[start..end]),
+                "while" => get_while_expr(&tokens[start..end]),
                 _ => panic!(),
             })
         } else {

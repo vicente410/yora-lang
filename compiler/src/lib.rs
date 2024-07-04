@@ -2,7 +2,7 @@ use analyzer::analyze;
 use asm_gen::*;
 use ir_gen::*;
 use lexer::*;
-use optimizer::optimize;
+//use optimizer::optimize;
 use parser::*;
 use std::fs;
 use std::fs::File;
