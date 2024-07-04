@@ -7,11 +7,19 @@ use std::{
 
 #[derive(PartialEq, Eq)]
 enum ErrorKind {
-    UndeclaredVariable { var: String },
-    CannotMakeOperation { type1: String, type2: String },
+    UndeclaredVariable {
+        var: String,
+    },
+    OperationNotImplemented {
+        op: Op,
+        type1: String,
+        type2: String,
+    },
     NotACondition,
-    InvalidAssignment { type1: String, type2: String },
-    InvalidComparison { type1: String, type2: String },
+    InvalidAssignment {
+        type1: String,
+        type2: String,
+    },
     InvalidExitCode,
     InvalidIdentifier,
 }
@@ -105,20 +113,22 @@ impl Analyzer {
                     ));
                 }
             }
-            ExpressionKind::Add(ref dest, ref src)
-            | ExpressionKind::Sub(ref dest, ref src)
-            | ExpressionKind::Mul(ref dest, ref src)
-            | ExpressionKind::Div(ref dest, ref src)
-            | ExpressionKind::Mod(ref dest, ref src) => {
-                self.analyze_expression(src);
-                self.analyze_expression(dest);
+            ExpressionKind::Op(ref arg1, op, ref arg2) => {
+                self.analyze_expression(arg1);
+                self.analyze_expression(arg2);
 
-                let type1 = self.get_type(src);
-                let type2 = self.get_type(dest);
-
-                if type1 != "int" || type2 != "int" {
+                let type1 = self.get_type(arg1);
+                let type2 = self.get_type(arg2);
+                if match op {
+                    Op::And | Op::Or => type1 != "bool" || type2 != "bool",
+                    _ => type1 != "int" || type2 != "int",
+                } {
                     self.errors.insert(Error::new(
-                        ErrorKind::CannotMakeOperation { type1, type2 },
+                        ErrorKind::OperationNotImplemented {
+                            op: op.clone(),
+                            type1,
+                            type2,
+                        },
                         expr.line,
                         expr.col,
                     ));
@@ -146,41 +156,6 @@ impl Analyzer {
                 if self.get_type(cond) != "bool" {
                     self.errors
                         .insert(Error::new(ErrorKind::NotACondition, cond.line, cond.col));
-                }
-            }
-            ExpressionKind::Eq(ref cmp1, ref cmp2)
-            | ExpressionKind::Neq(ref cmp1, ref cmp2)
-            | ExpressionKind::Lt(ref cmp1, ref cmp2)
-            | ExpressionKind::Leq(ref cmp1, ref cmp2)
-            | ExpressionKind::Gt(ref cmp1, ref cmp2)
-            | ExpressionKind::Geq(ref cmp1, ref cmp2) => {
-                self.analyze_expression(cmp1);
-                self.analyze_expression(cmp2);
-
-                let type1 = self.get_type(cmp1);
-                let type2 = self.get_type(cmp2);
-
-                if type1 != type2 {
-                    self.errors.insert(Error::new(
-                        ErrorKind::InvalidComparison { type1, type2 },
-                        cmp1.line,
-                        cmp1.col,
-                    ));
-                }
-            }
-            ExpressionKind::And(ref dest, ref src) | ExpressionKind::Or(ref dest, ref src) => {
-                self.analyze_expression(src);
-                self.analyze_expression(dest);
-
-                let type1 = self.get_type(src);
-                let type2 = self.get_type(dest);
-
-                if type1 != "bool" || type2 != "bool" {
-                    self.errors.insert(Error::new(
-                        ErrorKind::CannotMakeOperation { type1, type2 },
-                        expr.line,
-                        expr.col,
-                    ));
                 }
             }
             ExpressionKind::Not(ref arg) => {
@@ -231,21 +206,13 @@ impl Analyzer {
                 }
             }
             ExpressionKind::IntLit(..) => "int".to_string(),
-            ExpressionKind::BoolLit(..)
-            | ExpressionKind::And(..)
-            | ExpressionKind::Or(..)
-            | ExpressionKind::Not(..)
-            | ExpressionKind::Eq(..)
-            | ExpressionKind::Neq(..)
-            | ExpressionKind::Lt(..)
-            | ExpressionKind::Leq(..)
-            | ExpressionKind::Gt(..)
-            | ExpressionKind::Geq(..) => "bool".to_string(),
-            ExpressionKind::Add(ref dest, ..)
-            | ExpressionKind::Sub(ref dest, ..)
-            | ExpressionKind::Mul(ref dest, ..)
-            | ExpressionKind::Div(ref dest, ..)
-            | ExpressionKind::Mod(ref dest, ..) => self.get_type(dest),
+            ExpressionKind::BoolLit(..) => "bool".to_string(),
+            ExpressionKind::Op(_, op, _) => match op {
+                Op::And | Op::Or | Op::Eq | Op::Neq | Op::Lt | Op::Leq | Op::Gt | Op::Geq => {
+                    "bool".to_string()
+                }
+                Op::Add | Op::Sub | Op::Mul | Op::Div | Op::Mod => "int".to_string(),
+            },
             _ => {
                 dbg!(&expr);
                 panic!("Not a valid type")
@@ -262,21 +229,15 @@ fn print_error(error: &Error) {
                 error.line, error.col
             )
         }
-        ErrorKind::CannotMakeOperation { type1, type2 } => {
+        ErrorKind::OperationNotImplemented { op, type1, type2 } => {
             println!(
-                "Can't make an operation between ints, types {type1} and {type2} were given [line {}: col {}]",
-                error.line, error.col
+                "Operation '{}' not implemented for types {type1} and {type2} [line {}: col {}]",
+                op, error.line, error.col
             )
         }
         ErrorKind::NotACondition => {
             println!(
                 "Invalid condition for if statement [line {}: col {}]",
-                error.line, error.col
-            )
-        }
-        ErrorKind::InvalidComparison { type1, type2 } => {
-            println!(
-                "Can't compare type {type1} with type {type2} [line {}: col {}]",
                 error.line, error.col
             )
         }

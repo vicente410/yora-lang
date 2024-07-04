@@ -40,20 +40,25 @@ pub enum ExpressionKind {
     Exit(Box<Expression>),
 
     // Operators
-    Add(Box<Expression>, Box<Expression>),
-    Sub(Box<Expression>, Box<Expression>),
-    Mul(Box<Expression>, Box<Expression>),
-    Div(Box<Expression>, Box<Expression>),
-    Mod(Box<Expression>, Box<Expression>),
     Not(Box<Expression>),
-    And(Box<Expression>, Box<Expression>),
-    Or(Box<Expression>, Box<Expression>),
-    Eq(Box<Expression>, Box<Expression>),
-    Neq(Box<Expression>, Box<Expression>),
-    Lt(Box<Expression>, Box<Expression>),
-    Leq(Box<Expression>, Box<Expression>),
-    Gt(Box<Expression>, Box<Expression>),
-    Geq(Box<Expression>, Box<Expression>),
+    Op(Box<Expression>, Op, Box<Expression>),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Op {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+    And,
+    Or,
+    Eq,
+    Neq,
+    Lt,
+    Leq,
+    Gt,
+    Geq,
 }
 
 pub fn parse(tokens: Vec<Token>) -> Vec<Expression> {
@@ -290,26 +295,30 @@ fn get_expression(tokens: &[Token]) -> Expression {
 
 fn get_operation(operation: &Token, arg1: Box<Expression>, arg2: Box<Expression>) -> Expression {
     Expression::new(
-        match operation.str.as_str() {
-            "+" => ExpressionKind::Add(arg1, arg2),
-            "-" => ExpressionKind::Sub(arg1, arg2),
-            "*" => ExpressionKind::Mul(arg1, arg2),
-            "/" => ExpressionKind::Div(arg1, arg2),
-            "%" => ExpressionKind::Mod(arg1, arg2),
-            "and" => ExpressionKind::And(arg1, arg2),
-            "or" => ExpressionKind::Or(arg1, arg2),
-            "==" => ExpressionKind::Eq(arg1, arg2),
-            "!=" => ExpressionKind::Neq(arg1, arg2),
-            "<" => ExpressionKind::Lt(arg1, arg2),
-            "<=" => ExpressionKind::Leq(arg1, arg2),
-            ">" => ExpressionKind::Gt(arg1, arg2),
-            ">=" => ExpressionKind::Geq(arg1, arg2),
-            _ => {
-                println!("Unrecognized operation:");
-                dbg!(operation);
-                process::exit(1);
-            }
-        },
+        ExpressionKind::Op(
+            arg1,
+            match operation.str.as_str() {
+                "+" => Op::Add,
+                "-" => Op::Sub,
+                "*" => Op::Mul,
+                "/" => Op::Div,
+                "%" => Op::Mod,
+                "and" => Op::And,
+                "or" => Op::Or,
+                "==" => Op::Eq,
+                "!=" => Op::Neq,
+                "<" => Op::Lt,
+                "<=" => Op::Leq,
+                ">" => Op::Gt,
+                ">=" => Op::Geq,
+                _ => {
+                    println!("Unrecognized operation:");
+                    dbg!(operation);
+                    process::exit(1);
+                }
+            },
+            arg2,
+        ),
         operation.line,
         operation.col,
     )

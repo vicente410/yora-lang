@@ -7,17 +7,18 @@ pub mod ir_pretty;
 #[derive(Debug, PartialEq, Clone)]
 pub enum Ir {
     // Operations
-    Op1 {
-        // operations of arity 1
+    Ass {
         dest: String,
-        op: Op1,
         src: String,
     },
-    Op2 {
-        // operations of arity 2
+    Not {
+        dest: String,
+        src: String,
+    },
+    Op {
         dest: String,
         src1: String,
-        op: Op2,
+        op: Op,
         src2: String,
     },
 
@@ -42,29 +43,6 @@ pub enum Ir {
     Ret {
         src: String,
     },
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum Op1 {
-    Ass,
-    Not,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum Op2 {
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Mod,
-    And,
-    Or,
-    Eq,
-    Neq,
-    Lt,
-    Leq,
-    Gt,
-    Geq,
 }
 
 struct Nums {
@@ -123,32 +101,18 @@ impl IrGenerator<'_> {
                 // no need to call get_value on not because temporary value can be assigned
                 // directly
                 let instruction = match &src.kind {
-                    ExpressionKind::Not(expr) => Ir::Op1 {
+                    ExpressionKind::Not(expr) => Ir::Not {
                         dest: dest_str.clone(),
-                        op: Op1::Not,
                         src: self.get_value(&expr),
                     },
-                    ExpressionKind::Add(ref src1, ref src2)
-                    | ExpressionKind::Sub(ref src1, ref src2)
-                    | ExpressionKind::Mul(ref src1, ref src2)
-                    | ExpressionKind::Div(ref src1, ref src2)
-                    | ExpressionKind::Mod(ref src1, ref src2)
-                    | ExpressionKind::And(ref src1, ref src2)
-                    | ExpressionKind::Or(ref src1, ref src2)
-                    | ExpressionKind::Eq(ref src1, ref src2)
-                    | ExpressionKind::Neq(ref src1, ref src2)
-                    | ExpressionKind::Lt(ref src1, ref src2)
-                    | ExpressionKind::Leq(ref src1, ref src2)
-                    | ExpressionKind::Gt(ref src1, ref src2)
-                    | ExpressionKind::Geq(ref src1, ref src2) => Ir::Op2 {
+                    ExpressionKind::Op(ref src1, op, ref src2) => Ir::Op {
                         dest: dest_str.clone(),
                         src1: self.get_value(src1),
-                        op: IrGenerator::get_operation(&src),
+                        op: op.clone(),
                         src2: self.get_value(src2),
                     },
-                    _ => Ir::Op1 {
+                    _ => Ir::Ass {
                         dest: dest_str.clone(),
-                        op: Op1::Ass,
                         src: self.get_value(src),
                     },
                 };
@@ -156,34 +120,22 @@ impl IrGenerator<'_> {
 
                 dest_str
             }
-            ExpressionKind::Add(ref src1, ref src2)
-            | ExpressionKind::Sub(ref src1, ref src2)
-            | ExpressionKind::Mul(ref src1, ref src2)
-            | ExpressionKind::Div(ref src1, ref src2)
-            | ExpressionKind::Mod(ref src1, ref src2)
-            | ExpressionKind::And(ref src1, ref src2)
-            | ExpressionKind::Or(ref src1, ref src2)
-            | ExpressionKind::Eq(ref src1, ref src2)
-            | ExpressionKind::Neq(ref src1, ref src2)
-            | ExpressionKind::Lt(ref src1, ref src2)
-            | ExpressionKind::Leq(ref src1, ref src2)
-            | ExpressionKind::Gt(ref src1, ref src2)
-            | ExpressionKind::Geq(ref src1, ref src2) => {
+            ExpressionKind::Op(ref src1, op, ref src2) => {
                 self.nums.tmp += 1;
                 let dest = format!("t{}", self.nums.tmp);
 
                 let arg1 = self.get_value(src1);
                 let arg2 = self.get_value(src2);
 
-                self.inter_repr.push(Ir::Op2 {
+                self.inter_repr.push(Ir::Op {
                     dest: dest.clone(),
                     src1: arg1.clone(),
-                    op: IrGenerator::get_operation(expr),
+                    op: op.clone(),
                     src2: arg2.clone(),
                 });
 
                 self.type_table
-                    .insert(dest.clone(), IrGenerator::get_op_type(expr));
+                    .insert(dest.clone(), IrGenerator::get_op_type(&op));
 
                 dest
             }
@@ -269,10 +221,9 @@ impl IrGenerator<'_> {
 
                 let arg1 = self.get_value(arg);
 
-                self.inter_repr.push(Ir::Op1 {
+                self.inter_repr.push(Ir::Not {
                     dest: destination.clone(),
                     src: arg1.clone(),
-                    op: Op1::Not,
                 });
 
                 self.type_table
@@ -283,41 +234,12 @@ impl IrGenerator<'_> {
         }
     }
 
-    fn get_operation(expr: &Expression) -> Op2 {
-        match expr.kind {
-            ExpressionKind::Add(..) => Op2::Add,
-            ExpressionKind::Sub(..) => Op2::Sub,
-            ExpressionKind::Mul(..) => Op2::Mul,
-            ExpressionKind::Div(..) => Op2::Div,
-            ExpressionKind::Mod(..) => Op2::Mod,
-            ExpressionKind::And(..) => Op2::And,
-            ExpressionKind::Or(..) => Op2::Or,
-            ExpressionKind::Eq(..) => Op2::Eq,
-            ExpressionKind::Neq(..) => Op2::Neq,
-            ExpressionKind::Lt(..) => Op2::Lt,
-            ExpressionKind::Leq(..) => Op2::Leq,
-            ExpressionKind::Gt(..) => Op2::Gt,
-            ExpressionKind::Geq(..) => Op2::Geq,
-            _ => panic!("Given expression does not correspond to an operation."),
-        }
-    }
-
-    fn get_op_type(expr: &Expression) -> String {
-        match expr.kind {
-            ExpressionKind::Add(..)
-            | ExpressionKind::Sub(..)
-            | ExpressionKind::Mul(..)
-            | ExpressionKind::Div(..)
-            | ExpressionKind::Mod(..) => "int".to_string(),
-            ExpressionKind::And(..)
-            | ExpressionKind::Or(..)
-            | ExpressionKind::Eq(..)
-            | ExpressionKind::Neq(..)
-            | ExpressionKind::Lt(..)
-            | ExpressionKind::Leq(..)
-            | ExpressionKind::Gt(..)
-            | ExpressionKind::Geq(..) => "bool".to_string(),
-            _ => panic!("Given expression does not correspond to an operation."),
+    fn get_op_type(op: &Op) -> String {
+        match op {
+            Op::Add | Op::Sub | Op::Mul | Op::Div | Op::Mod => "int".to_string(),
+            Op::And | Op::Or | Op::Eq | Op::Neq | Op::Lt | Op::Leq | Op::Gt | Op::Geq => {
+                "bool".to_string()
+            }
         }
     }
 }

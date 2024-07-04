@@ -3,6 +3,7 @@ use std::io;
 
 use crate::Expression;
 use crate::ExpressionKind;
+use crate::Op;
 
 fn walk(expr: &Expression, prefix: &str) -> io::Result<()> {
     let sons: Vec<_> = get_sons(expr.clone());
@@ -42,20 +43,22 @@ fn get_expr_str(expr: &Expression) -> String {
         ExpressionKind::Declare(..) => "dec",
         ExpressionKind::Assign(..) => "ass",
         ExpressionKind::Exit(..) => "exit",
-        ExpressionKind::Add(..) => "+",
-        ExpressionKind::Sub(..) => "-",
-        ExpressionKind::Mul(..) => "*",
-        ExpressionKind::Div(..) => "/",
-        ExpressionKind::Mod(..) => "%",
         ExpressionKind::Not(..) => "!",
-        ExpressionKind::And(..) => "and",
-        ExpressionKind::Or(..) => "or",
-        ExpressionKind::Eq(..) => "==",
-        ExpressionKind::Neq(..) => "!=",
-        ExpressionKind::Lt(..) => "<",
-        ExpressionKind::Leq(..) => "<=",
-        ExpressionKind::Gt(..) => ">",
-        ExpressionKind::Geq(..) => ">=",
+        ExpressionKind::Op(_, op, _) => match op {
+            Op::Add => "+",
+            Op::Sub => "-",
+            Op::Mul => "*",
+            Op::Div => "/",
+            Op::Mod => "%",
+            Op::And => "and",
+            Op::Or => "or",
+            Op::Eq => "==",
+            Op::Neq => "!=",
+            Op::Lt => "<",
+            Op::Leq => "<=",
+            Op::Gt => ">",
+            Op::Geq => ">=",
+        },
     }
     .to_string()
 }
@@ -74,19 +77,7 @@ fn get_sons(expr: Expression) -> Vec<Expression> {
         ExpressionKind::Declare(dest, src) => vec![*dest, *src],
         ExpressionKind::Assign(dest, src) => vec![*dest, *src],
         ExpressionKind::Exit(src) => vec![*src],
-        ExpressionKind::Add(dest, src)
-        | ExpressionKind::Sub(dest, src)
-        | ExpressionKind::Mul(dest, src)
-        | ExpressionKind::Div(dest, src)
-        | ExpressionKind::Mod(dest, src)
-        | ExpressionKind::And(dest, src)
-        | ExpressionKind::Or(dest, src)
-        | ExpressionKind::Eq(dest, src)
-        | ExpressionKind::Neq(dest, src)
-        | ExpressionKind::Lt(dest, src)
-        | ExpressionKind::Leq(dest, src)
-        | ExpressionKind::Gt(dest, src)
-        | ExpressionKind::Geq(dest, src) => vec![*dest, *src],
+        ExpressionKind::Op(dest, _, src) => vec![*dest, *src],
         ExpressionKind::Not(src) => vec![*src],
     }
 }

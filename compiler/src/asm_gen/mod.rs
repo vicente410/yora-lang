@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::ir_gen::*;
+use crate::parser::Op;
 
 struct Generator {
     asm: String,
@@ -23,27 +24,27 @@ pub fn generate_asm(ir: Vec<Ir>, type_table: &mut HashMap<String, String>) -> St
     generator.asm
 }
 
-fn get_rel_op(op: &Op2) -> &str {
+fn get_rel_op(op: &Op) -> &str {
     match op {
-        Op2::Eq => "e",
-        Op2::Neq => "ne",
-        Op2::Lt => "l",
-        Op2::Leq => "le",
-        Op2::Gt => "g",
-        Op2::Geq => "ge",
+        Op::Eq => "e",
+        Op::Neq => "ne",
+        Op::Lt => "l",
+        Op::Leq => "le",
+        Op::Gt => "g",
+        Op::Geq => "ge",
         _ => panic!("Not a relational operator"),
     }
 }
 
-fn get_arit_op(op: &Op2) -> &str {
+fn get_arit_op(op: &Op) -> &str {
     match op {
-        Op2::Add => "add",
-        Op2::Sub => "sub",
-        Op2::Mul => "mul",
-        Op2::Div => "div",
-        Op2::Mod => "div",
-        Op2::And => "and",
-        Op2::Or => "or",
+        Op::Add => "add",
+        Op::Sub => "sub",
+        Op::Mul => "mul",
+        Op::Div => "div",
+        Op::Mod => "div",
+        Op::And => "and",
+        Op::Or => "or",
         _ => panic!("Not an arithmetric operator"),
     }
 }
@@ -52,11 +53,7 @@ impl Generator {
     fn generate_asm(&mut self, ir: Vec<Ir>) {
         for instruction in ir {
             let string = match instruction {
-                Ir::Op1 {
-                    ref dest,
-                    ref op,
-                    ref src,
-                } => {
+                Ir::Ass { ref dest, ref src } => {
                     if !self.symbol_table.contains_key(&dest.clone()) {
                         self.insert_reg(
                             dest.clone(),
@@ -64,37 +61,42 @@ impl Generator {
                         );
                     }
 
-                    match op {
-                        Op1::Ass => {
-                            let src_val = self.get_value(src);
-                            let dest_val = self.get_value(dest);
+                    let src_val = self.get_value(src);
+                    let dest_val = self.get_value(dest);
 
-                            if src_val.contains("[") && dest_val.contains("[") {
-                                &format!(
-                                    "\tpush rax\n\
+                    if src_val.contains("[") && dest_val.contains("[") {
+                        &format!(
+                            "\tpush rax\n\
                                     \tmov rax, {}\n\
                                     \tmov {}, rax\n\
                                     \tpop rax\n",
-                                    src_val, dest_val,
-                                )
-                            } else {
-                                &format!("\tmov {}, {}\n", dest_val, src_val)
-                            }
-                        }
-                        Op1::Not => &format!(
-                            // todo: does not account yet for stack, find generic way of dealing
-                            // with stack operations instead of this mess
-                            "\tmov {}, {}\n\
-                            \tnot {}\n\
-                            \tand {}, 1\n",
-                            self.get_value(dest),
-                            self.get_value(src),
-                            self.get_value(dest),
-                            self.get_value(dest),
-                        ),
+                            src_val, dest_val,
+                        )
+                    } else {
+                        &format!("\tmov {}, {}\n", dest_val, src_val)
                     }
                 }
-                Ir::Op2 {
+                Ir::Not { ref dest, ref src } => {
+                    if !self.symbol_table.contains_key(&dest.clone()) {
+                        self.insert_reg(
+                            dest.clone(),
+                            get_size_for_type(self.type_table[dest].clone()),
+                        );
+                    }
+
+                    &format!(
+                        // todo: does not account yet for stack, find generic way of dealing
+                        // with stack operations instead of this mess
+                        "\tmov {}, {}\n\
+                            \tnot {}\n\
+                            \tand {}, 1\n",
+                        self.get_value(dest),
+                        self.get_value(src),
+                        self.get_value(dest),
+                        self.get_value(dest),
+                    )
+                }
+                Ir::Op {
                     ref dest,
                     ref src1,
                     ref op,
@@ -108,13 +110,13 @@ impl Generator {
                     }
 
                     match op {
-                        Op2::Add | Op2::Sub | Op2::And | Op2::Or => &self.get_instruction_op(
+                        Op::Add | Op::Sub | Op::And | Op::Or => &self.get_instruction_op(
                             src1.to_string(),
                             src2.to_string(),
                             dest.to_string(),
                             &instruction,
                         ),
-                        Op2::Mul | Op2::Div => &format!(
+                        Op::Mul | Op::Div => &format!(
                             "\tmov {}, {}\n\
                             \tmov rax, {}\n\
                             \t{} {}\n\
@@ -126,7 +128,7 @@ impl Generator {
                             self.get_value(dest),
                             self.get_value(dest),
                         ),
-                        Op2::Mod => &format!(
+                        Op::Mod => &format!(
                             "\tmov {}, {}\n\
                             \tmov rax, {}\n\
                             \t{} {}\n\
@@ -138,7 +140,7 @@ impl Generator {
                             self.get_value(dest),
                             self.get_value(dest),
                         ),
-                        Op2::Eq | Op2::Neq | Op2::Lt | Op2::Leq | Op2::Gt | Op2::Geq => {
+                        Op::Eq | Op::Neq | Op::Lt | Op::Leq | Op::Gt | Op::Geq => {
                             if !self.symbol_table.contains_key(dest) {
                                 self.insert_reg(
                                     dest.clone(),
@@ -180,7 +182,7 @@ impl Generator {
         }
         self.asm.push_str(
             "\n\tmov rdi, 0\n\
-        exit:\n\
+            exit:\n\
             \tmov rax, 60\n\
             \tsyscall\n",
         )
@@ -225,7 +227,7 @@ impl Generator {
         let src_val2 = self.get_value(&src2);
         let dest_val = self.get_value(&dest);
 
-        if let Ir::Op2 { op, .. } = instruction {
+        if let Ir::Op { op, .. } = instruction {
             if src_val1.contains('[') && src_val2.contains('[') {
                 let reg = if self.type_table[&src1] == "bool" {
                     "al".to_string()
