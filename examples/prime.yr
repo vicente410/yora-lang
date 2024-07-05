@@ -17,13 +17,15 @@ if nth_prime <= 1 # nth 1 or invalid
 
 while num_found < nth_prime # repeat until nth number is found
 	var div = 2 # used to test if current number has divisors
-	# repeat until number is not prime or divisor equals it
-	while div < checking or checking % div == 0
+	# repeat until number divisor equals the square root of checking
+	while div * div <= checking
+		if checking % div == 0 # exit loop early if number is divisible
+			break
 		div += 1 # next divisor
 	
-	if div == checking # if checked number is prime
+	if div * div > checking # if checked number is prime
 		num_found += 1 # increment number of primes found
-	if num_found != nth_prime # if not the last iteration
-		checking += 1 # next number to check
 
-exit(checking) # exit with last number checked
+	checking += 1 # next number to check
+
+exit(checking - 1) # exit with last prime number found
