@@ -27,8 +27,9 @@ impl Expression {
             ExpressionKind::While(..) => "while",
             ExpressionKind::Continue => "continue",
             ExpressionKind::Break => "break",
-            ExpressionKind::Declare(..) => "dec",
-            ExpressionKind::Assign(..) => "ass",
+            ExpressionKind::Declare(..) => "declare",
+            ExpressionKind::Assign(..) => "assign",
+            ExpressionKind::Array(..) => "array",
             ExpressionKind::Call(name, ..) => &name,
             ExpressionKind::Not(..) => "!",
             ExpressionKind::Op(_, op, _) => op.to_str(),
@@ -47,7 +48,6 @@ pub enum ExpressionKind {
     Call(String, Box<Expression>),
 
     // Literals
-    Identifier(String),
     BoolLit(String),
     IntLit(String),
     StringLit(String),
@@ -62,8 +62,10 @@ pub enum ExpressionKind {
     Break,
 
     // Variables
+    Identifier(String),
     Declare(Box<Expression>, Box<Expression>),
     Assign(Box<Expression>, Box<Expression>),
+    Array(Vec<Expression>),
 
     // Operators
     Not(Box<Expression>),
@@ -110,6 +112,7 @@ fn get_sons(expr: Expression) -> Vec<Expression> {
         ExpressionKind::Break => Vec::new(),
         ExpressionKind::Declare(dest, src) => vec![*dest, *src],
         ExpressionKind::Assign(dest, src) => vec![*dest, *src],
+        ExpressionKind::Array(contents) => contents,
         ExpressionKind::Call(.., args) => vec![*args],
         ExpressionKind::Op(dest, _, src) => vec![*dest, *src],
         ExpressionKind::Not(src) => vec![*src],

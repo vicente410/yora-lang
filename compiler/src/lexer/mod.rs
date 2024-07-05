@@ -48,7 +48,7 @@ impl Token {
             "=" | "+" | "-" | "*" | "/" | "%" | "+=" | "-=" | "*=" | "/=" | "%=" | "!" | "and"
             | "or" | "==" | "!=" | "<" | "<=" | ">" | ">=" => TokenKind::Operator,
 
-            ":" | "(" | ")" => TokenKind::Separator,
+            ":" | "(" | ")" | "[" | "]" | "," => TokenKind::Separator,
 
             "true" | "false" => TokenKind::BoolLit,
 
@@ -110,7 +110,7 @@ impl Buffer {
     }
 
     fn is_symbol(ch: char) -> bool {
-        "=+-*/%!<>:()".contains(ch)
+        "=+-*/%!<>:()[],".contains(ch)
     }
 
     fn is_id_or_num(ch: char) -> bool {

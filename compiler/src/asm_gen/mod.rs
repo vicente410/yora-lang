@@ -258,13 +258,7 @@ impl AsmGenerator {
             self.get_value(src2),
         ));
 
-        if self.get_value(&dest).contains("rbp") {
-            format!("\tset{} {}\n", get_relation_str(op), dest)
-        //} else if self.get_value(&dest).contains("rbx") {
-        //    format!("\tset{} bl\n", get_rel_op(op))
-        } else {
-            format!("\tset{} {}\n", get_relation_str(op), dest)
-        }
+        format!("\tset{} {}\n", get_relation_str(op), dest)
     }
 
     fn get_if_goto(&self, src1: &String, src2: &String, cond: Op, label: &String) -> String {

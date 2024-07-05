@@ -29,7 +29,7 @@ impl fmt::Display for Ir {
         let mut string = String::new();
         string.push_str("section: data\n");
         for (label, data, ..) in &self.data {
-            string.push_str(&format!("{} {}\n", label, data));
+            string.push_str(&format!("    {} {}\n", label, data));
         }
         string.push_str("\nsection: code\n");
         for instruction in &self.code {

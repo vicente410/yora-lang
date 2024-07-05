@@ -24,7 +24,7 @@ struct Nums {
     tmp: u32,
     ifs: u32,
     loops: u32,
-    strings: u32,
+    buf: u32,
 }
 
 impl IrGenerator<'_> {
@@ -35,7 +35,7 @@ impl IrGenerator<'_> {
                 tmp: 0,
                 ifs: 0,
                 loops: 0,
-                strings: 0,
+                buf: 0,
             },
             ir: Ir::new(),
         }
@@ -52,13 +52,13 @@ impl IrGenerator<'_> {
             ExpressionKind::Identifier(id) => id.to_string(),
             ExpressionKind::IntLit(int) => int.to_string(),
             ExpressionKind::StringLit(string) => {
-                self.nums.strings += 1;
+                self.nums.buf += 1;
                 self.ir.add_data(
-                    format!("str_{}", self.nums.strings),
+                    format!("buf_{}", self.nums.buf),
                     string.to_string(),
                     string.len() - 1,
                 );
-                format!("str_{}", self.nums.strings)
+                format!("buf_{}", self.nums.buf)
             }
             ExpressionKind::BoolLit(bool) => {
                 if bool == "true" {
@@ -101,8 +101,7 @@ impl IrGenerator<'_> {
             ExpressionKind::Assign(ref dest, ref src)
             | ExpressionKind::Declare(ref dest, ref src) => {
                 let dest_str = self.get_value(dest);
-                // no need to call get_value on not because temporary value can be assigned
-                // directly
+                // no need to call get_value on not because temporary value can be assigned directly
                 let instruction = match &src.kind {
                     ExpressionKind::Not(expr) => IrInstruction::Not {
                         dest: dest_str.clone(),
@@ -123,6 +122,23 @@ impl IrGenerator<'_> {
 
                 dest_str
             }
+            ExpressionKind::Array(contents) => {
+                let mut string = String::new();
+                for expr in contents {
+                    match &expr.kind {
+                        ExpressionKind::IntLit(int) => string.push_str(&int),
+                        _ => panic!("Array must be of int literals"),
+                    }
+                    string.push_str(", ")
+                }
+                string.pop();
+                string.pop();
+                self.nums.buf += 1;
+                self.ir
+                    .add_data(format!("buf_{}", self.nums.buf), string, contents.len() - 1);
+                format!("buf_{}", self.nums.buf)
+            }
+
             ExpressionKind::Op(ref src1, op, ref src2) => {
                 self.nums.tmp += 1;
                 let dest = format!("t{}", self.nums.tmp);

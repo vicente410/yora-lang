@@ -48,6 +48,11 @@ impl Analyzer<'_> {
                     }
                 };
             }
+            ExpressionKind::Array(contents) => {
+                for expr in contents {
+                    self.analyze(expr);
+                }
+            }
             ExpressionKind::Op(ref arg1, _, ref arg2) => {
                 self.analyze(arg1);
                 self.analyze(arg2);
@@ -55,7 +60,7 @@ impl Analyzer<'_> {
                 self.check_type(expr);
             }
             ExpressionKind::Sequence(seq) => {
-                for expr in &seq[0..seq.len()] {
+                for expr in seq {
                     self.analyze(expr);
                 }
             }
@@ -200,6 +205,7 @@ impl Analyzer<'_> {
             ExpressionKind::IntLit(..) => "int".to_string(),
             ExpressionKind::BoolLit(..) | ExpressionKind::Not(..) => "bool".to_string(),
             ExpressionKind::StringLit(..) => "string".to_string(),
+            ExpressionKind::Array(..) => "array".to_string(),
             ExpressionKind::Op(_, op, _) => match op {
                 Op::And | Op::Or | Op::Eq | Op::Neq | Op::Lt | Op::Leq | Op::Gt | Op::Geq => {
                     "bool".to_string()

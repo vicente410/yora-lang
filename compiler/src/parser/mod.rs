@@ -176,6 +176,20 @@ fn get_expression(tokens: &[Token]) -> Expression {
                     process::exit(1);
                 }
             }
+            "[" => {
+                let mut contents = Vec::new();
+                let mut buffer = Vec::new();
+                for token in &tokens[1..] {
+                    match token.str.as_str() {
+                        "," | "]" => {
+                            contents.push(get_expression(&buffer));
+                            buffer.clear()
+                        }
+                        _ => buffer.push(token.clone()),
+                    }
+                }
+                ExpressionKind::Array(contents)
+            }
             "!" => ExpressionKind::Not(Box::new(get_expression(&tokens[1..]))),
             _ => match tokens[1].str.as_str() {
                 "=" => ExpressionKind::Assign(
