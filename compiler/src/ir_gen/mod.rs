@@ -92,6 +92,7 @@ impl IrGenerator<'_> {
         match &expr.kind {
             ExpressionKind::Identifier(id) => id.to_string(),
             ExpressionKind::IntLit(int) => int.to_string(),
+            ExpressionKind::StringLit(string) => string.to_string(),
             ExpressionKind::BoolLit(bool) => {
                 if bool == "true" {
                     "1".to_string()
@@ -99,11 +100,11 @@ impl IrGenerator<'_> {
                     "0".to_string()
                 }
             }
-            ExpressionKind::Exit(val) => {
-                let arg = self.get_value(val);
+            ExpressionKind::Call(name, arg) => {
+                let arg = self.get_value(arg);
                 self.inter_repr.push(Ir::Param { src: arg.clone() });
                 self.inter_repr.push(Ir::Call {
-                    label: "exit".to_string(),
+                    label: name.to_string(),
                 });
                 arg
             }

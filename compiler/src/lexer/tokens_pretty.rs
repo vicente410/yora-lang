@@ -25,6 +25,7 @@ impl fmt::Display for TokenKind {
                 TokenKind::Identifier => "id",
                 TokenKind::IntLit => "int",
                 TokenKind::BoolLit => "bool",
+                TokenKind::StringLit => "string",
             }
         )
     }

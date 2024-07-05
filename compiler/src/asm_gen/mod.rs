@@ -4,7 +4,8 @@ use crate::ir_gen::*;
 use crate::parser::Op;
 
 struct AsmGenerator {
-    asm: String,
+    asm_data: String,
+    asm_text: String,
     symbol_table: HashMap<String, String>,
     type_table: HashMap<String, String>,
     current_stack: usize,
@@ -12,14 +13,15 @@ struct AsmGenerator {
 
 pub fn generate_asm(ir: Vec<Ir>, type_table: &mut HashMap<String, String>) -> String {
     let mut generator = AsmGenerator {
-        asm: String::from("global _start\n_start:\n\tmov rbp, rsp\n"),
+        asm_data: String::from("section .data\n"),
+        asm_text: String::from("section .text\nglobal _start\n_start:\n\tmov rbp, rsp\n"),
         symbol_table: HashMap::new(),
         type_table: type_table.clone(),
         current_stack: 0,
     };
 
     generator.generate_asm(ir);
-    generator.asm
+    generator.asm_data + "\n" + &generator.asm_text
 }
 
 impl AsmGenerator {
@@ -60,20 +62,25 @@ impl AsmGenerator {
                     cond,
                     label,
                 } => self.get_if_goto(&src1, &src2, cond, &label),
-                Ir::Param { src } => format!("\tmov rdi, {}\n", self.get_value(&src)),
+                Ir::Param { src } => self.get_param(&src),
                 Ir::Call { label } => format!("\tcall {}\n", label),
                 Ir::Ret { .. } => "".to_string(), // todo
             };
-            self.asm.push_str(&string);
+            self.asm_text.push_str(&string);
         }
 
-        //dbg!(&self.symbol_table);
-        //dbg!(&self.type_table);
-        self.asm.push_str(
+        self.asm_text.push_str(
             "\n\tmov rdi, 0\n\
             exit:\n\
             \tmov rax, 60\n\
             \tsyscall\n",
+        );
+
+        self.asm_text.push_str(
+            "\nprint:\n\
+            \tmov rax, 1\n\
+            \tsyscall\n\
+            \tret\n",
         );
     }
 
@@ -229,7 +236,7 @@ impl AsmGenerator {
 
         let dest = self.get_value(dest);
 
-        self.asm.push_str(&format!(
+        self.asm_text.push_str(&format!(
             "\tcmp {}, {}\n",
             self.get_value(src1),
             self.get_value(src2),
@@ -253,6 +260,20 @@ impl AsmGenerator {
             get_cond_str(cond),
             label
         )
+    }
+
+    fn get_param(&mut self, src: &String) -> String {
+        if src.contains('\"') {
+            self.asm_data.push_str(&format!("buf:\tdb\t{}\n", src));
+            format!(
+                "\tmov rdi, 1\n\
+                \tmov rsi, buf\n\
+                \tmov rdx, {}\n",
+                src.len() - 2
+            )
+        } else {
+            format!("\tmov rdi, {}\n", self.get_value(&src))
+        }
     }
 
     fn get_value(&self, value: &String) -> String {

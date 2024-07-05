@@ -83,8 +83,8 @@ impl Analyzer<'_> {
 
                 self.check_type(expr);
             }
-            ExpressionKind::Exit(ref val) => {
-                self.analyze(val);
+            ExpressionKind::Call(.., ref arg) => {
+                self.analyze(arg);
 
                 self.check_type(expr);
             }
@@ -145,18 +145,35 @@ impl Analyzer<'_> {
                     );
                 }
             }
-            ExpressionKind::Exit(ref val) => {
-                let type1 = self.get_type(val);
+            ExpressionKind::Call(name, ref arg) => {
+                let type1 = self.get_type(arg);
 
-                if type1 != "int" {
-                    self.errors.add(
-                        ErrorKind::MismatchedTypes {
-                            expected: "int".to_string(),
-                            found: type1,
-                        },
-                        val.line,
-                        val.col,
-                    );
+                match name.as_str() {
+                    "exit" => {
+                        if type1 != "int" {
+                            self.errors.add(
+                                ErrorKind::MismatchedTypes {
+                                    expected: "int".to_string(),
+                                    found: type1,
+                                },
+                                arg.line,
+                                arg.col,
+                            );
+                        }
+                    }
+                    "print" => {
+                        if type1 != "string" {
+                            self.errors.add(
+                                ErrorKind::MismatchedTypes {
+                                    expected: "string".to_string(),
+                                    found: type1,
+                                },
+                                arg.line,
+                                arg.col,
+                            );
+                        }
+                    }
+                    _ => panic!("Unrecognized procedure name"),
                 }
             }
             _ => {}
@@ -181,6 +198,7 @@ impl Analyzer<'_> {
             }
             ExpressionKind::IntLit(..) => "int".to_string(),
             ExpressionKind::BoolLit(..) | ExpressionKind::Not(..) => "bool".to_string(),
+            ExpressionKind::StringLit(..) => "string".to_string(),
             ExpressionKind::Op(_, op, _) => match op {
                 Op::And | Op::Or | Op::Eq | Op::Neq | Op::Lt | Op::Leq | Op::Gt | Op::Geq => {
                     "bool".to_string()

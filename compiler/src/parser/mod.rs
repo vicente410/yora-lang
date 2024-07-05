@@ -19,10 +19,13 @@ impl Expression {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ExpressionKind {
+    Call(String, Box<Expression>),
+
     // Literals
     Identifier(String),
     BoolLit(String),
     IntLit(String),
+    StringLit(String),
 
     // Control flow
     Sequence(Vec<Expression>),
@@ -36,9 +39,6 @@ pub enum ExpressionKind {
     // Variables
     Declare(Box<Expression>, Box<Expression>),
     Assign(Box<Expression>, Box<Expression>),
-
-    // Built-in functions
-    Exit(Box<Expression>),
 
     // Operators
     Not(Box<Expression>),
@@ -188,6 +188,7 @@ fn get_expression(tokens: &[Token]) -> Expression {
                 TokenKind::Identifier => ExpressionKind::Identifier(tokens[0].str.to_string()),
                 TokenKind::BoolLit => ExpressionKind::BoolLit(tokens[0].str.to_string()),
                 TokenKind::IntLit => ExpressionKind::IntLit(tokens[0].str.to_string()),
+                TokenKind::StringLit => ExpressionKind::StringLit(tokens[0].str.to_string()),
                 TokenKind::Keyword => match tokens[0].str.as_str() {
                     "continue" => ExpressionKind::Continue,
                     "break" => ExpressionKind::Break,
@@ -210,7 +211,14 @@ fn get_expression(tokens: &[Token]) -> Expression {
 
     Expression::new(
         match tokens[0].str.as_str() {
-            "exit" => ExpressionKind::Exit(Box::new(get_expression(&tokens[2..len - 1]))),
+            "exit" => ExpressionKind::Call(
+                "exit".to_string(),
+                Box::new(get_expression(&tokens[2..len - 1])),
+            ),
+            "print" => ExpressionKind::Call(
+                "print".to_string(),
+                Box::new(get_expression(&tokens[2..len - 1])),
+            ),
             "var" => {
                 if &tokens[2].str == "=" {
                     ExpressionKind::Declare(

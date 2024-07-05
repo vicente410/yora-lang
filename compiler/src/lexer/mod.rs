@@ -20,6 +20,7 @@ pub enum TokenKind {
     //Literals
     IntLit,
     BoolLit,
+    StringLit,
 }
 
 impl Token {
@@ -35,6 +36,10 @@ impl Token {
     fn get_token_kind(string: &String) -> TokenKind {
         if string.parse::<i64>().is_ok() {
             return TokenKind::IntLit;
+        }
+
+        if string[0..1] == *"\"" {
+            return TokenKind::StringLit;
         }
 
         match string.as_str() {
@@ -149,6 +154,19 @@ pub fn lex(source: String) -> Vec<Token> {
                     break;
                 }
             }
+            buffer.clear();
+            continue;
+        }
+        if buffer.str == "\"" {
+            buffer.push(ch, &cursor);
+            for next_ch in chars.by_ref() {
+                buffer.push(next_ch, &cursor);
+                cursor.advance(next_ch);
+                if next_ch == '\"' {
+                    break;
+                }
+            }
+            tokens.push(Token::new(&buffer));
             buffer.clear();
             continue;
         }

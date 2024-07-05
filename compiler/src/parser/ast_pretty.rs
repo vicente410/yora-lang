@@ -33,7 +33,8 @@ fn get_expr_str(expr: &Expression) -> String {
     match &expr.kind {
         ExpressionKind::Identifier(str)
         | ExpressionKind::BoolLit(str)
-        | ExpressionKind::IntLit(str) => str.as_str(),
+        | ExpressionKind::IntLit(str)
+        | ExpressionKind::StringLit(str) => str.as_str(),
         ExpressionKind::Sequence(..) => "seq",
         ExpressionKind::If(..) => "if",
         ExpressionKind::IfElse(..) => "if_else",
@@ -43,7 +44,7 @@ fn get_expr_str(expr: &Expression) -> String {
         ExpressionKind::Break => "break",
         ExpressionKind::Declare(..) => "dec",
         ExpressionKind::Assign(..) => "ass",
-        ExpressionKind::Exit(..) => "exit",
+        ExpressionKind::Call(name, ..) => name,
         ExpressionKind::Not(..) => "!",
         ExpressionKind::Op(_, op, _) => match op {
             Op::Add => "+",
@@ -68,7 +69,8 @@ fn get_sons(expr: Expression) -> Vec<Expression> {
     match expr.kind {
         ExpressionKind::Identifier(..)
         | ExpressionKind::BoolLit(..)
-        | ExpressionKind::IntLit(..) => Vec::new(),
+        | ExpressionKind::IntLit(..)
+        | ExpressionKind::StringLit(..) => Vec::new(),
         ExpressionKind::Sequence(seq) => seq,
         ExpressionKind::If(cond, seq) => vec![*cond, *seq],
         ExpressionKind::IfElse(cond, if_seq, else_seq) => vec![*cond, *if_seq, *else_seq],
@@ -78,7 +80,7 @@ fn get_sons(expr: Expression) -> Vec<Expression> {
         ExpressionKind::Break => Vec::new(),
         ExpressionKind::Declare(dest, src) => vec![*dest, *src],
         ExpressionKind::Assign(dest, src) => vec![*dest, *src],
-        ExpressionKind::Exit(src) => vec![*src],
+        ExpressionKind::Call(.., args) => vec![*args],
         ExpressionKind::Op(dest, _, src) => vec![*dest, *src],
         ExpressionKind::Not(src) => vec![*src],
     }
