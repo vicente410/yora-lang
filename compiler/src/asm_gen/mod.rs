@@ -243,21 +243,21 @@ impl AsmGenerator {
         ));
 
         if self.get_value(&dest).contains("rbp") {
-            format!("\tset{} {}\n", get_rel_op(op), dest)
+            format!("\tset{} {}\n", get_relation_str(op), dest)
         //} else if self.get_value(&dest).contains("rbx") {
         //    format!("\tset{} bl\n", get_rel_op(op))
         } else {
-            format!("\tset{} {}\n", get_rel_op(op), dest)
+            format!("\tset{} {}\n", get_relation_str(op), dest)
         }
     }
 
-    fn get_if_goto(&self, src1: &String, src2: &String, cond: Cond, label: &String) -> String {
+    fn get_if_goto(&self, src1: &String, src2: &String, cond: Op, label: &String) -> String {
         format!(
             "\tcmp {}, {}\n\
             \tj{} {}\n",
             self.get_value(&src1),
             self.get_value(&src2),
-            get_cond_str(cond),
+            get_relation_str(&cond),
             label
         )
     }
@@ -376,7 +376,7 @@ impl AsmGenerator {
     }*/
 }
 
-fn get_rel_op(op: &Op) -> &str {
+fn get_relation_str(op: &Op) -> &str {
     match op {
         Op::Eq => "e",
         Op::Neq => "ne",
@@ -404,16 +404,4 @@ fn get_size_for_type(type_to_check: String) -> usize {
         "bool" => 1,
         _ => panic!("Invalid type."),
     }
-}
-
-fn get_cond_str(cond: Cond) -> String {
-    match cond {
-        Cond::Eq => "e",
-        Cond::Neq => "ne",
-        Cond::Lt => "l",
-        Cond::Leq => "le",
-        Cond::Gt => "g",
-        Cond::Geq => "ge",
-    }
-    .to_string()
 }

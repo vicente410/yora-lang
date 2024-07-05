@@ -28,10 +28,9 @@ pub enum Ir {
         label: String,
     },
     IfGoto {
-        // if src != 0 goto label
         src1: String,
         src2: String,
-        cond: Cond,
+        cond: Op,
         label: String,
     },
 
@@ -45,16 +44,6 @@ pub enum Ir {
     Ret {
         src: String,
     },
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum Cond {
-    Eq,
-    Neq,
-    Lt,
-    Leq,
-    Gt,
-    Geq,
 }
 
 struct Nums {
@@ -277,12 +266,12 @@ impl IrGenerator<'_> {
                     src1,
                     src2,
                     cond: match op {
-                        Op::Eq => Cond::Neq,
-                        Op::Neq => Cond::Eq,
-                        Op::Lt => Cond::Geq,
-                        Op::Leq => Cond::Gt,
-                        Op::Gt => Cond::Leq,
-                        Op::Geq => Cond::Lt,
+                        Op::Eq => Op::Neq,
+                        Op::Neq => Op::Eq,
+                        Op::Lt => Op::Geq,
+                        Op::Leq => Op::Gt,
+                        Op::Gt => Op::Leq,
+                        Op::Geq => Op::Lt,
                         _ => panic!("Must be a boolean expression"),
                     },
                     label: match kind {
@@ -298,7 +287,7 @@ impl IrGenerator<'_> {
         self.inter_repr.push(Ir::IfGoto {
             src1: cond_value,
             src2: "0".to_string(),
-            cond: Cond::Eq,
+            cond: Op::Eq,
             label: match kind {
                 ExpressionKind::If(..) => format!("end_if_{}", num),
                 ExpressionKind::IfElse(..) => format!("else_{}", num),

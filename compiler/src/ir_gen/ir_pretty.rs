@@ -1,6 +1,5 @@
 use std::fmt;
 
-use crate::Cond;
 use crate::Ir;
 use crate::Op;
 
@@ -49,23 +48,6 @@ impl fmt::Display for Op {
                 Op::Leq => "<=",
                 Op::Gt => ">",
                 Op::Geq => ">=",
-            }
-        )
-    }
-}
-
-impl fmt::Display for Cond {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Cond::Eq => "==",
-                Cond::Neq => "!=",
-                Cond::Lt => "<",
-                Cond::Leq => "<=",
-                Cond::Gt => ">",
-                Cond::Geq => ">=",
             }
         )
     }
