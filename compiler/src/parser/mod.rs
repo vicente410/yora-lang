@@ -1,66 +1,11 @@
 use std::process;
 
+use crate::expression::*;
 use crate::lexer::*;
+use crate::op::*;
 
-pub mod ast_pretty;
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Expression {
-    pub kind: ExpressionKind,
-    pub line: usize,
-    pub col: usize,
-}
-
-impl Expression {
-    fn new(kind: ExpressionKind, line: usize, col: usize) -> Expression {
-        Expression { kind, line, col }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum ExpressionKind {
-    Call(String, Box<Expression>),
-
-    // Literals
-    Identifier(String),
-    BoolLit(String),
-    IntLit(String),
-    StringLit(String),
-
-    // Control flow
-    Sequence(Vec<Expression>),
-    If(Box<Expression>, Box<Expression>),
-    IfElse(Box<Expression>, Box<Expression>, Box<Expression>),
-    Loop(Box<Expression>),
-    While(Box<Expression>, Box<Expression>),
-    Continue,
-    Break,
-
-    // Variables
-    Declare(Box<Expression>, Box<Expression>),
-    Assign(Box<Expression>, Box<Expression>),
-
-    // Operators
-    Not(Box<Expression>),
-    Op(Box<Expression>, Op, Box<Expression>),
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Op {
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Mod,
-    And,
-    Or,
-    Eq,
-    Neq,
-    Lt,
-    Leq,
-    Gt,
-    Geq,
-}
+pub mod expression;
+pub mod op;
 
 pub fn parse(tokens: Vec<Token>) -> Vec<Expression> {
     vec![get_sequence(&tokens[..])]
@@ -289,30 +234,7 @@ fn get_expression(tokens: &[Token]) -> Expression {
 
 fn get_operation(operation: &Token, arg1: Box<Expression>, arg2: Box<Expression>) -> Expression {
     Expression::new(
-        ExpressionKind::Op(
-            arg1,
-            match operation.str.as_str() {
-                "+" => Op::Add,
-                "-" => Op::Sub,
-                "*" => Op::Mul,
-                "/" => Op::Div,
-                "%" => Op::Mod,
-                "and" => Op::And,
-                "or" => Op::Or,
-                "==" => Op::Eq,
-                "!=" => Op::Neq,
-                "<" => Op::Lt,
-                "<=" => Op::Leq,
-                ">" => Op::Gt,
-                ">=" => Op::Geq,
-                _ => {
-                    println!("Unrecognized operation:");
-                    dbg!(operation);
-                    process::exit(1);
-                }
-            },
-            arg2,
-        ),
+        ExpressionKind::Op(arg1, Op::from_str(&operation.str), arg2),
         operation.line,
         operation.col,
     )

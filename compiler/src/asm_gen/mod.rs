@@ -1,7 +1,8 @@
+use core::panic;
 use std::collections::HashMap;
 
-use crate::ir_gen::*;
-use crate::parser::Op;
+use crate::ir_gen::ir::*;
+use crate::op::Op;
 
 struct AsmGenerator {
     asm_data: String,
@@ -9,28 +10,43 @@ struct AsmGenerator {
     symbol_table: HashMap<String, String>,
     type_table: HashMap<String, String>,
     current_stack: usize,
+    num_params: usize,
 }
 
-pub fn generate_asm(ir: Vec<Ir>, type_table: &mut HashMap<String, String>) -> String {
+pub fn generate_asm(ir: Ir, type_table: &mut HashMap<String, String>) -> String {
     let mut generator = AsmGenerator {
         asm_data: String::from("section .data\n"),
         asm_text: String::from("section .text\nglobal _start\n_start:\n\tmov rbp, rsp\n"),
         symbol_table: HashMap::new(),
         type_table: type_table.clone(),
         current_stack: 0,
+        num_params: 0,
     };
 
-    generator.generate_asm(ir);
+    generator.generate_data(ir.data);
+    generator.generate_code(ir.code);
     generator.asm_data + "\n" + &generator.asm_text
 }
 
 impl AsmGenerator {
-    fn generate_asm(&mut self, ir: Vec<Ir>) {
+    fn generate_data(&mut self, data: Vec<(String, String, usize)>) {
+        for (label, data, ..) in data {
+            self.asm_data
+                .push_str(&format!("{}:\tdb\t{}, 10\n", label, data));
+        }
+    }
+    fn generate_code(&mut self, ir: Vec<IrInstruction>) {
         for instruction in ir {
+            if let IrInstruction::Param { .. } = instruction {
+                self.num_params += 1;
+            } else {
+                self.num_params = 0;
+            }
+
             let string = match instruction {
-                Ir::Ass { ref dest, ref src } => self.get_assign(dest, src),
-                Ir::Not { ref dest, ref src } => self.get_not(dest, src),
-                Ir::Op {
+                IrInstruction::Ass { ref dest, ref src } => self.get_assign(dest, src),
+                IrInstruction::Not { ref dest, ref src } => self.get_not(dest, src),
+                IrInstruction::Op {
                     ref dest,
                     ref src1,
                     ref op,
@@ -54,17 +70,17 @@ impl AsmGenerator {
                         }
                     }
                 }
-                Ir::Label(label) => format!("{}:\n", label),
-                Ir::Goto { label } => format!("\tjmp {}\n", label),
-                Ir::IfGoto {
+                IrInstruction::Label(label) => format!("{}:\n", label),
+                IrInstruction::Goto { label } => format!("\tjmp {}\n", label),
+                IrInstruction::IfGoto {
                     src1,
                     src2,
                     cond,
                     label,
                 } => self.get_if_goto(&src1, &src2, cond, &label),
-                Ir::Param { src } => self.get_param(&src),
-                Ir::Call { label } => format!("\tcall {}\n", label),
-                Ir::Ret { .. } => "".to_string(), // todo
+                IrInstruction::Param { src } => self.get_param(&src),
+                IrInstruction::Call { label } => format!("\tcall {}\n", label),
+                IrInstruction::Ret { .. } => "".to_string(), // todo
             };
             self.asm_text.push_str(&string);
         }
@@ -263,17 +279,19 @@ impl AsmGenerator {
     }
 
     fn get_param(&mut self, src: &String) -> String {
-        if src.contains('\"') {
-            self.asm_data.push_str(&format!("buf:\tdb\t{}\n", src));
-            format!(
-                "\tmov rdi, 1\n\
-                \tmov rsi, buf\n\
-                \tmov rdx, {}\n",
-                src.len() - 2
-            )
-        } else {
-            format!("\tmov rdi, {}\n", self.get_value(&src))
-        }
+        format!(
+            "\tmov {}, {}\n",
+            match self.num_params {
+                1 => "rdi",
+                2 => "rsi",
+                3 => "rdx",
+                4 => "rcx",
+                5 => "r8",
+                6 => "r9",
+                _ => panic!("Too many params"), // todo: implement stack for parameters
+            },
+            self.get_value(&src)
+        )
     }
 
     fn get_value(&self, value: &String) -> String {
@@ -337,7 +355,7 @@ impl AsmGenerator {
         let src_val2 = self.get_value(&src2);
         let dest_val = self.get_value(&dest);
 
-        if let Ir::Op { op, .. } = instruction {
+        if let IrInstruction::Op { op, .. } = instruction {
             if src_val1.contains('[') && src_val2.contains('[') {
                 let reg = if self.type_table[&src1] == "bool" {
                     "al".to_string()

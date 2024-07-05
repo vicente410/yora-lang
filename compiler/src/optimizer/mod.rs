@@ -1,6 +1,6 @@
-use crate::ir_gen::*;
+use crate::ir_gen::ir::Ir;
 
-pub fn optimize(ir: Vec<Ir>) -> Vec<Ir> {
+pub fn optimize(ir: Ir) -> Ir {
     //let mut optimized_ir = ir;
 
     //optimized_ir = remove_self_assign(optimized_ir);

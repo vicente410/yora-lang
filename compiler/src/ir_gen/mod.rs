@@ -1,61 +1,30 @@
 use std::collections::HashMap;
 
-use crate::parser::*;
+use crate::ir::*;
+use crate::op::*;
+use crate::parser::expression::*;
 
-pub mod ir_pretty;
+pub mod ir;
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum Ir {
-    // Operations
-    Ass {
-        dest: String,
-        src: String,
-    },
-    Not {
-        dest: String,
-        src: String,
-    },
-    Op {
-        dest: String,
-        src1: String,
-        op: Op,
-        src2: String,
-    },
+pub fn generate_ir(ast: Vec<Expression>, type_table: &mut HashMap<String, String>) -> Ir {
+    let mut generator = IrGenerator::new(type_table);
 
-    // Control-flow
-    Label(String),
-    Goto {
-        label: String,
-    },
-    IfGoto {
-        src1: String,
-        src2: String,
-        cond: Op,
-        label: String,
-    },
+    generator.gen_ir(ast);
 
-    // Funcion calls
-    Param {
-        src: String,
-    },
-    Call {
-        label: String,
-    },
-    Ret {
-        src: String,
-    },
+    generator.ir
+}
+
+pub struct IrGenerator<'a> {
+    type_table: &'a mut HashMap<String, String>,
+    nums: Nums,
+    ir: Ir,
 }
 
 struct Nums {
     tmp: u32,
     ifs: u32,
     loops: u32,
-}
-
-pub struct IrGenerator<'a> {
-    type_table: &'a mut HashMap<String, String>,
-    nums: Nums,
-    inter_repr: Vec<Ir>,
+    strings: u32,
 }
 
 impl IrGenerator<'_> {
@@ -66,8 +35,9 @@ impl IrGenerator<'_> {
                 tmp: 0,
                 ifs: 0,
                 loops: 0,
+                strings: 0,
             },
-            inter_repr: Vec::new(),
+            ir: Ir::new(),
         }
     }
 
@@ -81,7 +51,15 @@ impl IrGenerator<'_> {
         match &expr.kind {
             ExpressionKind::Identifier(id) => id.to_string(),
             ExpressionKind::IntLit(int) => int.to_string(),
-            ExpressionKind::StringLit(string) => string.to_string(),
+            ExpressionKind::StringLit(string) => {
+                self.nums.strings += 1;
+                self.ir.add_data(
+                    format!("str_{}", self.nums.strings),
+                    string.to_string(),
+                    string.len() - 1,
+                );
+                format!("str_{}", self.nums.strings)
+            }
             ExpressionKind::BoolLit(bool) => {
                 if bool == "true" {
                     "1".to_string()
@@ -91,8 +69,31 @@ impl IrGenerator<'_> {
             }
             ExpressionKind::Call(name, arg) => {
                 let arg = self.get_value(arg);
-                self.inter_repr.push(Ir::Param { src: arg.clone() });
-                self.inter_repr.push(Ir::Call {
+                match name.as_str() {
+                    "exit" => self
+                        .ir
+                        .add_instruction(IrInstruction::Param { src: arg.clone() }),
+                    "print" => {
+                        self.ir.add_instruction(IrInstruction::Param {
+                            src: "1".to_string(),
+                        });
+                        self.ir
+                            .add_instruction(IrInstruction::Param { src: arg.clone() });
+
+                        let mut string_size = 0;
+                        for (label, _, size) in &self.ir.data {
+                            if arg == *label {
+                                string_size = *size;
+                                break;
+                            }
+                        }
+                        self.ir.add_instruction(IrInstruction::Param {
+                            src: format!("{}", string_size),
+                        });
+                    }
+                    _ => panic!("Undefined function"),
+                };
+                self.ir.add_instruction(IrInstruction::Call {
                     label: name.to_string(),
                 });
                 arg
@@ -103,22 +104,22 @@ impl IrGenerator<'_> {
                 // no need to call get_value on not because temporary value can be assigned
                 // directly
                 let instruction = match &src.kind {
-                    ExpressionKind::Not(expr) => Ir::Not {
+                    ExpressionKind::Not(expr) => IrInstruction::Not {
                         dest: dest_str.clone(),
                         src: self.get_value(expr),
                     },
-                    ExpressionKind::Op(ref src1, op, ref src2) => Ir::Op {
+                    ExpressionKind::Op(ref src1, op, ref src2) => IrInstruction::Op {
                         dest: dest_str.clone(),
                         src1: self.get_value(src1),
                         op: op.clone(),
                         src2: self.get_value(src2),
                     },
-                    _ => Ir::Ass {
+                    _ => IrInstruction::Ass {
                         dest: dest_str.clone(),
                         src: self.get_value(src),
                     },
                 };
-                self.inter_repr.push(instruction);
+                self.ir.add_instruction(instruction);
 
                 dest_str
             }
@@ -129,7 +130,7 @@ impl IrGenerator<'_> {
                 let arg1 = self.get_value(src1);
                 let arg2 = self.get_value(src2);
 
-                self.inter_repr.push(Ir::Op {
+                self.ir.add_instruction(IrInstruction::Op {
                     dest: dest.clone(),
                     src1: arg1.clone(),
                     op: op.clone(),
@@ -137,7 +138,7 @@ impl IrGenerator<'_> {
                 });
 
                 self.type_table
-                    .insert(dest.clone(), IrGenerator::get_op_type(op));
+                    .insert(dest.clone(), op.get_type().to_string());
 
                 dest
             }
@@ -151,8 +152,8 @@ impl IrGenerator<'_> {
 
                 let seq_value = self.get_value(seq);
 
-                self.inter_repr
-                    .push(Ir::Label(format!("end_if_{}", current_ifs)));
+                self.ir
+                    .add_instruction(IrInstruction::Label(format!("end_if_{}", current_ifs)));
 
                 seq_value
             }
@@ -163,15 +164,15 @@ impl IrGenerator<'_> {
                 self.get_condition(cond, &expr.kind, current_ifs);
 
                 let if_seq_value = self.get_value(if_seq);
-                self.inter_repr.push(Ir::Goto {
+                self.ir.add_instruction(IrInstruction::Goto {
                     label: format!("end_if_{}", current_ifs),
                 });
 
-                self.inter_repr
-                    .push(Ir::Label(format!("else_{}", current_ifs)));
+                self.ir
+                    .add_instruction(IrInstruction::Label(format!("else_{}", current_ifs)));
                 self.get_value(else_seq);
-                self.inter_repr
-                    .push(Ir::Label(format!("end_if_{}", current_ifs)));
+                self.ir
+                    .add_instruction(IrInstruction::Label(format!("end_if_{}", current_ifs)));
 
                 if_seq_value
             }
@@ -179,16 +180,16 @@ impl IrGenerator<'_> {
                 self.nums.loops += 1;
                 let current_loops = self.nums.loops;
 
-                self.inter_repr
-                    .push(Ir::Label(format!("loop_{}", current_loops)));
+                self.ir
+                    .add_instruction(IrInstruction::Label(format!("loop_{}", current_loops)));
                 let seq_value = self.get_value(seq);
 
-                self.inter_repr.push(Ir::Goto {
+                self.ir.add_instruction(IrInstruction::Goto {
                     label: format!("loop_{}", current_loops),
                 });
 
-                self.inter_repr
-                    .push(Ir::Label(format!("loop_end_{}", current_loops)));
+                self.ir
+                    .add_instruction(IrInstruction::Label(format!("loop_end_{}", current_loops)));
 
                 seq_value
             }
@@ -196,29 +197,29 @@ impl IrGenerator<'_> {
                 self.nums.loops += 1;
                 let current_loops = self.nums.loops;
 
-                self.inter_repr
-                    .push(Ir::Label(format!("loop_{}", current_loops)));
+                self.ir
+                    .add_instruction(IrInstruction::Label(format!("loop_{}", current_loops)));
 
                 self.get_condition(cond, &expr.kind, current_loops);
 
                 let seq_value = self.get_value(seq);
-                self.inter_repr.push(Ir::Goto {
+                self.ir.add_instruction(IrInstruction::Goto {
                     label: format!("loop_{}", current_loops),
                 });
 
-                self.inter_repr
-                    .push(Ir::Label(format!("loop_end_{}", current_loops)));
+                self.ir
+                    .add_instruction(IrInstruction::Label(format!("loop_end_{}", current_loops)));
 
                 seq_value
             }
             ExpressionKind::Break => {
-                self.inter_repr.push(Ir::Goto {
+                self.ir.add_instruction(IrInstruction::Goto {
                     label: format!("loop_end_{}", self.nums.loops),
                 });
                 "".to_string()
             }
             ExpressionKind::Continue => {
-                self.inter_repr.push(Ir::Goto {
+                self.ir.add_instruction(IrInstruction::Goto {
                     label: format!("loop_{}", self.nums.loops),
                 });
                 "".to_string()
@@ -235,7 +236,7 @@ impl IrGenerator<'_> {
 
                 let arg1 = self.get_value(arg);
 
-                self.inter_repr.push(Ir::Not {
+                self.ir.add_instruction(IrInstruction::Not {
                     dest: destination.clone(),
                     src: arg1.clone(),
                 });
@@ -248,21 +249,12 @@ impl IrGenerator<'_> {
         }
     }
 
-    fn get_op_type(op: &Op) -> String {
-        match op {
-            Op::Add | Op::Sub | Op::Mul | Op::Div | Op::Mod => "int".to_string(),
-            Op::And | Op::Or | Op::Eq | Op::Neq | Op::Lt | Op::Leq | Op::Gt | Op::Geq => {
-                "bool".to_string()
-            }
-        }
-    }
-
     fn get_condition(&mut self, cond: &Expression, kind: &ExpressionKind, num: u32) {
         if let ExpressionKind::Op(src1, op, src2) = &cond.kind {
             if *op != Op::And && *op != Op::Or {
                 let src1 = self.get_value(src1);
                 let src2 = self.get_value(src2);
-                return self.inter_repr.push(Ir::IfGoto {
+                return self.ir.add_instruction(IrInstruction::IfGoto {
                     src1,
                     src2,
                     cond: match op {
@@ -283,8 +275,9 @@ impl IrGenerator<'_> {
                 });
             }
         }
+
         let cond_value = self.get_value(cond);
-        self.inter_repr.push(Ir::IfGoto {
+        self.ir.add_instruction(IrInstruction::IfGoto {
             src1: cond_value,
             src2: "0".to_string(),
             cond: Op::Eq,
@@ -296,12 +289,4 @@ impl IrGenerator<'_> {
             },
         });
     }
-}
-
-pub fn generate_ir(ast: Vec<Expression>, type_table: &mut HashMap<String, String>) -> Vec<Ir> {
-    let mut generator = IrGenerator::new(type_table);
-
-    generator.gen_ir(ast);
-
-    generator.inter_repr
 }

@@ -124,9 +124,7 @@ impl Compiler {
         }
 
         if self.flags.contains(&Flag::Debug(DebugOptions::Ir)) {
-            for instr in ir {
-                println!("{}", instr);
-            }
+            println!("{}", ir);
             process::exit(0);
         }
 

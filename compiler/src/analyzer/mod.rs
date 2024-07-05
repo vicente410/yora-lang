@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use crate::errors::*;
-use crate::parser::*;
+use crate::parser::expression::*;
+use crate::parser::op::*;
 
 struct Analyzer<'a> {
     type_table: HashMap<String, String>,
