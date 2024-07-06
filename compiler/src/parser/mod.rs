@@ -210,7 +210,7 @@ fn get_expression(tokens: &[Token]) -> Expression {
                         _ => buffer.push(token.clone()),
                     }
                 }
-                ExpressionKind::Array(contents)
+                ExpressionKind::ArrayLit(contents)
             }
             "!" => ExpressionKind::Not(Box::new(get_expression(&tokens[1..]))),
             _ => {

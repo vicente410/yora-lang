@@ -54,7 +54,7 @@ impl Analyzer<'_> {
                     }
                 };
             }
-            ExpressionKind::Array(contents) => {
+            ExpressionKind::ArrayLit(contents) => {
                 for expr in contents {
                     self.analyze(expr);
                 }
@@ -211,7 +211,7 @@ impl Analyzer<'_> {
             }
             ExpressionKind::IntLit(..) => "int",
             ExpressionKind::BoolLit(..) | ExpressionKind::Not(..) => "bool",
-            ExpressionKind::StringLit(..) | ExpressionKind::Array(..) => "ptr",
+            ExpressionKind::StringLit(..) | ExpressionKind::ArrayLit(..) => "ptr",
             ExpressionKind::Op(_, op, _) => op.get_type(),
             _ => {
                 dbg!(&expr);

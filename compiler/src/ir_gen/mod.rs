@@ -51,231 +51,185 @@ impl IrGenerator<'_> {
         match &expr.kind {
             ExpressionKind::Identifier(id) => id.to_string(),
             ExpressionKind::IntLit(int) => int.to_string(),
-            ExpressionKind::StringLit(string) => {
-                self.nums.buf += 1;
-                self.ir.add_data(
-                    format!("buf_{}", self.nums.buf),
-                    string.to_string() + ", 10",
-                    string.len() - 1,
-                );
-                format!("buf_{}", self.nums.buf)
-            }
-            ExpressionKind::BoolLit(bool) => {
-                if bool == "true" {
-                    "1".to_string()
-                } else {
-                    "0".to_string()
-                }
-            }
-            ExpressionKind::Call(name, arg) => {
-                let arg = self.get_value(arg);
-                match name.as_str() {
-                    "exit" => self
-                        .ir
-                        .add_instruction(IrInstruction::Param { src: arg.clone() }),
-                    "print" => {
-                        self.ir.add_instruction(IrInstruction::Param {
-                            src: "1".to_string(),
-                        });
-                        self.ir
-                            .add_instruction(IrInstruction::Param { src: arg.clone() });
-
-                        let mut string_size = 0;
-                        for buffer in &self.ir.data {
-                            if arg == buffer.label {
-                                string_size = buffer.size;
-                                break;
-                            }
-                        }
-                        self.ir.add_instruction(IrInstruction::Param {
-                            src: format!("{}", string_size),
-                        });
-                    }
-                    _ => panic!("Undefined function"),
-                };
-                self.ir.add_instruction(IrInstruction::Call {
-                    label: name.to_string(),
-                });
-                arg
-            }
+            ExpressionKind::StringLit(string) => self.get_string_lit(string),
+            ExpressionKind::BoolLit(bool) => self.get_bool_lit(bool),
+            ExpressionKind::ArrayLit(contents) => self.get_array_lit(contents),
+            ExpressionKind::Call(name, arg) => self.get_call(name, arg),
             ExpressionKind::Assign(ref dest, ref src)
-            | ExpressionKind::Declare(ref dest, ref src) => {
-                let dest_str = self.get_value(dest);
-
-                if let ExpressionKind::Array(..) = &src.kind {
-                    let buf_name = self.get_value(src);
-                    for buffer in &mut self.ir.data {
-                        if buffer.label == buf_name {
-                            buffer.label = dest_str.clone();
-                        }
-                    }
-                } else {
-                    // no need to call get_value on not because temporary value can be assigned directly
-                    let instruction = match &src.kind {
-                        ExpressionKind::Not(expr) => IrInstruction::Not {
-                            dest: dest_str.clone(),
-                            src: self.get_value(expr),
-                        },
-                        ExpressionKind::Op(ref src1, op, ref src2) => IrInstruction::Op {
-                            dest: dest_str.clone(),
-                            src1: self.get_value(src1),
-                            op: op.clone(),
-                            src2: self.get_value(src2),
-                        },
-                        _ => IrInstruction::Ass {
-                            dest: dest_str.clone(),
-                            src: self.get_value(src),
-                        },
-                    };
-                    self.ir.add_instruction(instruction);
-                }
-
-                dest_str
-            }
-            ExpressionKind::Array(contents) => {
-                let mut string = String::new();
-                for expr in contents {
-                    match &expr.kind {
-                        ExpressionKind::IntLit(int) => string.push_str(&int),
-                        _ => panic!("Array must be of int literals"),
-                    }
-                    string.push_str(", ")
-                }
-                string.pop();
-                string.pop();
-                self.nums.buf += 1;
-                self.ir
-                    .add_data(format!("buf_{}", self.nums.buf), string, contents.len());
-                format!("buf_{}", self.nums.buf)
-            }
-
-            ExpressionKind::Op(ref src1, op, ref src2) => {
-                self.nums.tmp += 1;
-                let dest = format!("t{}", self.nums.tmp);
-
-                let arg1 = self.get_value(src1);
-                let arg2 = self.get_value(src2);
-
-                self.ir.add_instruction(IrInstruction::Op {
-                    dest: dest.clone(),
-                    src1: arg1.clone(),
-                    op: op.clone(),
-                    src2: arg2.clone(),
-                });
-
-                self.type_table
-                    .insert(dest.clone(), op.get_type().to_string());
-
-                dest
-            }
-
-            ExpressionKind::If(cond, seq) => {
-                // todo: remove current_ifs
-                self.nums.ifs += 1;
-                let current_ifs = self.nums.ifs;
-
-                self.get_condition(cond, &expr.kind, current_ifs);
-
-                let seq_value = self.get_value(seq);
-
-                self.ir
-                    .add_instruction(IrInstruction::Label(format!("end_if_{}", current_ifs)));
-
-                seq_value
-            }
+            | ExpressionKind::Declare(ref dest, ref src) => self.get_declare_assign(dest, src),
+            ExpressionKind::Op(ref src1, op, ref src2) => self.get_operation(src1, op, src2),
+            ExpressionKind::If(cond, seq) => self.get_if(cond, seq, expr),
             ExpressionKind::IfElse(cond, if_seq, else_seq) => {
-                self.nums.ifs += 1;
-                let current_ifs = self.nums.ifs;
-
-                self.get_condition(cond, &expr.kind, current_ifs);
-
-                let if_seq_value = self.get_value(if_seq);
-                self.ir.add_instruction(IrInstruction::Goto {
-                    label: format!("end_if_{}", current_ifs),
-                });
-
-                self.ir
-                    .add_instruction(IrInstruction::Label(format!("else_{}", current_ifs)));
-                self.get_value(else_seq);
-                self.ir
-                    .add_instruction(IrInstruction::Label(format!("end_if_{}", current_ifs)));
-
-                if_seq_value
+                self.get_if_else(cond, if_seq, else_seq, expr)
             }
-            ExpressionKind::Loop(seq) => {
-                self.nums.loops += 1;
-                let current_loops = self.nums.loops;
-
-                self.ir
-                    .add_instruction(IrInstruction::Label(format!("loop_{}", current_loops)));
-                let seq_value = self.get_value(seq);
-
-                self.ir.add_instruction(IrInstruction::Goto {
-                    label: format!("loop_{}", current_loops),
-                });
-
-                self.ir
-                    .add_instruction(IrInstruction::Label(format!("loop_end_{}", current_loops)));
-
-                seq_value
-            }
-            ExpressionKind::While(cond, seq) => {
-                self.nums.loops += 1;
-                let current_loops = self.nums.loops;
-
-                self.ir
-                    .add_instruction(IrInstruction::Label(format!("loop_{}", current_loops)));
-
-                self.get_condition(cond, &expr.kind, current_loops);
-
-                let seq_value = self.get_value(seq);
-                self.ir.add_instruction(IrInstruction::Goto {
-                    label: format!("loop_{}", current_loops),
-                });
-
-                self.ir
-                    .add_instruction(IrInstruction::Label(format!("loop_end_{}", current_loops)));
-
-                seq_value
-            }
-            ExpressionKind::Break => {
-                self.ir.add_instruction(IrInstruction::Goto {
-                    label: format!("loop_end_{}", self.nums.loops),
-                });
-                "".to_string()
-            }
-            ExpressionKind::Continue => {
-                self.ir.add_instruction(IrInstruction::Goto {
-                    label: format!("loop_{}", self.nums.loops),
-                });
-                "".to_string()
-            }
-            ExpressionKind::Sequence(seq) => {
-                for expr in &seq[0..seq.len() - 1] {
-                    self.get_value(expr);
-                }
-                self.get_value(&seq[seq.len() - 1])
-            }
-            ExpressionKind::Not(arg) => {
-                self.nums.tmp += 1;
-                let destination = format!("t{}", self.nums.tmp);
-
-                let arg1 = self.get_value(arg);
-
-                self.ir.add_instruction(IrInstruction::Not {
-                    dest: destination.clone(),
-                    src: arg1.clone(),
-                });
-
-                self.type_table
-                    .insert(destination.clone(), "bool".to_string());
-
-                destination
-            }
+            ExpressionKind::Loop(seq) => self.get_loop(seq),
+            ExpressionKind::While(cond, seq) => self.get_while(cond, seq, expr),
+            ExpressionKind::Break => self.get_break(),
+            ExpressionKind::Continue => self.get_continue(),
+            ExpressionKind::Sequence(seq) => self.get_sequence(seq),
+            ExpressionKind::Not(arg) => self.get_not(arg),
             ExpressionKind::Idx(id, offset) => {
                 format!("[{} + {}]", id.to_str(), offset.to_str())
             }
         }
+    }
+
+    fn get_string_lit(&mut self, string: &str) -> String {
+        self.nums.buf += 1;
+        self.ir.add_data(
+            format!("buf_{}", self.nums.buf),
+            string.to_string() + ", 10",
+            string.len() - 1,
+        );
+        format!("buf_{}", self.nums.buf)
+    }
+
+    fn get_bool_lit(&mut self, bool: &str) -> String {
+        if bool == "true" { "1" } else { "0" }.to_string()
+    }
+
+    fn get_array_lit(&mut self, contents: &Vec<Expression>) -> String {
+        let mut string = String::new();
+        for expr in contents {
+            match &expr.kind {
+                ExpressionKind::IntLit(int) => string.push_str(&int),
+                _ => panic!("Array must be of int literals"),
+            }
+            string.push_str(", ")
+        }
+        string.pop();
+        string.pop();
+        self.nums.buf += 1;
+        self.ir
+            .add_data(format!("buf_{}", self.nums.buf), string, contents.len());
+        format!("buf_{}", self.nums.buf)
+    }
+
+    fn get_call(&mut self, name: &str, arg: &Expression) -> String {
+        let arg = self.get_value(arg);
+        match name {
+            "exit" => self
+                .ir
+                .add_instruction(IrInstruction::Param { src: arg.clone() }),
+            "print" => {
+                self.ir.add_instruction(IrInstruction::Param {
+                    src: "1".to_string(),
+                });
+                self.ir
+                    .add_instruction(IrInstruction::Param { src: arg.clone() });
+
+                let mut string_size = 0;
+                for buffer in &self.ir.data {
+                    if arg == buffer.label {
+                        string_size = buffer.size;
+                        break;
+                    }
+                }
+                self.ir.add_instruction(IrInstruction::Param {
+                    src: format!("{}", string_size),
+                });
+            }
+            _ => panic!("Undefined function"),
+        };
+        self.ir.add_instruction(IrInstruction::Call {
+            label: name.to_string(),
+        });
+        arg
+    }
+
+    fn get_declare_assign(&mut self, dest: &Expression, src: &Expression) -> String {
+        let dest_str = self.get_value(dest);
+
+        if let ExpressionKind::ArrayLit(..) = &src.kind {
+            let buf_name = self.get_value(src);
+            for buffer in &mut self.ir.data {
+                if buffer.label == buf_name {
+                    buffer.label = dest_str.clone();
+                }
+            }
+        } else {
+            // no need to call get_value on not because temporary value can be assigned directly
+            let instruction = match &src.kind {
+                ExpressionKind::Not(expr) => IrInstruction::Not {
+                    dest: dest_str.clone(),
+                    src: self.get_value(expr),
+                },
+                ExpressionKind::Op(ref src1, op, ref src2) => IrInstruction::Op {
+                    dest: dest_str.clone(),
+                    src1: self.get_value(src1),
+                    op: op.clone(),
+                    src2: self.get_value(src2),
+                },
+                _ => IrInstruction::Ass {
+                    dest: dest_str.clone(),
+                    src: self.get_value(src),
+                },
+            };
+            self.ir.add_instruction(instruction);
+        }
+
+        dest_str
+    }
+
+    fn get_operation(&mut self, src1: &Expression, op: &Op, src2: &Expression) -> String {
+        self.nums.tmp += 1;
+        let dest = format!("t{}", self.nums.tmp);
+
+        let arg1 = self.get_value(src1);
+        let arg2 = self.get_value(src2);
+
+        self.ir.add_instruction(IrInstruction::Op {
+            dest: dest.clone(),
+            src1: arg1.clone(),
+            op: op.clone(),
+            src2: arg2.clone(),
+        });
+
+        self.type_table
+            .insert(dest.clone(), op.get_type().to_string());
+
+        dest
+    }
+
+    fn get_if(&mut self, cond: &Expression, seq: &Expression, expr: &Expression) -> String {
+        // todo: remove current_ifs
+        self.nums.ifs += 1;
+        let current_ifs = self.nums.ifs;
+
+        self.get_condition(cond, &expr.kind, current_ifs);
+
+        let seq_value = self.get_value(seq);
+
+        self.ir
+            .add_instruction(IrInstruction::Label(format!("end_if_{}", current_ifs)));
+
+        seq_value
+    }
+
+    fn get_if_else(
+        &mut self,
+        cond: &Expression,
+        if_seq: &Expression,
+        else_seq: &Expression,
+        expr: &Expression,
+    ) -> String {
+        self.nums.ifs += 1;
+        let current_ifs = self.nums.ifs;
+
+        self.get_condition(cond, &expr.kind, current_ifs);
+
+        let if_seq_value = self.get_value(if_seq);
+        self.ir.add_instruction(IrInstruction::Goto {
+            label: format!("end_if_{}", current_ifs),
+        });
+
+        self.ir
+            .add_instruction(IrInstruction::Label(format!("else_{}", current_ifs)));
+        self.get_value(else_seq);
+        self.ir
+            .add_instruction(IrInstruction::Label(format!("end_if_{}", current_ifs)));
+
+        if_seq_value
     }
 
     fn get_condition(&mut self, cond: &Expression, kind: &ExpressionKind, num: u32) {
@@ -317,5 +271,81 @@ impl IrGenerator<'_> {
                 _ => panic!("Not a condition expression"),
             },
         });
+    }
+
+    fn get_loop(&mut self, seq: &Expression) -> String {
+        self.nums.loops += 1;
+        let current_loops = self.nums.loops;
+
+        self.ir
+            .add_instruction(IrInstruction::Label(format!("loop_{}", current_loops)));
+        let seq_value = self.get_value(seq);
+
+        self.ir.add_instruction(IrInstruction::Goto {
+            label: format!("loop_{}", current_loops),
+        });
+
+        self.ir
+            .add_instruction(IrInstruction::Label(format!("loop_end_{}", current_loops)));
+
+        seq_value
+    }
+
+    fn get_while(&mut self, cond: &Expression, seq: &Expression, expr: &Expression) -> String {
+        self.nums.loops += 1;
+        let current_loops = self.nums.loops;
+
+        self.ir
+            .add_instruction(IrInstruction::Label(format!("loop_{}", current_loops)));
+
+        self.get_condition(cond, &expr.kind, current_loops);
+
+        let seq_value = self.get_value(seq);
+        self.ir.add_instruction(IrInstruction::Goto {
+            label: format!("loop_{}", current_loops),
+        });
+
+        self.ir
+            .add_instruction(IrInstruction::Label(format!("loop_end_{}", current_loops)));
+
+        seq_value
+    }
+
+    fn get_break(&mut self) -> String {
+        self.ir.add_instruction(IrInstruction::Goto {
+            label: format!("loop_end_{}", self.nums.loops),
+        });
+        "".to_string()
+    }
+
+    fn get_continue(&mut self) -> String {
+        self.ir.add_instruction(IrInstruction::Goto {
+            label: format!("loop_{}", self.nums.loops),
+        });
+        "".to_string()
+    }
+
+    fn get_sequence(&mut self, seq: &Vec<Expression>) -> String {
+        for expr in &seq[0..seq.len() - 1] {
+            self.get_value(expr);
+        }
+        self.get_value(&seq[seq.len() - 1])
+    }
+
+    fn get_not(&mut self, arg: &Expression) -> String {
+        self.nums.tmp += 1;
+        let destination = format!("t{}", self.nums.tmp);
+
+        let arg1 = self.get_value(arg);
+
+        self.ir.add_instruction(IrInstruction::Not {
+            dest: destination.clone(),
+            src: arg1.clone(),
+        });
+
+        self.type_table
+            .insert(destination.clone(), "bool".to_string());
+
+        destination
     }
 }

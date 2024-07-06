@@ -29,7 +29,7 @@ impl Expression {
             ExpressionKind::Break => "break",
             ExpressionKind::Declare(..) => "declare",
             ExpressionKind::Assign(..) => "assign",
-            ExpressionKind::Array(..) => "array",
+            ExpressionKind::ArrayLit(..) => "array",
             ExpressionKind::Call(name, ..) => &name,
             ExpressionKind::Not(..) => "!",
             ExpressionKind::Idx(..) => "[]",
@@ -66,7 +66,7 @@ pub enum ExpressionKind {
     Identifier(String),
     Declare(Box<Expression>, Box<Expression>),
     Assign(Box<Expression>, Box<Expression>),
-    Array(Vec<Expression>),
+    ArrayLit(Vec<Expression>),
 
     // Operators
     Not(Box<Expression>),
@@ -114,7 +114,7 @@ fn get_sons(expr: Expression) -> Vec<Expression> {
         ExpressionKind::Break => Vec::new(),
         ExpressionKind::Declare(dest, src) => vec![*dest, *src],
         ExpressionKind::Assign(dest, src) => vec![*dest, *src],
-        ExpressionKind::Array(contents) => contents,
+        ExpressionKind::ArrayLit(contents) => contents,
         ExpressionKind::Call(.., args) => vec![*args],
         ExpressionKind::Not(src) => vec![*src],
         ExpressionKind::Idx(id, offset) => vec![*id, *offset],
