@@ -32,6 +32,7 @@ impl Expression {
             ExpressionKind::Array(..) => "array",
             ExpressionKind::Call(name, ..) => &name,
             ExpressionKind::Not(..) => "!",
+            ExpressionKind::Idx(..) => "[]",
             ExpressionKind::Op(_, op, _) => op.to_str(),
         }
     }
@@ -69,6 +70,7 @@ pub enum ExpressionKind {
 
     // Operators
     Not(Box<Expression>),
+    Idx(Box<Expression>, Box<Expression>),
     Op(Box<Expression>, Op, Box<Expression>),
 }
 
@@ -114,7 +116,8 @@ fn get_sons(expr: Expression) -> Vec<Expression> {
         ExpressionKind::Assign(dest, src) => vec![*dest, *src],
         ExpressionKind::Array(contents) => contents,
         ExpressionKind::Call(.., args) => vec![*args],
-        ExpressionKind::Op(dest, _, src) => vec![*dest, *src],
         ExpressionKind::Not(src) => vec![*src],
+        ExpressionKind::Idx(id, offset) => vec![*id, *offset],
+        ExpressionKind::Op(dest, _, src) => vec![*dest, *src],
     }
 }

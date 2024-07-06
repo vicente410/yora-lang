@@ -25,18 +25,19 @@ pub fn generate_asm(ir: Ir, type_table: &mut HashMap<String, String>) -> String 
 
     generator.generate_data(ir.data);
     generator.generate_code(ir.code);
+    dbg!(generator.type_table);
     generator.asm_data + "\n" + &generator.asm_text
 }
 
 impl AsmGenerator {
-    fn generate_data(&mut self, data: Vec<(String, String, usize)>) {
-        for (label, data, ..) in data {
-            if data.contains('\"') {
+    fn generate_data(&mut self, data: Vec<Buffer>) {
+        for buffer in data {
+            if buffer.contents.contains('\"') {
                 self.asm_data
-                    .push_str(&format!("{}:\tdb\t{}\n", label, data));
+                    .push_str(&format!("{}:\tdb\t{}\n", buffer.label, buffer.contents));
             } else {
                 self.asm_data
-                    .push_str(&format!("{}:\tdd\t{}\n", label, data));
+                    .push_str(&format!("{}:\tdb\t{}\n", buffer.label, buffer.contents));
             }
         }
     }
@@ -74,7 +75,6 @@ impl AsmGenerator {
                         Op::Eq | Op::Neq | Op::Lt | Op::Leq | Op::Gt | Op::Geq => {
                             self.get_cmp(dest, src1, src2, op)
                         }
-                        Op::Idx => self.get_idx(dest, src1, src2),
                     }
                 }
                 IrInstruction::Label(label) => format!("{}:\n", label),
@@ -231,15 +231,6 @@ impl AsmGenerator {
         )
     }
 
-    fn get_idx(&mut self, dest: &String, src1: &String, src2: &String) -> String {
-        format!(
-            "\tmov {}, [{} + {}*4]\n",
-            self.get_value(dest),
-            self.get_value(src1),
-            self.get_value(src2),
-        )
-    }
-
     fn get_cmp(&mut self, dest: &String, src1: &String, src2: &String, op: &Op) -> String {
         if !self.symbol_table.contains_key(dest) {
             self.insert_reg(
@@ -287,7 +278,9 @@ impl AsmGenerator {
     }
 
     fn get_value(&self, value: &String) -> String {
-        if self.symbol_table.contains_key(value) {
+        if value.contains("[") {
+            "byte ".to_string() + value
+        } else if self.symbol_table.contains_key(value) {
             self.symbol_table[value].clone()
         } else {
             value.to_string()
@@ -410,8 +403,8 @@ fn get_word_for_size(size: usize) -> String {
 
 fn get_size_for_type(type_to_check: String) -> usize {
     match type_to_check.as_str() {
-        "ptr" => 8,
-        "int" => 8,
+        "ptr" => 1,
+        "int" => 1,
         "bool" => 1,
         _ => panic!("Invalid type."),
     }

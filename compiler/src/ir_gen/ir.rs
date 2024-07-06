@@ -3,8 +3,15 @@ use std::fmt;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Ir {
-    pub data: Vec<(String, String, usize)>,
+    pub data: Vec<Buffer>,
     pub code: Vec<IrInstruction>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Buffer {
+    pub label: String,
+    pub contents: String,
+    pub size: usize,
 }
 
 impl Ir {
@@ -19,8 +26,12 @@ impl Ir {
         self.code.push(instruction)
     }
 
-    pub fn add_data(&mut self, label: String, data: String, size: usize) {
-        self.data.push((label, data, size))
+    pub fn add_data(&mut self, label: String, contents: String, size: usize) {
+        self.data.push(Buffer {
+            label,
+            contents,
+            size,
+        })
     }
 }
 
@@ -28,8 +39,8 @@ impl fmt::Display for Ir {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
         let mut string = String::new();
         string.push_str("section: data\n");
-        for (label, data, ..) in &self.data {
-            string.push_str(&format!("    {} {}\n", label, data));
+        for buffer in &self.data {
+            string.push_str(&format!("    {} {}\n", buffer.label, buffer.contents));
         }
         string.push_str("\nsection: code\n");
         for instruction in &self.code {
@@ -92,11 +103,7 @@ impl fmt::Display for IrInstruction {
                 op,
                 src2,
             } => {
-                if Op::Idx == *op {
-                    write!(f, "    {} = {}[{}]", dest, src1, src2)
-                } else {
-                    write!(f, "    {} = {} {} {}", dest, src1, op, src2)
-                }
+                write!(f, "    {} = {} {} {}", dest, src1, op, src2)
             }
             IrInstruction::Label(str) => write!(f, "{}:", str),
             IrInstruction::Goto { label } => write!(f, "    goto {}", label),

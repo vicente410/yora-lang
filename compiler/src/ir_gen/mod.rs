@@ -81,9 +81,9 @@ impl IrGenerator<'_> {
                             .add_instruction(IrInstruction::Param { src: arg.clone() });
 
                         let mut string_size = 0;
-                        for (label, _, size) in &self.ir.data {
-                            if arg == *label {
-                                string_size = *size;
+                        for buffer in &self.ir.data {
+                            if arg == buffer.label {
+                                string_size = buffer.size;
                                 break;
                             }
                         }
@@ -101,24 +101,34 @@ impl IrGenerator<'_> {
             ExpressionKind::Assign(ref dest, ref src)
             | ExpressionKind::Declare(ref dest, ref src) => {
                 let dest_str = self.get_value(dest);
-                // no need to call get_value on not because temporary value can be assigned directly
-                let instruction = match &src.kind {
-                    ExpressionKind::Not(expr) => IrInstruction::Not {
-                        dest: dest_str.clone(),
-                        src: self.get_value(expr),
-                    },
-                    ExpressionKind::Op(ref src1, op, ref src2) => IrInstruction::Op {
-                        dest: dest_str.clone(),
-                        src1: self.get_value(src1),
-                        op: op.clone(),
-                        src2: self.get_value(src2),
-                    },
-                    _ => IrInstruction::Ass {
-                        dest: dest_str.clone(),
-                        src: self.get_value(src),
-                    },
-                };
-                self.ir.add_instruction(instruction);
+
+                if let ExpressionKind::Array(..) = &src.kind {
+                    let buf_name = self.get_value(src);
+                    for buffer in &mut self.ir.data {
+                        if buffer.label == buf_name {
+                            buffer.label = dest_str.clone();
+                        }
+                    }
+                } else {
+                    // no need to call get_value on not because temporary value can be assigned directly
+                    let instruction = match &src.kind {
+                        ExpressionKind::Not(expr) => IrInstruction::Not {
+                            dest: dest_str.clone(),
+                            src: self.get_value(expr),
+                        },
+                        ExpressionKind::Op(ref src1, op, ref src2) => IrInstruction::Op {
+                            dest: dest_str.clone(),
+                            src1: self.get_value(src1),
+                            op: op.clone(),
+                            src2: self.get_value(src2),
+                        },
+                        _ => IrInstruction::Ass {
+                            dest: dest_str.clone(),
+                            src: self.get_value(src),
+                        },
+                    };
+                    self.ir.add_instruction(instruction);
+                }
 
                 dest_str
             }
@@ -135,15 +145,11 @@ impl IrGenerator<'_> {
                 string.pop();
                 self.nums.buf += 1;
                 self.ir
-                    .add_data(format!("buf_{}", self.nums.buf), string, contents.len() - 1);
+                    .add_data(format!("buf_{}", self.nums.buf), string, contents.len());
                 format!("buf_{}", self.nums.buf)
             }
 
             ExpressionKind::Op(ref src1, op, ref src2) => {
-                if Op::Idx == *op {
-                    return format!("{}[{}]", src1.to_str(), src2.to_str());
-                }
-
                 self.nums.tmp += 1;
                 let dest = format!("t{}", self.nums.tmp);
 
@@ -265,6 +271,9 @@ impl IrGenerator<'_> {
                     .insert(destination.clone(), "bool".to_string());
 
                 destination
+            }
+            ExpressionKind::Idx(id, offset) => {
+                format!("[{} + {}]", id.to_str(), offset.to_str())
             }
         }
     }

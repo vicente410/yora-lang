@@ -42,14 +42,10 @@ impl Analyzer<'_> {
                         let type_to_add = self.get_type(src);
                         self.type_table.insert(id.to_string(), type_to_add);
                     }
-                    ExpressionKind::Op(src1, op, src2) => {
-                        if *op != Op::Idx {
-                            self.errors
-                                .add(ErrorKind::InvalidIdentifier, dest.line, dest.col);
-                        }
+                    ExpressionKind::Idx(id, offset) => {
                         self.type_table.insert(
-                            format!("{}[{}]", src1.to_str(), src2.to_str()),
-                            "int".to_string(),
+                            format!("[{} + {}]", id.to_str(), offset.to_str()),
+                            "ptr".to_string(),
                         );
                     }
                     _ => {
@@ -179,7 +175,7 @@ impl Analyzer<'_> {
                         }
                     }
                     "print" => {
-                        if type1 != "string" {
+                        if type1 != "string" && type1 != "ptr" {
                             self.errors.add(
                                 ErrorKind::MismatchedTypes {
                                     expected: "string".to_string(),

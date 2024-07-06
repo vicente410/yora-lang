@@ -167,9 +167,8 @@ fn get_expression(tokens: &[Token]) -> Expression {
 
     if tokens[1].str == "[" && tokens[len - 1].str == "]" {
         return Expression::new(
-            ExpressionKind::Op(
+            ExpressionKind::Idx(
                 Box::new(get_expression(&tokens[0..1])),
-                Op::Idx,
                 Box::new(get_expression(&tokens[2..len - 1])),
             ),
             tokens[0].line,
