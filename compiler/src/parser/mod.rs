@@ -63,7 +63,7 @@ fn get_if_expr(tokens: &[Token]) -> Expression {
     let mut end_seq = start + 1;
 
     // find end of condition
-    while start_seq + 1 < tokens.len() && tokens[0].line == tokens[start_seq].line {
+    while start_seq + 1 < tokens.len() && tokens[start_seq].str != ":" {
         start_seq += 1;
     }
 
@@ -76,13 +76,13 @@ fn get_if_expr(tokens: &[Token]) -> Expression {
         if tokens[end_seq].str == "else" {
             ExpressionKind::IfElse(
                 Box::new(get_expression(&tokens[start..start_seq])),
-                Box::new(get_sequence(&tokens[start_seq..end_seq])),
+                Box::new(get_sequence(&tokens[start_seq + 1..end_seq])),
                 Box::new(get_else_expr(&tokens[end_seq..])),
             )
         } else {
             ExpressionKind::If(
                 Box::new(get_expression(&tokens[start..start_seq])),
-                Box::new(get_sequence(&tokens[start_seq..])),
+                Box::new(get_sequence(&tokens[start_seq + 1..])),
             )
         },
         tokens[0].line,
@@ -91,16 +91,22 @@ fn get_if_expr(tokens: &[Token]) -> Expression {
 }
 
 fn get_else_expr(tokens: &[Token]) -> Expression {
-    if tokens[1].str == "if" {
+    if tokens[1].str != ":" {
+        panic!("Throw a useful error");
+    }
+    if tokens[2].str == "if" {
         get_if_expr(tokens)
     } else {
-        get_sequence(&tokens[1..])
+        get_sequence(&tokens[2..])
     }
 }
 
 fn get_loop_expr(tokens: &[Token]) -> Expression {
+    if tokens[1].str != ":" {
+        panic!("Throw a useful error");
+    }
     Expression::new(
-        ExpressionKind::Loop(Box::new(get_sequence(&tokens[1..]))),
+        ExpressionKind::Loop(Box::new(get_sequence(&tokens[2..]))),
         tokens[0].line,
         tokens[0].col,
     )
@@ -110,14 +116,14 @@ fn get_while_expr(tokens: &[Token]) -> Expression {
     let mut start_seq = 0;
 
     // find end of condition
-    while start_seq < tokens.len() && tokens[0].line == tokens[start_seq].line {
+    while start_seq < tokens.len() && tokens[start_seq].str != ":" {
         start_seq += 1;
     }
 
     Expression::new(
         ExpressionKind::While(
             Box::new(get_expression(&tokens[1..start_seq])),
-            Box::new(get_sequence(&tokens[start_seq..])),
+            Box::new(get_sequence(&tokens[start_seq + 1..])),
         ),
         tokens[start_seq].line,
         tokens[start_seq].col,
