@@ -117,17 +117,17 @@ impl AsmGenerator {
 
         let src_val = self.get_value(src);
         let dest_val = self.get_value(dest);
+        let acc = Self::get_reg_with_size("rax".to_string(), 1);
 
         if src_val.contains('[') && dest_val.contains('[') {
             format!(
                 "\tpush rax\n\
-                \tmov rax, {}\n\
-                \tmov {}, rax\n\
+                \tmov {acc}, {src_val}\n\
+                \tmov {dest_val}, {acc}\n\
                 \tpop rax\n",
-                src_val, dest_val,
             )
         } else {
-            format!("\tmov {}, {}\n", dest_val, src_val)
+            format!("\tmov {dest_val}, {src_val}\n")
         }
     }
 
@@ -140,28 +140,22 @@ impl AsmGenerator {
         }
 
         format!(
-            // todo: does not account yet for stack, find generic way of dealing
+            // todo: does not Self::get_reg_with_size(1)ount yet for stack, find generic way of dealing
             // with stack operations instead of this mess
-            "\tmov {}, {}\n\
-            \tnot {}\n\
-            \tand {}, 1\n",
+            "\tmov {0}, {1}\n\
+            \tnot {0}\n\
+            \tand {0}, 1\n",
             self.get_value(dest),
             self.get_value(src),
-            self.get_value(dest),
-            self.get_value(dest),
         )
     }
 
     fn get_simple_op(&mut self, dest: &String, src1: &String, src2: &String, op: &Op) -> String {
-        let src_val1 = self.get_value(&src1);
-        let src_val2 = self.get_value(&src2);
-        let dest_val = self.get_value(&dest);
-
         format!(
-            "\tmov {}, {}\n\
-             \t{} {}, {}\n",
-            dest_val,
-            src_val1,
+            "\tmov {0}, {1}\n\
+             \t{2} {0}, {3}\n",
+            self.get_value(&dest),
+            self.get_value(&src1),
             match op {
                 Op::Add => "add",
                 Op::Sub => "sub",
@@ -169,65 +163,63 @@ impl AsmGenerator {
                 Op::Or => "or",
                 _ => panic!("Must be 'add', 'sub', 'and' or 'or' operation"),
             },
-            dest_val,
-            src_val2
+            self.get_value(&src2),
         )
     }
 
     fn get_mul(&mut self, dest: &String, src1: &String, src2: &String) -> String {
         if src2 == dest {
             format!(
-                "\tmov {}, {}\n\
-                \tmov rax, {}\n\
-                \tmul {}\n\
-                \tmov {}, rax\n",
+                "\tmov {0}, {1}\n\
+                \tmov {2}, {3}\n\
+                \tmul {0}\n\
+                \tmov {0}, {2}\n",
                 self.get_value(dest),
                 self.get_value(src2),
+                Self::get_reg_with_size("rax".to_string(), 1),
                 self.get_value(src1),
-                self.get_value(dest),
-                self.get_value(dest),
             )
         } else {
             format!(
-                "\tmov {}, {}\n\
-                \tmov rax, {}\n\
-                \tmul {}\n\
-                \tmov {}, rax\n",
+                "\tmov {0}, {1}\n\
+                \tmov {2}, {3}\n\
+                \tmul {0}\n\
+                \tmov {0}, {2}\n",
                 self.get_value(dest),
                 self.get_value(src1),
+                Self::get_reg_with_size("rax".to_string(), 1),
                 self.get_value(src2),
-                self.get_value(dest),
-                self.get_value(dest),
             )
         }
     }
 
     fn get_div(&mut self, dest: &String, src1: &String, src2: &String) -> String {
         format!(
-            "\tmov {}, {}\n\
-            \tmov rax, {}\n\
-            \tdiv {}\n\
-            \tmov {}, rax\n",
+            "\tmov {0}, {1}\n\
+            \tmov {3}, {2}\n\
+            \tdiv {0}\n\
+            \tmov {0}, {3}\n",
             self.get_value(dest),
             self.get_value(src2),
             self.get_value(src1),
-            self.get_value(dest),
-            self.get_value(dest),
+            Self::get_reg_with_size("rax".to_string(), 1),
         )
     }
 
     fn get_mod(&mut self, dest: &String, src1: &String, src2: &String) -> String {
         format!(
-            "\tmov {}, {}\n\
-            \tmov rax, {}\n\
+            "\tmov rax, 0\n\
             \tmov rdx, 0\n\
-            \tdiv {}\n\
-            \tmov {}, rdx\n",
+            \tmov {0}, {1}\n\
+            \tmov {3}, {2}\n\
+            \tdiv {4}\n\
+            \tmov {0}, {5}\n",
             self.get_value(dest),
             self.get_value(src2),
             self.get_value(src1),
-            self.get_value(dest),
-            self.get_value(dest),
+            Self::get_reg_with_size("rax".to_string(), 1),
+            Self::get_reg_with_size(self.get_value(dest), 8),
+            Self::get_reg_with_size("rdx".to_string(), 1),
         )
     }
 
@@ -273,7 +265,13 @@ impl AsmGenerator {
                 6 => "r9",
                 _ => panic!("Too many params"), // todo: implement stack for parameters
             },
-            self.get_value(&src)
+            if src.parse::<i32>().is_ok() {
+                src.clone()
+            } else if self.type_table[src] == "ptr".to_string() {
+                self.get_value(&src)
+            } else {
+                Self::get_reg_with_size(self.get_value(&src), 8)
+            }
         )
     }
 
@@ -293,7 +291,7 @@ impl AsmGenerator {
         // number of work registers
         if num_regs < 7 {
             self.symbol_table
-                .insert(dest.to_string(), self.get_reg_with_size(num_regs, size));
+                .insert(dest.to_string(), self.get_next_reg(num_regs, size));
         } else {
             //self.asm.push_str(format!("\tsub rsp, {}\n", size).as_str());
             self.current_stack += size;
@@ -304,28 +302,86 @@ impl AsmGenerator {
         }
     }
 
-    fn get_reg_with_size(&self, num_regs: usize, size: usize) -> String {
-        if num_regs == 0 {
-            match size {
+    fn get_next_reg(&self, num_regs: usize, size: usize) -> String {
+        Self::get_reg_with_size(
+            if num_regs == 0 {
+                "rbx".to_string()
+            } else {
+                format!("r{}", num_regs + 9)
+            },
+            size,
+        )
+    }
+
+    fn get_reg_with_size(reg: String, size: usize) -> String {
+        match reg.as_str() {
+            "rax" | "eax" | "ax" | "al" => match size {
+                8 => "rax",
+                4 => "eax",
+                2 => "ax",
+                1 => "al",
+                _ => panic!("Invalid accumulator size"),
+            }
+            .to_string(),
+            "rbx" | "ebx" | "bx" | "bl" => match size {
                 8 => "rbx",
                 4 => "ebx",
                 2 => "bx",
                 1 => "bl",
                 _ => panic!("Invalid register size"),
             }
-            .to_string()
-        } else {
-            format!(
-                "r{}{}",
-                num_regs + 9,
-                match size {
-                    8 => "",
-                    4 => "d",
-                    2 => "w",
-                    1 => "b",
-                    _ => panic!("Invalid register size"),
-                },
-            )
+            .to_string(),
+            "rcx" | "ecx" | "cx" | "cl" => match size {
+                8 => "rcx",
+                4 => "ecx",
+                2 => "cx",
+                1 => "cl",
+                _ => panic!("Invalid register size"),
+            }
+            .to_string(),
+            "rdx" | "edx" | "dx" | "dl" => match size {
+                8 => "rdx",
+                4 => "edx",
+                2 => "dx",
+                1 => "dl",
+                _ => panic!("Invalid register size"),
+            }
+            .to_string(),
+            "rdi" | "edi" | "di" | "dil" => match size {
+                8 => "rdi",
+                4 => "edi",
+                2 => "di",
+                1 => "dil",
+                _ => panic!("Invalid accumulator size"),
+            }
+            .to_string(),
+            "rsi" | "esi" | "si" | "sil" => match size {
+                8 => "rsi",
+                4 => "esi",
+                2 => "si",
+                1 => "sil",
+                _ => panic!("Invalid accumulator size"),
+            }
+            .to_string(),
+            _ => {
+                let mut new_reg = reg.clone();
+                if let Some(ch) = reg.chars().last() {
+                    if ch.is_alphabetic() {
+                        new_reg.pop();
+                    }
+                }
+                format!(
+                    "{}{}",
+                    new_reg,
+                    match size {
+                        8 => "",
+                        4 => "d",
+                        2 => "w",
+                        1 => "b",
+                        _ => panic!("Invalid register size"),
+                    }
+                )
+            }
         }
     }
 

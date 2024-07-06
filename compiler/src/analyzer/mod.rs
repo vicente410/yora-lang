@@ -209,7 +209,7 @@ impl Analyzer<'_> {
                     "null"
                 }
             }
-            ExpressionKind::IntLit(..) => "int",
+            ExpressionKind::IntLit(..) | ExpressionKind::Idx(..) => "int",
             ExpressionKind::BoolLit(..) | ExpressionKind::Not(..) => "bool",
             ExpressionKind::StringLit(..) | ExpressionKind::ArrayLit(..) => "ptr",
             ExpressionKind::Op(_, op, _) => op.get_type(),
