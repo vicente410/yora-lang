@@ -55,7 +55,7 @@ impl IrGenerator<'_> {
                 self.nums.buf += 1;
                 self.ir.add_data(
                     format!("buf_{}", self.nums.buf),
-                    string.to_string(),
+                    string.to_string() + ", 10",
                     string.len() - 1,
                 );
                 format!("buf_{}", self.nums.buf)
@@ -140,6 +140,10 @@ impl IrGenerator<'_> {
             }
 
             ExpressionKind::Op(ref src1, op, ref src2) => {
+                if Op::Idx == *op {
+                    return format!("{}[{}]", src1.to_str(), src2.to_str());
+                }
+
                 self.nums.tmp += 1;
                 let dest = format!("t{}", self.nums.tmp);
 

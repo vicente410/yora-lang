@@ -106,7 +106,7 @@ impl Buffer {
     fn should_tokenize(&self, ch: char) -> bool {
         !(self.str.is_empty()
             || (Buffer::is_id_or_num(self.first_ch) && Buffer::is_id_or_num(ch))
-            || (Buffer::is_symbol(self.first_ch) && Buffer::is_symbol(ch)))
+            || (Buffer::is_symbol(self.first_ch) && Buffer::is_symbol(ch) && ch != ')'))
     }
 
     fn is_symbol(ch: char) -> bool {

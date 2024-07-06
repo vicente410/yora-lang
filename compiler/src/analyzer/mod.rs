@@ -42,6 +42,16 @@ impl Analyzer<'_> {
                         let type_to_add = self.get_type(src);
                         self.type_table.insert(id.to_string(), type_to_add);
                     }
+                    ExpressionKind::Op(src1, op, src2) => {
+                        if *op != Op::Idx {
+                            self.errors
+                                .add(ErrorKind::InvalidIdentifier, dest.line, dest.col);
+                        }
+                        self.type_table.insert(
+                            format!("{}[{}]", src1.to_str(), src2.to_str()),
+                            "int".to_string(),
+                        );
+                    }
                     _ => {
                         self.errors
                             .add(ErrorKind::InvalidIdentifier, dest.line, dest.col);
@@ -122,7 +132,8 @@ impl Analyzer<'_> {
                 if match op {
                     Op::And | Op::Or => type1 != "bool" || type2 != "bool",
                     _ => type1 != "int" || type2 != "int",
-                } {
+                } && (type1 != "ptr" || type2 != "int")
+                {
                     self.errors.add(
                         ErrorKind::OperationNotImplemented {
                             op: op.clone(),
@@ -190,7 +201,7 @@ impl Analyzer<'_> {
         match &expr.kind {
             ExpressionKind::Identifier(id) => {
                 if self.type_table.contains_key(id) {
-                    (*self.type_table[id]).to_string()
+                    self.type_table[id].as_str()
                 } else {
                     self.errors.add(
                         ErrorKind::UndeclaredVariable {
@@ -199,23 +210,18 @@ impl Analyzer<'_> {
                         expr.line,
                         expr.col,
                     );
-                    "null".to_string()
+                    "null"
                 }
             }
-            ExpressionKind::IntLit(..) => "int".to_string(),
-            ExpressionKind::BoolLit(..) | ExpressionKind::Not(..) => "bool".to_string(),
-            ExpressionKind::StringLit(..) => "string".to_string(),
-            ExpressionKind::Array(..) => "array".to_string(),
-            ExpressionKind::Op(_, op, _) => match op {
-                Op::And | Op::Or | Op::Eq | Op::Neq | Op::Lt | Op::Leq | Op::Gt | Op::Geq => {
-                    "bool".to_string()
-                }
-                Op::Add | Op::Sub | Op::Mul | Op::Div | Op::Mod => "int".to_string(),
-            },
+            ExpressionKind::IntLit(..) => "int",
+            ExpressionKind::BoolLit(..) | ExpressionKind::Not(..) => "bool",
+            ExpressionKind::StringLit(..) | ExpressionKind::Array(..) => "ptr",
+            ExpressionKind::Op(_, op, _) => op.get_type(),
             _ => {
                 dbg!(&expr);
                 panic!("Not a valid type")
             }
         }
+        .to_string()
     }
 }

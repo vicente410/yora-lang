@@ -31,8 +31,13 @@ pub fn generate_asm(ir: Ir, type_table: &mut HashMap<String, String>) -> String 
 impl AsmGenerator {
     fn generate_data(&mut self, data: Vec<(String, String, usize)>) {
         for (label, data, ..) in data {
-            self.asm_data
-                .push_str(&format!("{}:\tdb\t{}, 10\n", label, data));
+            if data.contains('\"') {
+                self.asm_data
+                    .push_str(&format!("{}:\tdb\t{}\n", label, data));
+            } else {
+                self.asm_data
+                    .push_str(&format!("{}:\tdd\t{}\n", label, data));
+            }
         }
     }
     fn generate_code(&mut self, ir: Vec<IrInstruction>) {
@@ -60,14 +65,16 @@ impl AsmGenerator {
                     }
 
                     match op {
-                        Op::Add | Op::Sub => self.get_add_sub(dest, src1, src2, op),
-                        Op::And | Op::Or => self.get_and_or(dest, src1, src2, op),
+                        Op::Add | Op::Sub | Op::And | Op::Or => {
+                            self.get_simple_op(dest, src1, src2, op)
+                        }
                         Op::Mul => self.get_mul(dest, src1, src2),
                         Op::Div => self.get_div(dest, src1, src2),
                         Op::Mod => self.get_mod(dest, src1, src2),
                         Op::Eq | Op::Neq | Op::Lt | Op::Leq | Op::Gt | Op::Geq => {
                             self.get_cmp(dest, src1, src2, op)
                         }
+                        Op::Idx => self.get_idx(dest, src1, src2),
                     }
                 }
                 IrInstruction::Label(label) => format!("{}:\n", label),
@@ -145,7 +152,7 @@ impl AsmGenerator {
         )
     }
 
-    fn get_add_sub(&mut self, dest: &String, src1: &String, src2: &String, op: &Op) -> String {
+    fn get_simple_op(&mut self, dest: &String, src1: &String, src2: &String, op: &Op) -> String {
         let src_val1 = self.get_value(&src1);
         let src_val2 = self.get_value(&src2);
         let dest_val = self.get_value(&dest);
@@ -158,27 +165,9 @@ impl AsmGenerator {
             match op {
                 Op::Add => "add",
                 Op::Sub => "sub",
-                _ => panic!("Must be add or subtract operation"),
-            },
-            dest_val,
-            src_val2
-        )
-    }
-
-    fn get_and_or(&mut self, dest: &String, src1: &String, src2: &String, op: &Op) -> String {
-        let src_val1 = self.get_value(&src1);
-        let src_val2 = self.get_value(&src2);
-        let dest_val = self.get_value(&dest);
-
-        format!(
-            "\tmov {}, {}\n\
-             \t{} {}, {}\n",
-            dest_val,
-            src_val1,
-            match op {
                 Op::And => "and",
                 Op::Or => "or",
-                _ => panic!("Must be add or subtract operation"),
+                _ => panic!("Must be 'add', 'sub', 'and' or 'or' operation"),
             },
             dest_val,
             src_val2
@@ -239,6 +228,15 @@ impl AsmGenerator {
             self.get_value(src1),
             self.get_value(dest),
             self.get_value(dest),
+        )
+    }
+
+    fn get_idx(&mut self, dest: &String, src1: &String, src2: &String) -> String {
+        format!(
+            "\tmov {}, [{} + {}*4]\n",
+            self.get_value(dest),
+            self.get_value(src1),
+            self.get_value(src2),
         )
     }
 
@@ -412,6 +410,7 @@ fn get_word_for_size(size: usize) -> String {
 
 fn get_size_for_type(type_to_check: String) -> usize {
     match type_to_check.as_str() {
+        "ptr" => 8,
         "int" => 8,
         "bool" => 1,
         _ => panic!("Invalid type."),

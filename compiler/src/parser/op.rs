@@ -16,6 +16,7 @@ pub enum Op {
     Leq,
     Gt,
     Geq,
+    Idx,
 }
 
 impl Op {
@@ -56,6 +57,7 @@ impl Op {
             Op::Leq => "<=",
             Op::Gt => ">",
             Op::Geq => ">=",
+            Op::Idx => "[]",
         }
     }
 
@@ -63,6 +65,8 @@ impl Op {
         match self {
             Op::Add | Op::Sub | Op::Mul | Op::Div | Op::Mod => "int",
             Op::And | Op::Or | Op::Eq | Op::Neq | Op::Lt | Op::Leq | Op::Gt | Op::Geq => "bool",
+            Op::Idx => "int", // later must return type of the array, but arrays are only of ints
+                              // for now
         }
     }
 }

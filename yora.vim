@@ -1,5 +1,6 @@
 syn keyword keyword var if else loop while continue break pr fn return
-syn match operator "=\|+\|-\|*\|/\|%\|!\|and\|or\|<\|>"
+syn match operator "=\|+\|-\|*\|/\|%\|!\|<\|>"
+syn keyword operator and or
 syn match number '\d\+'
 syn keyword boolean true false
 syn region string start="\"" end="\""

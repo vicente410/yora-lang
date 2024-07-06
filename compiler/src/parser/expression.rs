@@ -14,7 +14,7 @@ impl Expression {
         Expression { kind, line, col }
     }
 
-    fn to_str(&self) -> &str {
+    pub fn to_str(&self) -> &str {
         match &self.kind {
             ExpressionKind::Identifier(str)
             | ExpressionKind::BoolLit(str)

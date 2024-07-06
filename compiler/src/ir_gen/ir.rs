@@ -91,7 +91,13 @@ impl fmt::Display for IrInstruction {
                 src1,
                 op,
                 src2,
-            } => write!(f, "    {} = {} {} {}", dest, src1, op, src2),
+            } => {
+                if Op::Idx == *op {
+                    write!(f, "    {} = {}[{}]", dest, src1, src2)
+                } else {
+                    write!(f, "    {} = {} {} {}", dest, src1, op, src2)
+                }
+            }
             IrInstruction::Label(str) => write!(f, "{}:", str),
             IrInstruction::Goto { label } => write!(f, "    goto {}", label),
             IrInstruction::IfGoto {

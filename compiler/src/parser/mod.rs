@@ -154,6 +154,29 @@ fn get_expression(tokens: &[Token]) -> Expression {
         );
     }
 
+    if tokens[0].str.as_str() != "var" {
+        for (i, token) in tokens.iter().enumerate() {
+            match token.str.as_str() {
+                "=" | "+=" | "-=" | "*=" | "/=" | "%=" => {
+                    return get_assign(i, tokens);
+                }
+                _ => continue,
+            }
+        }
+    }
+
+    if tokens[1].str == "[" && tokens[len - 1].str == "]" {
+        return Expression::new(
+            ExpressionKind::Op(
+                Box::new(get_expression(&tokens[0..1])),
+                Op::Idx,
+                Box::new(get_expression(&tokens[2..len - 1])),
+            ),
+            tokens[0].line,
+            tokens[0].col,
+        );
+    }
+
     Expression::new(
         match tokens[0].str.as_str() {
             "exit" => ExpressionKind::Call(
@@ -191,55 +214,64 @@ fn get_expression(tokens: &[Token]) -> Expression {
                 ExpressionKind::Array(contents)
             }
             "!" => ExpressionKind::Not(Box::new(get_expression(&tokens[1..]))),
-            _ => match tokens[1].str.as_str() {
-                "=" => ExpressionKind::Assign(
-                    Box::new(get_expression(&tokens[0..1])),
-                    Box::new(get_expression(&tokens[2..])),
-                ),
-                "+=" | "-=" | "*=" | "/=" | "%=" => {
-                    let mut new_tokens = Vec::from(tokens);
-                    new_tokens.remove(1);
-                    new_tokens.insert(
-                        1,
-                        Token::new(&Buffer {
-                            str: String::from("="),
-                            first_ch: '\0',
-                            x: tokens[1].col,
-                            y: tokens[1].line,
-                        }),
-                    );
-                    new_tokens.insert(2, tokens[0].clone());
-                    new_tokens.insert(
-                        3,
-                        Token::new(&Buffer {
-                            str: tokens[1].str[0..1].to_string(),
-                            first_ch: '\0',
-                            x: tokens[1].col,
-                            y: tokens[1].line,
-                        }),
-                    );
-                    get_expression(&new_tokens).kind
-                }
-                _ => {
-                    let mut pos = 0;
-                    let mut priority = 0;
-                    for (i, token) in tokens.iter().enumerate() {
-                        if token.kind == TokenKind::Operator && priority <= get_op_priority(token) {
-                            pos = i;
-                            priority = get_op_priority(token);
-                        }
-                    }
-                    if priority != 0 {
-                        let arg1 = Box::new(get_expression(&tokens[0..pos]));
-                        let arg2 = Box::new(get_expression(&tokens[pos + 1..]));
-                        get_operation(&tokens[pos], arg1, arg2).kind
-                    } else {
-                        println!("Unrecognized expression:");
-                        dbg!(tokens);
-                        process::exit(1);
+            _ => {
+                let mut pos = 0;
+                let mut priority = 0;
+                for (i, token) in tokens.iter().enumerate() {
+                    if token.kind == TokenKind::Operator && priority <= get_op_priority(token) {
+                        pos = i;
+                        priority = get_op_priority(token);
                     }
                 }
-            },
+                if priority != 0 {
+                    let arg1 = Box::new(get_expression(&tokens[0..pos]));
+                    let arg2 = Box::new(get_expression(&tokens[pos + 1..]));
+                    get_operation(&tokens[pos], arg1, arg2).kind
+                } else {
+                    println!("Unrecognized expression:");
+                    dbg!(tokens);
+                    process::exit(1);
+                }
+            }
+        },
+        tokens[0].line,
+        tokens[0].col,
+    )
+}
+
+fn get_assign(assign_pos: usize, tokens: &[Token]) -> Expression {
+    Expression::new(
+        match tokens[assign_pos].str.as_str() {
+            // todo: assign might be in different position if assinging for array
+            "=" => ExpressionKind::Assign(
+                Box::new(get_expression(&tokens[0..assign_pos])),
+                Box::new(get_expression(&tokens[assign_pos + 1..])),
+            ),
+            "+=" | "-=" | "*=" | "/=" | "%=" => {
+                let mut new_tokens = Vec::from(tokens);
+                new_tokens.remove(assign_pos);
+                new_tokens.insert(
+                    assign_pos,
+                    Token::new(&Buffer {
+                        str: String::from("="),
+                        first_ch: '\0',
+                        x: tokens[assign_pos].col,
+                        y: tokens[assign_pos].line,
+                    }),
+                );
+                new_tokens.insert(assign_pos + 1, tokens[0].clone());
+                new_tokens.insert(
+                    assign_pos + 2,
+                    Token::new(&Buffer {
+                        str: tokens[1].str[0..1].to_string(),
+                        first_ch: '\0',
+                        x: tokens[1].col,
+                        y: tokens[1].line,
+                    }),
+                );
+                get_expression(&new_tokens).kind
+            }
+            _ => panic!("Not an assign operation"),
         },
         tokens[0].line,
         tokens[0].col,
