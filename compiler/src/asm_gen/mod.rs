@@ -194,16 +194,29 @@ impl AsmGenerator {
     }
 
     fn get_div(&mut self, dest: &String, src1: &String, src2: &String) -> String {
-        format!(
-            "\tmov {0}, {1}\n\
-            \tmov {3}, {2}\n\
-            \tdiv {0}\n\
-            \tmov {0}, {3}\n",
-            self.get_value(dest),
-            self.get_value(src2),
-            self.get_value(src1),
-            Self::get_reg_with_size("rax".to_string(), 1),
-        )
+        if src1 == dest {
+            format!(
+                "\tmov {3}, {2}\n\
+                \tmov {0}, {1}\n\
+                \tdiv {0}\n\
+                \tmov {0}, {3}\n",
+                self.get_value(dest),
+                self.get_value(src2),
+                self.get_value(src1),
+                Self::get_reg_with_size("rax".to_string(), 1),
+            )
+        } else {
+            format!(
+                "\tmov {0}, {1}\n\
+                \tmov {3}, {2}\n\
+                \tdiv {0}\n\
+                \tmov {0}, {3}\n",
+                self.get_value(dest),
+                self.get_value(src2),
+                self.get_value(src1),
+                Self::get_reg_with_size("rax".to_string(), 1),
+            )
+        }
     }
 
     fn get_mod(&mut self, dest: &String, src1: &String, src2: &String) -> String {
