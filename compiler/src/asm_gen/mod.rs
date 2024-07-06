@@ -25,7 +25,6 @@ pub fn generate_asm(ir: Ir, type_table: &mut HashMap<String, String>) -> String 
 
     generator.generate_data(ir.data);
     generator.generate_code(ir.code);
-    dbg!(generator.type_table);
     generator.asm_data + "\n" + &generator.asm_text
 }
 
@@ -58,13 +57,14 @@ impl AsmGenerator {
                     ref op,
                     ref src2,
                 } => {
-                    if !self.symbol_table.contains_key(dest) {
-                        self.insert_reg(
-                            dest.clone(),
-                            get_size_for_type(self.type_table[dest].clone()),
-                        );
+                    if let Value::Identifier { id } = dest {
+                        if !self.symbol_table.contains_key(id) {
+                            self.insert_reg(
+                                id.clone(),
+                                get_size_for_type(self.type_table[id].clone()),
+                            );
+                        }
                     }
-
                     match op {
                         Op::Add | Op::Sub | Op::And | Op::Or => {
                             self.get_simple_op(dest, src1, src2, op)
@@ -107,12 +107,11 @@ impl AsmGenerator {
         );
     }
 
-    fn get_assign(&mut self, dest: &String, src: &String) -> String {
-        if !self.symbol_table.contains_key(&dest.clone()) {
-            self.insert_reg(
-                dest.clone(),
-                get_size_for_type(self.type_table[dest].clone()),
-            );
+    fn get_assign(&mut self, dest: &Value, src: &Value) -> String {
+        if let Value::Identifier { id } = dest {
+            if !self.symbol_table.contains_key(id) {
+                self.insert_reg(id.clone(), get_size_for_type(self.type_table[id].clone()));
+            }
         }
 
         let src_val = self.get_value(src);
@@ -131,12 +130,11 @@ impl AsmGenerator {
         }
     }
 
-    fn get_not(&mut self, dest: &String, src: &String) -> String {
-        if !self.symbol_table.contains_key(&dest.clone()) {
-            self.insert_reg(
-                dest.clone(),
-                get_size_for_type(self.type_table[dest].clone()),
-            );
+    fn get_not(&mut self, dest: &Value, src: &Value) -> String {
+        if let Value::Identifier { id } = dest {
+            if !self.symbol_table.contains_key(&id.clone()) {
+                self.insert_reg(id.clone(), get_size_for_type(self.type_table[id].clone()));
+            }
         }
 
         format!(
@@ -150,7 +148,7 @@ impl AsmGenerator {
         )
     }
 
-    fn get_simple_op(&mut self, dest: &String, src1: &String, src2: &String, op: &Op) -> String {
+    fn get_simple_op(&mut self, dest: &Value, src1: &Value, src2: &Value, op: &Op) -> String {
         format!(
             "\tmov {0}, {1}\n\
              \t{2} {0}, {3}\n",
@@ -167,7 +165,7 @@ impl AsmGenerator {
         )
     }
 
-    fn get_mul(&mut self, dest: &String, src1: &String, src2: &String) -> String {
+    fn get_mul(&mut self, dest: &Value, src1: &Value, src2: &Value) -> String {
         if src2 == dest {
             format!(
                 "\tmov {0}, {1}\n\
@@ -193,33 +191,35 @@ impl AsmGenerator {
         }
     }
 
-    fn get_div(&mut self, dest: &String, src1: &String, src2: &String) -> String {
+    fn get_div(&mut self, dest: &Value, src1: &Value, src2: &Value) -> String {
         if src1 == dest {
             format!(
                 "\tmov {3}, {2}\n\
                 \tmov {0}, {1}\n\
-                \tdiv {0}\n\
+                \tdiv {4}\n\
                 \tmov {0}, {3}\n",
                 self.get_value(dest),
                 self.get_value(src2),
                 self.get_value(src1),
                 Self::get_reg_with_size("rax".to_string(), 1),
+                Self::get_reg_with_size(self.get_value(dest), 8),
             )
         } else {
             format!(
                 "\tmov {0}, {1}\n\
                 \tmov {3}, {2}\n\
-                \tdiv {0}\n\
+                \tdiv {4}\n\
                 \tmov {0}, {3}\n",
                 self.get_value(dest),
                 self.get_value(src2),
                 self.get_value(src1),
                 Self::get_reg_with_size("rax".to_string(), 1),
+                Self::get_reg_with_size(self.get_value(dest), 8),
             )
         }
     }
 
-    fn get_mod(&mut self, dest: &String, src1: &String, src2: &String) -> String {
+    fn get_mod(&mut self, dest: &Value, src1: &Value, src2: &Value) -> String {
         format!(
             "\tmov rax, 0\n\
             \tmov rdx, 0\n\
@@ -236,15 +236,17 @@ impl AsmGenerator {
         )
     }
 
-    fn get_cmp(&mut self, dest: &String, src1: &String, src2: &String, op: &Op) -> String {
-        if !self.symbol_table.contains_key(dest) {
-            self.insert_reg(
-                dest.clone(),
-                get_size_for_type(self.type_table[dest].clone()),
-            );
-        };
+    fn get_cmp(&mut self, dest: &Value, src1: &Value, src2: &Value, op: &Op) -> String {
+        let dest_val = self.get_value(dest);
 
-        let dest = self.get_value(dest);
+        if let Value::Identifier { id } = dest {
+            if !self.symbol_table.contains_key(id) {
+                self.insert_reg(
+                    dest_val.clone(),
+                    get_size_for_type(self.type_table[id].clone()),
+                );
+            };
+        }
 
         self.asm_text.push_str(&format!(
             "\tcmp {}, {}\n",
@@ -252,10 +254,10 @@ impl AsmGenerator {
             self.get_value(src2),
         ));
 
-        format!("\tset{} {}\n", get_relation_str(op), dest)
+        format!("\tset{} {}\n", get_relation_str(op), dest_val)
     }
 
-    fn get_if_goto(&self, src1: &String, src2: &String, cond: Op, label: &String) -> String {
+    fn get_if_goto(&self, src1: &Value, src2: &Value, cond: Op, label: &String) -> String {
         format!(
             "\tcmp {}, {}\n\
             \tj{} {}\n",
@@ -266,7 +268,7 @@ impl AsmGenerator {
         )
     }
 
-    fn get_param(&mut self, src: &String) -> String {
+    fn get_param(&mut self, src: &Value) -> String {
         format!(
             "\tmov {}, {}\n",
             match self.num_params {
@@ -278,21 +280,42 @@ impl AsmGenerator {
                 6 => "r9",
                 _ => panic!("Too many params"), // todo: implement stack for parameters
             },
-            if src.parse::<i32>().is_ok() {
-                src.clone()
-            } else if self.type_table[src] == "ptr".to_string() {
-                self.get_value(&src)
+            if let Value::Constant { value } = src {
+                if value.parse::<i32>().is_ok() {
+                    value.clone()
+                } else {
+                    panic!("Invalid param")
+                }
+            } else if let Value::Identifier { id } = src {
+                if !self.symbol_table.contains_key(id) {
+                    self.get_value(&src)
+                } else {
+                    Self::get_reg_with_size(self.get_value(&src), 8)
+                }
             } else {
-                Self::get_reg_with_size(self.get_value(&src), 8)
+                self.get_value(&src)
             }
         )
     }
 
-    fn get_value(&self, value: &String) -> String {
-        if value.contains("[") {
-            "byte ".to_string() + value
-        } else if self.symbol_table.contains_key(value) {
-            self.symbol_table[value].clone()
+    fn get_value(&self, value: &Value) -> String {
+        if let Value::MemPos { id, offset } = value {
+            format!(
+                "byte [{} + {}]",
+                id,
+                Self::get_reg_with_size(
+                    self.get_value(&Value::Identifier {
+                        id: offset.to_string()
+                    }),
+                    4
+                )
+            )
+        } else if let Value::Identifier { id } = value {
+            if self.symbol_table.contains_key(id) {
+                self.symbol_table[id].clone()
+            } else {
+                value.to_string()
+            }
         } else {
             value.to_string()
         }
@@ -378,11 +401,15 @@ impl AsmGenerator {
             .to_string(),
             _ => {
                 let mut new_reg = reg.clone();
-                if let Some(ch) = reg.chars().last() {
+
+                if new_reg.contains("[") {
+                    new_reg = new_reg.replace("byte ", "qword ");
+                } else if let Some(ch) = reg.chars().last() {
                     if ch.is_alphabetic() {
                         new_reg.pop();
                     }
                 }
+
                 format!(
                     "{}{}",
                     new_reg,

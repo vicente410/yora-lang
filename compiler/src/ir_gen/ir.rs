@@ -50,22 +50,29 @@ impl fmt::Display for Ir {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+pub enum Value {
+    Identifier { id: String },
+    Constant { value: String },
+    MemPos { id: String, offset: String },
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum IrInstruction {
     // Operations
     Ass {
-        dest: String,
-        src: String,
+        dest: Value,
+        src: Value,
     },
     Not {
-        dest: String,
-        src: String,
+        dest: Value,
+        src: Value,
     },
     Op {
-        dest: String,
-        src1: String,
+        dest: Value,
+        src1: Value,
         op: Op,
-        src2: String,
+        src2: Value,
     },
 
     // Control-flow
@@ -74,21 +81,21 @@ pub enum IrInstruction {
         label: String,
     },
     IfGoto {
-        src1: String,
-        src2: String,
+        src1: Value,
+        src2: Value,
         cond: Op,
         label: String,
     },
 
     // Funcion calls
     Param {
-        src: String,
+        src: Value,
     },
     Call {
         label: String,
     },
     Ret {
-        src: String,
+        src: Value,
     },
 }
 
@@ -116,6 +123,16 @@ impl fmt::Display for IrInstruction {
             IrInstruction::Param { src } => write!(f, "    param {}", src),
             IrInstruction::Call { label } => write!(f, "    call {}", label),
             IrInstruction::Ret { src } => write!(f, "    ret {}", src),
+        }
+    }
+}
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Value::Identifier { id } => write!(f, "{}", id),
+            Value::Constant { value } => write!(f, "{}", value),
+            Value::MemPos { id, offset } => write!(f, "[{} + {}]", id, offset),
         }
     }
 }
