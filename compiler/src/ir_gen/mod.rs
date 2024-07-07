@@ -381,20 +381,29 @@ impl IrGenerator<'_> {
     }
 
     fn get_idx(&mut self, id: &Expression, offset: &Expression) -> Value {
-        if matches!(&offset.kind, ExpressionKind::IntLit(_)) {
-            Value::MemPos {
-                id: id.to_str().to_string(),
-                offset: offset.to_str().to_string(),
-            }
-        } else {
-            Value::MemPos {
-                id: id.to_str().to_string(),
-                offset: if let Value::Identifier { id } = self.get_value(offset) {
-                    id
-                } else {
-                    panic!("Invalid offset")
-                },
-            }
+        let offset_val = self.get_value(offset);
+        Value::MemPos {
+            id: id.to_str().to_string(),
+            offset: if matches!(offset_val, Value::MemPos { .. }) {
+                self.nums.tmp += 1;
+
+                let destination = Value::Identifier {
+                    id: format!("t{}", self.nums.tmp),
+                };
+
+                self.ir.add_instruction(IrInstruction::Ass {
+                    dest: destination.clone(),
+                    src: offset_val,
+                });
+
+                if let Value::Identifier { ref id } = destination.clone() {
+                    self.type_table.insert((*id).clone(), "int".to_string());
+                }
+
+                Box::new(destination)
+            } else {
+                Box::new(self.get_value(offset))
+            },
         }
     }
 }

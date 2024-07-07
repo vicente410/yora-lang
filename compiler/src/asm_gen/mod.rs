@@ -25,6 +25,7 @@ pub fn generate_asm(ir: Ir, type_table: &mut HashMap<String, String>) -> String 
 
     generator.generate_data(ir.data);
     generator.generate_code(ir.code);
+    //  dbg!(type_table);
     generator.asm_data + "\n" + &generator.asm_text
 }
 
@@ -138,7 +139,7 @@ impl AsmGenerator {
         }
 
         format!(
-            // todo: does not Self::get_reg_with_size(1)ount yet for stack, find generic way of dealing
+            // todo: does not account yet for stack, find generic way of dealing
             // with stack operations instead of this mess
             "\tmov {0}, {1}\n\
             \tnot {0}\n\
@@ -290,55 +291,62 @@ impl AsmGenerator {
     }
 
     fn get_param(&mut self, src: &Value) -> String {
-        format!(
-            "\tmov {}, {}\n",
-            match self.num_params {
-                1 => "rdi",
-                2 => "rsi",
-                3 => "rdx",
-                4 => "rcx",
-                5 => "r8",
-                6 => "r9",
-                _ => panic!("Too many params"), // todo: implement stack for parameters
-            },
-            if let Value::Constant { value } = src {
+        let mut type_size = 8;
+
+        let reg = match src {
+            Value::Constant { value } => {
                 if value.parse::<i32>().is_ok() {
                     value.clone()
                 } else {
                     panic!("Invalid param")
                 }
-            } else if let Value::Identifier { id } = src {
+            }
+            Value::Identifier { id } => {
                 if !self.symbol_table.contains_key(id) {
                     self.get_value(&src)
                 } else {
-                    Self::get_reg_with_size(self.get_value(&src), 8)
+                    type_size = get_size_for_type(self.type_table[id].clone());
+                    self.get_value(&src)
                 }
-            } else {
+            }
+            Value::MemPos { id, .. } => {
+                type_size = get_size_for_type(self.type_table[id].clone());
                 self.get_value(&src)
             }
+        };
+
+        format!(
+            "\tmov {}, {}\n",
+            match self.num_params {
+                1 => Self::get_reg_with_size("rdi".to_string(), type_size),
+                2 => Self::get_reg_with_size("rsi".to_string(), type_size),
+                3 => Self::get_reg_with_size("rdx".to_string(), type_size),
+                4 => Self::get_reg_with_size("rcx".to_string(), type_size),
+                5 => Self::get_reg_with_size("r8".to_string(), type_size),
+                6 => Self::get_reg_with_size("r9".to_string(), type_size),
+                _ => panic!("Too many params"), // todo: implement stack for parameters
+            },
+            reg
         )
     }
 
     fn get_value(&self, value: &Value) -> String {
-        if let Value::MemPos { id, offset } = value {
-            format!(
-                "byte [{} + {}]",
-                id,
-                Self::get_reg_with_size(
-                    self.get_value(&Value::Identifier {
-                        id: offset.to_string()
-                    }),
-                    4
+        match value {
+            Value::MemPos { id, offset } => {
+                format!(
+                    "byte [{} + {}]",
+                    id,
+                    Self::get_reg_with_size(self.get_value(offset), 4)
                 )
-            )
-        } else if let Value::Identifier { id } = value {
-            if self.symbol_table.contains_key(id) {
-                self.symbol_table[id].clone()
-            } else {
-                value.to_string()
             }
-        } else {
-            value.to_string()
+            Value::Identifier { id } => {
+                if self.symbol_table.contains_key(id) {
+                    self.symbol_table[id].clone()
+                } else {
+                    value.to_string()
+                }
+            }
+            Value::Constant { value } => value.to_string(),
         }
     }
 
@@ -409,7 +417,7 @@ impl AsmGenerator {
                 4 => "edi",
                 2 => "di",
                 1 => "dil",
-                _ => panic!("Invalid accumulator size"),
+                _ => panic!("Invalid register size"),
             }
             .to_string(),
             "rsi" | "esi" | "si" | "sil" => match size {
@@ -417,14 +425,27 @@ impl AsmGenerator {
                 4 => "esi",
                 2 => "si",
                 1 => "sil",
-                _ => panic!("Invalid accumulator size"),
+                _ => panic!("Invalid register size"),
             }
             .to_string(),
             _ => {
                 let mut new_reg = reg.clone();
 
-                if new_reg.contains("[") {
-                    new_reg = new_reg.replace("byte ", "qword ");
+                if new_reg.parse::<i32>().is_ok() {
+                    return new_reg;
+                } else if new_reg.contains("[") {
+                    let split_reg: Vec<&str> = reg.split(' ').collect();
+
+                    return new_reg.replace(
+                        split_reg[0],
+                        match size {
+                            8 => "qword",
+                            4 => "dword",
+                            2 => "word",
+                            1 => "byte",
+                            _ => panic!("Invalid register size"),
+                        },
+                    );
                 } else if let Some(ch) = reg.chars().last() {
                     if ch.is_alphabetic() {
                         new_reg.pop();

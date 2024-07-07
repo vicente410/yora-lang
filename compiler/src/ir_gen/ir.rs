@@ -54,7 +54,7 @@ impl fmt::Display for Ir {
 pub enum Value {
     Identifier { id: String },
     Constant { value: String },
-    MemPos { id: String, offset: String },
+    MemPos { id: String, offset: Box<Value> },
 }
 
 #[derive(Debug, PartialEq, Clone)]
