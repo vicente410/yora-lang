@@ -223,6 +223,9 @@ fn get_expression(tokens: &[Token]) -> Expression {
                 let mut pos = 0;
                 let mut priority = 0;
                 for (i, token) in tokens.iter().enumerate() {
+                    if token.str == "(" {
+                        return get_parentheses(tokens);
+                    }
                     if token.kind == TokenKind::Operator && priority <= get_op_priority(token) {
                         pos = i;
                         priority = get_op_priority(token);
@@ -242,6 +245,43 @@ fn get_expression(tokens: &[Token]) -> Expression {
         tokens[0].line,
         tokens[0].col,
     )
+}
+
+fn get_parentheses(tokens: &[Token]) -> Expression {
+    let mut start = 0;
+    while start < tokens.len() && tokens[start].str != "(" {
+        start += 1;
+    }
+    let mut end = start + 1;
+    let mut num_paren = 1;
+    while end < tokens.len() && num_paren > 0 {
+        if tokens[end].str == "(" {
+            num_paren += 1;
+        } else if tokens[end].str == ")" {
+            num_paren -= 1;
+        }
+        end += 1;
+    }
+    if num_paren != 0 {
+        panic!("Unmatched parentheses");
+    }
+
+    let mut expr = get_expression(&tokens[start + 1..end - 1]);
+    if start > 1 {
+        expr = get_operation(
+            &tokens[start - 1],
+            Box::new(get_expression(&tokens[0..start - 1])),
+            Box::new(expr),
+        );
+    }
+    if end < tokens.len() {
+        expr = get_operation(
+            &tokens[end],
+            Box::new(expr),
+            Box::new(get_expression(&tokens[end + 1..])),
+        );
+    }
+    return expr;
 }
 
 fn get_assign(assign_pos: usize, tokens: &[Token]) -> Expression {

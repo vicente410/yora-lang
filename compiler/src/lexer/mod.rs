@@ -109,6 +109,8 @@ impl Buffer {
             || (Buffer::is_symbol(self.first_ch)
                 && Buffer::is_symbol(ch)
                 && ch != '['
+                && ch != ']'
+                && ch != '('
                 && ch != ')'))
     }
 
