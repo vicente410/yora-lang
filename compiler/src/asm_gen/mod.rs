@@ -194,7 +194,9 @@ impl AsmGenerator {
     fn get_div(&mut self, dest: &Value, src1: &Value, src2: &Value) -> String {
         if src1 == dest {
             format!(
-                "\tmov {3}, {2}\n\
+                "\tmov rax, 0\n\
+                \tmov rdx, 0\n\
+                \tmov {3}, {2}\n\
                 \tmov {0}, {1}\n\
                 \tdiv {4}\n\
                 \tmov {0}, {3}\n",
@@ -206,7 +208,9 @@ impl AsmGenerator {
             )
         } else {
             format!(
-                "\tmov {0}, {1}\n\
+                "\tmov rax, 0\n\
+                \tmov rdx, 0\n\
+                \tmov {0}, {1}\n\
                 \tmov {3}, {2}\n\
                 \tdiv {4}\n\
                 \tmov {0}, {3}\n",
@@ -220,20 +224,37 @@ impl AsmGenerator {
     }
 
     fn get_mod(&mut self, dest: &Value, src1: &Value, src2: &Value) -> String {
-        format!(
-            "\tmov rax, 0\n\
-            \tmov rdx, 0\n\
-            \tmov {0}, {1}\n\
-            \tmov {3}, {2}\n\
-            \tdiv {4}\n\
-            \tmov {0}, {5}\n",
-            self.get_value(dest),
-            self.get_value(src2),
-            self.get_value(src1),
-            Self::get_reg_with_size("rax".to_string(), 1),
-            Self::get_reg_with_size(self.get_value(dest), 8),
-            Self::get_reg_with_size("rdx".to_string(), 1),
-        )
+        if src1 == dest {
+            format!(
+                "\tmov rax, 0\n\
+                \tmov rdx, 0\n\
+                \tmov {3}, {2}\n\
+                \tmov {0}, {1}\n\
+                \tdiv {4}\n\
+                \tmov {0}, {5}\n",
+                self.get_value(dest),
+                self.get_value(src2),
+                self.get_value(src1),
+                Self::get_reg_with_size("rax".to_string(), 1),
+                Self::get_reg_with_size(self.get_value(dest), 8),
+                Self::get_reg_with_size("rdx".to_string(), 1),
+            )
+        } else {
+            format!(
+                "\tmov rax, 0\n\
+                \tmov rdx, 0\n\
+                \tmov {0}, {1}\n\
+                \tmov {3}, {2}\n\
+                \tdiv {4}\n\
+                \tmov {0}, {5}\n",
+                self.get_value(dest),
+                self.get_value(src2),
+                self.get_value(src1),
+                Self::get_reg_with_size("rax".to_string(), 1),
+                Self::get_reg_with_size(self.get_value(dest), 8),
+                Self::get_reg_with_size("rdx".to_string(), 1),
+            )
+        }
     }
 
     fn get_cmp(&mut self, dest: &Value, src1: &Value, src2: &Value, op: &Op) -> String {
