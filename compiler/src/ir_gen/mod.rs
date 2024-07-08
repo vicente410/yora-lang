@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
+use crate::core::*;
 use crate::ir::*;
 use crate::op::*;
 use crate::parser::expression::*;
 
 pub mod ir;
 
-pub fn generate_ir(ast: Vec<Expression>, type_table: &mut HashMap<String, String>) -> Ir {
+pub fn generate_ir(ast: Vec<Expression>, type_table: &mut HashMap<String, PrimitiveType>) -> Ir {
     let mut generator = IrGenerator::new(type_table);
 
     generator.gen_ir(ast);
@@ -15,7 +16,7 @@ pub fn generate_ir(ast: Vec<Expression>, type_table: &mut HashMap<String, String
 }
 
 pub struct IrGenerator<'a> {
-    type_table: &'a mut HashMap<String, String>,
+    type_table: &'a mut HashMap<String, PrimitiveType>,
     nums: Nums,
     ir: Ir,
 }
@@ -28,7 +29,7 @@ struct Nums {
 }
 
 impl IrGenerator<'_> {
-    fn new(type_table: &mut HashMap<String, String>) -> IrGenerator {
+    fn new(type_table: &mut HashMap<String, PrimitiveType>) -> IrGenerator {
         IrGenerator {
             type_table,
             nums: Nums {
@@ -208,7 +209,7 @@ impl IrGenerator<'_> {
 
         if let Value::Identifier { ref id } = dest.clone() {
             self.type_table
-                .insert((*id).clone(), op.get_type().to_string());
+                .insert((*id).clone(), get_type(op.get_type().to_string()));
         }
 
         dest
@@ -375,7 +376,7 @@ impl IrGenerator<'_> {
         });
 
         if let Value::Identifier { ref id } = destination.clone() {
-            self.type_table.insert((*id).clone(), "bool".to_string());
+            self.type_table.insert((*id).clone(), PrimitiveType::Bool);
         }
         destination
     }
@@ -397,7 +398,7 @@ impl IrGenerator<'_> {
                 });
 
                 if let Value::Identifier { ref id } = destination.clone() {
-                    self.type_table.insert((*id).clone(), "i8".to_string());
+                    self.type_table.insert((*id).clone(), PrimitiveType::I8);
                 }
 
                 Box::new(destination)

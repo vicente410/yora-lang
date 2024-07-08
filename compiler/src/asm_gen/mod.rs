@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::core::PrimitiveType;
 use crate::ir_gen::ir::*;
 use crate::op::Op;
 
@@ -7,13 +8,13 @@ struct AsmGenerator {
     asm_data: String,
     asm_text: String,
     symbol_table: HashMap<String, String>,
-    type_table: HashMap<String, String>,
+    type_table: HashMap<String, PrimitiveType>,
     current_stack: usize,
     num_params: usize,
     current_param_stack: usize,
 }
 
-pub fn generate_asm(ir: Ir, type_table: &mut HashMap<String, String>) -> String {
+pub fn generate_asm(ir: Ir, type_table: &mut HashMap<String, PrimitiveType>) -> String {
     let mut generator = AsmGenerator {
         asm_data: String::from("section .data\n"),
         asm_text: String::from("section .text\nglobal _start\n_start:\n\tmov rbp, rsp\n"),
@@ -24,7 +25,6 @@ pub fn generate_asm(ir: Ir, type_table: &mut HashMap<String, String>) -> String 
         current_param_stack: 0,
     };
 
-    dbg!(type_table);
     generator.generate_data(ir.data);
     generator.generate_code(ir.code);
     generator.asm_data + "\n" + &generator.asm_text
@@ -415,7 +415,7 @@ impl AsmGenerator {
     }
 
     fn get_var_size(&self, var: &Value) -> usize {
-        get_type_size(self.type_table[&self.get_var(var)].clone())
+        self.type_table[&self.get_var(var)].clone().get_size()
     }
 }
 
@@ -440,21 +440,4 @@ fn get_word_for_size(size: usize) -> String {
         _ => panic!("Invalid size."),
     }
     .to_string()
-}
-
-fn get_type_size(type_to_check: String) -> usize {
-    match type_to_check.as_str() {
-        "ptr" => 1,
-        "i8" => 1,
-        "u8" => 1,
-        "i16" => 2,
-        "u16" => 2,
-        "i32" => 4,
-        "u32" => 4,
-        "i64" => 8,
-        "u64" => 8,
-        "int" => 1,
-        "bool" => 1,
-        _ => panic!("Invalid type."),
-    }
 }

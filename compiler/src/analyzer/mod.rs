@@ -1,17 +1,17 @@
 use std::collections::HashMap;
 
+use crate::core::*;
 use crate::errors::*;
 use crate::parser::expression::*;
 use crate::parser::op::*;
 
 struct Analyzer<'a> {
-    type_table: HashMap<String, String>,
+    type_table: HashMap<String, PrimitiveType>,
     errors: &'a mut Errors,
 }
 
-pub fn analyze(ast: &mut Vec<Expression>, errors: &mut Errors) -> HashMap<String, String> {
+pub fn analyze(ast: &mut Vec<Expression>, errors: &mut Errors) -> HashMap<String, PrimitiveType> {
     let mut analyzer = Analyzer::new(errors);
-    analyzer.check_type_table();
 
     for expr in ast {
         analyzer.analyze(expr);
@@ -32,26 +32,6 @@ impl Analyzer<'_> {
         }
     }
 
-    // checks the type table to garantee no invalid types
-    fn check_type_table(&mut self) {
-        for (_, mut type_to_check) in self.type_table.clone() {
-            if type_to_check.contains("[]") {
-                type_to_check.pop();
-                type_to_check.pop();
-            }
-            match type_to_check.as_str() {
-                "bool" | "i8" | "i16" | "i32" | "i64" | "u8" | "u16" | "u32" | "u64" => (),
-                _ => self.errors.add(
-                    ErrorKind::UndefinedType {
-                        type1: type_to_check.clone(),
-                    },
-                    0,
-                    0,
-                ),
-            }
-        }
-    }
-
     fn analyze(&mut self, expr: &Expression) {
         match &expr.kind {
             ExpressionKind::Declare(ref dest, ref src, type_hint) => {
@@ -61,7 +41,15 @@ impl Analyzer<'_> {
                     ExpressionKind::Identifier(id) => {
                         let type_to_add = self.get_type(src);
                         if let Some(type_hint) = type_hint {
-                            if *type_hint != type_to_add {
+                            if !is_valid_type(type_hint.to_string()) {
+                                self.errors.add(
+                                    ErrorKind::UndefinedType {
+                                        type1: type_hint.clone(),
+                                    },
+                                    src.line,
+                                    src.col,
+                                )
+                            } else if *type_hint != type_to_add {
                                 self.errors.add(
                                     ErrorKind::MismatchedTypes {
                                         expected: type_hint.clone(),
@@ -72,10 +60,11 @@ impl Analyzer<'_> {
                                 )
                             } else {
                                 self.type_table
-                                    .insert(id.to_string(), type_hint.to_string());
+                                    .insert(id.to_string(), get_type(type_hint.to_string()));
                             }
                         } else {
-                            self.type_table.insert(id.to_string(), type_to_add);
+                            self.type_table
+                                .insert(id.to_string(), get_type(type_to_add));
                         }
                     }
                     _ => {
@@ -90,23 +79,26 @@ impl Analyzer<'_> {
                 match &dest.kind {
                     ExpressionKind::Identifier(id) => {
                         let type_to_add = self.get_type(src);
-                        if self.type_table.contains_key(id) && self.type_table[id] != type_to_add {
+                        if self.type_table.contains_key(id)
+                            && self.type_table[id].as_string() != type_to_add
+                        {
                             self.errors.add(
                                 ErrorKind::MismatchedTypes {
-                                    expected: self.type_table[id].clone(),
+                                    expected: self.type_table[id].as_string(),
                                     found: type_to_add,
                                 },
                                 src.line,
                                 src.col,
                             )
                         } else {
-                            self.type_table.insert(id.to_string(), type_to_add);
+                            self.type_table
+                                .insert(id.to_string(), get_type(type_to_add));
                         }
                     }
                     ExpressionKind::Idx(id, offset) => {
                         self.type_table.insert(
                             format!("[{} + {}]", id.to_str(), offset.to_str()),
-                            "ptr".to_string(),
+                            get_type("ptr".to_string()),
                         );
                     }
                     _ => {
@@ -258,7 +250,7 @@ impl Analyzer<'_> {
         match &expr.kind {
             ExpressionKind::Identifier(id) => {
                 if self.type_table.contains_key(id) {
-                    self.type_table[id].as_str()
+                    return self.type_table[id].as_string();
                 } else {
                     self.errors.add(
                         ErrorKind::UndeclaredVariable {

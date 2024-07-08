@@ -13,6 +13,7 @@ use std::process::Command;
 
 pub mod analyzer;
 pub mod asm_gen;
+pub mod core;
 pub mod errors;
 pub mod ir_gen;
 pub mod lexer;
