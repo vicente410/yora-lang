@@ -61,7 +61,7 @@ impl Op {
 
     pub fn get_type(&self) -> &str {
         match self {
-            Op::Add | Op::Sub | Op::Mul | Op::Div | Op::Mod => "int",
+            Op::Add | Op::Sub | Op::Mul | Op::Div | Op::Mod => "i8",
             Op::And | Op::Or | Op::Eq | Op::Neq | Op::Lt | Op::Leq | Op::Gt | Op::Geq => "bool",
         }
     }

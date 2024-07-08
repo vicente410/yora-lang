@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::ops::Deref;
 
 use crate::ir_gen::ir::*;
 use crate::op::Op;
@@ -58,21 +57,16 @@ impl AsmGenerator {
                     ref op,
                     ref src2,
                 } => {
-                    if let Value::Identifier { id } = dest {
-                        if !self.symbol_table.contains_key(id) {
-                            self.insert_reg(
-                                id.clone(),
-                                get_size_for_type(self.type_table[id].clone()),
-                            );
-                        }
+                    let id = self.get_var(dest);
+                    if !self.symbol_table.contains_key(&id) {
+                        self.insert_reg(id.clone(), self.get_var_size(dest));
                     }
                     match op {
                         Op::Add | Op::Sub | Op::And | Op::Or => {
                             self.get_simple_op(dest, src1, src2, op)
                         }
                         Op::Mul => self.get_mul(dest, src1, src2),
-                        Op::Div => self.get_div(dest, src1, src2),
-                        Op::Mod => self.get_mod(dest, src1, src2),
+                        Op::Div | Op::Mod => self.get_div_or_mod(dest, src1, src2, op),
                         Op::Eq | Op::Neq | Op::Lt | Op::Leq | Op::Gt | Op::Geq => {
                             self.get_cmp(dest, src1, src2, op)
                         }
@@ -109,10 +103,9 @@ impl AsmGenerator {
     }
 
     fn get_assign(&mut self, dest: &Value, src: &Value) -> String {
-        if let Value::Identifier { id } = dest {
-            if !self.symbol_table.contains_key(id) {
-                self.insert_reg(id.clone(), get_size_for_type(self.type_table[id].clone()));
-            }
+        let id = self.get_var(dest);
+        if !self.symbol_table.contains_key(&id) {
+            self.insert_reg(id.clone(), self.get_var_size(dest));
         }
 
         let src_val = self.get_value(src);
@@ -132,10 +125,9 @@ impl AsmGenerator {
     }
 
     fn get_not(&mut self, dest: &Value, src: &Value) -> String {
-        if let Value::Identifier { id } = dest {
-            if !self.symbol_table.contains_key(&id.clone()) {
-                self.insert_reg(id.clone(), get_size_for_type(self.type_table[id].clone()));
-            }
+        let id = self.get_var(dest);
+        if !self.symbol_table.contains_key(&id) {
+            self.insert_reg(id.clone(), self.get_var_size(dest));
         }
 
         format!(
@@ -150,112 +142,78 @@ impl AsmGenerator {
     }
 
     fn get_simple_op(&mut self, dest: &Value, src1: &Value, src2: &Value, op: &Op) -> String {
-        format!(
-            "\tmov {0}, {1}\n\
-             \t{2} {0}, {3}\n",
-            self.get_value(&dest),
-            self.get_value(&src1),
-            match op {
-                Op::Add => "add",
-                Op::Sub => "sub",
-                Op::And => "and",
-                Op::Or => "or",
-                _ => panic!("Must be 'add', 'sub', 'and' or 'or' operation"),
-            },
-            self.get_value(&src2),
-        )
+        let op_str = match op {
+            Op::Add => "add",
+            Op::Sub => "sub",
+            Op::And => "and",
+            Op::Or => "or",
+            _ => panic!("Must be 'add', 'sub', 'and' or 'or' operation"),
+        };
+
+        let dest_val = self.get_value(dest);
+        let src1_val = self.get_value(src1);
+        let src2_val = self.get_value(src2);
+        let acc = Self::get_reg_with_size("rax".to_string(), self.get_var_size(dest));
+
+        if dest == src1 {
+            format!("\t{op_str} {dest_val}, {src2_val}\n")
+        } else {
+            format!(
+                "\tmov {acc}, {src1_val}\n\
+                \t{op_str} {acc}, {src2_val}\n\
+                \tmov {dest_val}, {acc}\n",
+            )
+        }
     }
 
     fn get_mul(&mut self, dest: &Value, src1: &Value, src2: &Value) -> String {
-        if src2 == dest {
+        let dest_val = self.get_value(dest);
+        let src1_val = self.get_value(src1);
+        let src2_val = self.get_value(src2);
+        let acc = Self::get_reg_with_size("rax".to_string(), self.get_var_size(dest));
+
+        if dest == src1 {
             format!(
-                "\tmov {0}, {1}\n\
-                \tmov {2}, {3}\n\
-                \tmul {0}\n\
-                \tmov {0}, {2}\n",
-                self.get_value(dest),
-                self.get_value(src2),
-                Self::get_reg_with_size("rax".to_string(), 1),
-                self.get_value(src1),
+                "\tmov {acc}, {src2_val}\n\
+                \tmul {dest_val}\n\
+                \tmov {dest_val}, {acc}\n",
+            )
+        } else if dest == src2 {
+            format!(
+                "\tmov {acc}, {src1_val}\n\
+                \tmul {dest_val}\n\
+                \tmov {dest_val}, {acc}\n",
             )
         } else {
             format!(
-                "\tmov {0}, {1}\n\
-                \tmov {2}, {3}\n\
-                \tmul {0}\n\
-                \tmov {0}, {2}\n",
-                self.get_value(dest),
-                self.get_value(src1),
-                Self::get_reg_with_size("rax".to_string(), 1),
-                self.get_value(src2),
+                "\tmov {acc}, {src1_val}\n\
+                \tmov {dest_val}, {acc}\n\
+                \tmov {acc}, {src2_val}\n\
+                \tmul {dest_val}\n\
+                \tmov {dest_val}, {acc}\n",
             )
         }
     }
 
-    fn get_div(&mut self, dest: &Value, src1: &Value, src2: &Value) -> String {
-        if src1 == dest {
-            format!(
-                "\tmov rax, 0\n\
-                \tmov rdx, 0\n\
-                \tmov {3}, {2}\n\
-                \tmov {0}, {1}\n\
-                \tdiv {4}\n\
-                \tmov {0}, {3}\n",
-                self.get_value(dest),
-                self.get_value(src2),
-                self.get_value(src1),
-                Self::get_reg_with_size("rax".to_string(), 1),
-                Self::get_reg_with_size(self.get_value(dest), 8),
-            )
-        } else {
-            format!(
-                "\tmov rax, 0\n\
-                \tmov rdx, 0\n\
-                \tmov {0}, {1}\n\
-                \tmov {3}, {2}\n\
-                \tdiv {4}\n\
-                \tmov {0}, {3}\n",
-                self.get_value(dest),
-                self.get_value(src2),
-                self.get_value(src1),
-                Self::get_reg_with_size("rax".to_string(), 1),
-                Self::get_reg_with_size(self.get_value(dest), 8),
-            )
-        }
-    }
+    fn get_div_or_mod(&mut self, dest: &Value, src1: &Value, src2: &Value, op: &Op) -> String {
+        let dest_val = self.get_value(dest);
+        let src1_val = self.get_value(src1);
+        let acc = Self::get_reg_with_size("rax".to_string(), self.get_var_size(dest));
 
-    fn get_mod(&mut self, dest: &Value, src1: &Value, src2: &Value) -> String {
-        if src1 == dest {
-            format!(
-                "\tmov rax, 0\n\
-                \tmov rdx, 0\n\
-                \tmov {3}, {2}\n\
-                \tmov {0}, {1}\n\
-                \tdiv {4}\n\
-                \tmov {0}, {5}\n",
-                self.get_value(dest),
-                self.get_value(src2),
-                self.get_value(src1),
-                Self::get_reg_with_size("rax".to_string(), 1),
-                Self::get_reg_with_size(self.get_value(dest), 8),
-                Self::get_reg_with_size("rdx".to_string(), 1),
-            )
+        let result_reg = if *op == Op::Div {
+            acc.clone()
         } else {
-            format!(
-                "\tmov rax, 0\n\
+            Self::get_reg_with_size("rdx".to_string(), self.get_var_size(dest))
+        };
+
+        format!(
+            "\tmov rax, 0\n\
                 \tmov rdx, 0\n\
-                \tmov {0}, {1}\n\
-                \tmov {3}, {2}\n\
-                \tdiv {4}\n\
-                \tmov {0}, {5}\n",
-                self.get_value(dest),
-                self.get_value(src2),
-                self.get_value(src1),
-                Self::get_reg_with_size("rax".to_string(), 1),
-                Self::get_reg_with_size(self.get_value(dest), 8),
-                Self::get_reg_with_size("rdx".to_string(), 1),
-            )
-        }
+                \tmov {acc}, {src1_val}\n\
+                \tdiv {0}\n\
+                \tmov {dest_val}, {result_reg}\n",
+            Self::get_reg_with_size(self.get_value(src2), 8),
+        )
     }
 
     fn get_cmp(&mut self, dest: &Value, src1: &Value, src2: &Value, op: &Op) -> String {
@@ -263,13 +221,9 @@ impl AsmGenerator {
         let src1_val = self.get_value(src1);
         let src2_val = self.get_value(src2);
 
-        if let Value::Identifier { id } = dest {
-            if !self.symbol_table.contains_key(id) {
-                self.insert_reg(
-                    dest_val.clone(),
-                    get_size_for_type(self.type_table[id].clone()),
-                );
-            };
+        let id = self.get_var(dest);
+        if !self.symbol_table.contains_key(&id) {
+            self.insert_reg(id.clone(), self.get_var_size(dest));
         }
 
         self.asm_text
@@ -282,8 +236,8 @@ impl AsmGenerator {
         format!(
             "\tcmp {}, {}\n\
             \tj{} {}\n",
-            self.get_value(&src1),
-            self.get_value(&src2),
+            self.get_value(src1),
+            self.get_value(src2),
             get_relation_str(&cond),
             label
         )
@@ -302,15 +256,15 @@ impl AsmGenerator {
             }
             Value::Identifier { id } => {
                 if !self.symbol_table.contains_key(id) {
-                    self.get_value(&src)
+                    self.get_value(src)
                 } else {
-                    type_size = get_size_for_type(self.type_table[id].clone());
-                    self.get_value(&src)
+                    type_size = self.get_var_size(src);
+                    self.get_value(src)
                 }
             }
-            Value::MemPos { id, .. } => {
-                type_size = get_size_for_type(self.type_table[id].clone());
-                self.get_value(&src)
+            Value::MemPos { .. } => {
+                type_size = self.get_var_size(src);
+                self.get_value(src)
             }
         };
 
@@ -335,17 +289,7 @@ impl AsmGenerator {
                 let offset_val = self.get_value(offset); // register where it is
 
                 if offset_val.contains('[') {
-                    // name of ir's variable
-                    let offset_var = if let Value::Identifier { id } = offset.deref() {
-                        id
-                    } else {
-                        panic!("Insert useful panic text")
-                    };
-
-                    let acc = Self::get_reg_with_size(
-                        "rax".to_string(),
-                        get_size_for_type(self.type_table[offset_var].clone()),
-                    );
+                    let acc = Self::get_reg_with_size("rax".to_string(), self.get_var_size(offset));
                     self.asm_text
                         .push_str(&format!("\tmov {}, {}\n", acc, offset_val));
                     acc
@@ -364,29 +308,34 @@ impl AsmGenerator {
         }
     }
 
-    fn insert_reg(&mut self, dest: String, size: usize) {
-        let num_regs = self.symbol_table.len();
-
-        // number of work registers
-        if num_regs < 7 {
-            self.symbol_table
-                .insert(dest.to_string(), self.get_next_reg(num_regs, size));
-        } else {
-            //self.asm.push_str(format!("\tsub rsp, {}\n", size).as_str());
-            self.current_stack += size;
-            self.symbol_table.insert(
-                dest.to_string(),
-                format!("{} [rbp-{}]", get_word_for_size(size), self.current_stack),
-            );
+    fn get_var(&self, value: &Value) -> String {
+        match value {
+            Value::MemPos { id, .. } => id.to_string(),
+            Value::Identifier { id } => id.to_string(),
+            Value::Constant { .. } => panic!("Invalid variable"),
         }
     }
 
-    fn get_next_reg(&self, num_regs: usize, size: usize) -> String {
+    fn insert_reg(&mut self, dest: String, size: usize) {
+        let num_regs = self.symbol_table.len();
+        let next_reg = self.get_next_reg(num_regs, size);
+
+        // number of work registers
+        if num_regs >= 7 {
+            self.current_stack += size;
+        }
+
+        self.symbol_table.insert(dest.to_string(), next_reg);
+    }
+
+    fn get_next_reg(&mut self, num_regs: usize, size: usize) -> String {
         Self::get_reg_with_size(
             if num_regs == 0 {
                 "rbx".to_string()
-            } else {
+            } else if num_regs < 7 {
                 format!("r{}", num_regs + 9)
+            } else {
+                format!("{} [rbp-{}]", get_word_for_size(size), self.current_stack)
             },
             size,
         )
@@ -398,16 +347,7 @@ impl AsmGenerator {
         } else if reg.contains("[") {
             let split_reg: Vec<&str> = reg.split(' ').collect();
 
-            return reg.replace(
-                split_reg[0],
-                match size {
-                    8 => "qword",
-                    4 => "dword",
-                    2 => "word",
-                    1 => "byte",
-                    _ => panic!("Invalid register size"),
-                },
-            );
+            return reg.replace(split_reg[0], &get_word_for_size(size));
         }
 
         let mut reg_letter = &reg[reg.len() - 2..reg.len() - 1];
@@ -454,6 +394,10 @@ impl AsmGenerator {
             )
         }
     }
+
+    fn get_var_size(&self, var: &Value) -> usize {
+        get_type_size(self.type_table[&self.get_var(var)].clone())
+    }
 }
 
 fn get_relation_str(op: &Op) -> &str {
@@ -470,15 +414,16 @@ fn get_relation_str(op: &Op) -> &str {
 
 fn get_word_for_size(size: usize) -> String {
     match size {
-        1 => "byte".to_string(),
-        2 => "word".to_string(),
-        4 => "dword".to_string(),
-        8 => "qword".to_string(),
+        1 => "byte",
+        2 => "word",
+        4 => "dword",
+        8 => "qword",
         _ => panic!("Invalid size."),
     }
+    .to_string()
 }
 
-fn get_size_for_type(type_to_check: String) -> usize {
+fn get_type_size(type_to_check: String) -> usize {
     match type_to_check.as_str() {
         "ptr" => 1,
         "i8" => 1,
