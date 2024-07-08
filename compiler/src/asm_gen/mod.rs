@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::ops::Deref;
 
 use crate::ir_gen::ir::*;
 use crate::op::Op;
@@ -22,9 +23,9 @@ pub fn generate_asm(ir: Ir, type_table: &mut HashMap<String, String>) -> String 
         num_params: 0,
     };
 
+    dbg!(type_table);
     generator.generate_data(ir.data);
     generator.generate_code(ir.code);
-    dbg!(type_table);
     generator.asm_data + "\n" + &generator.asm_text
 }
 
@@ -259,6 +260,8 @@ impl AsmGenerator {
 
     fn get_cmp(&mut self, dest: &Value, src1: &Value, src2: &Value, op: &Op) -> String {
         let dest_val = self.get_value(dest);
+        let src1_val = self.get_value(src1);
+        let src2_val = self.get_value(src2);
 
         if let Value::Identifier { id } = dest {
             if !self.symbol_table.contains_key(id) {
@@ -269,16 +272,13 @@ impl AsmGenerator {
             };
         }
 
-        self.asm_text.push_str(&format!(
-            "\tcmp {}, {}\n",
-            self.get_value(src1),
-            self.get_value(src2),
-        ));
+        self.asm_text
+            .push_str(&format!("\tcmp {}, {}\n", src1_val, src2_val,));
 
         format!("\tset{} {}\n", get_relation_str(op), dest_val)
     }
 
-    fn get_if_goto(&self, src1: &Value, src2: &Value, cond: Op, label: &String) -> String {
+    fn get_if_goto(&mut self, src1: &Value, src2: &Value, cond: Op, label: &String) -> String {
         format!(
             "\tcmp {}, {}\n\
             \tj{} {}\n",
@@ -329,14 +329,29 @@ impl AsmGenerator {
         )
     }
 
-    fn get_value(&self, value: &Value) -> String {
+    fn get_value(&mut self, value: &Value) -> String {
         match value {
             Value::MemPos { id, offset } => {
-                format!(
-                    "byte [{} + {}]",
-                    id,
-                    Self::get_reg_with_size(self.get_value(offset), 4)
-                )
+                let offset_val = self.get_value(offset); // register where it is
+
+                if offset_val.contains('[') {
+                    // name of ir's variable
+                    let offset_var = if let Value::Identifier { id } = offset.deref() {
+                        id
+                    } else {
+                        panic!("Insert useful panic text")
+                    };
+
+                    let acc = Self::get_reg_with_size(
+                        "rax".to_string(),
+                        get_size_for_type(self.type_table[offset_var].clone()),
+                    );
+                    self.asm_text
+                        .push_str(&format!("\tmov {}, {}\n", acc, offset_val));
+                    acc
+                } else {
+                    format!("byte [{} + {}]", id, Self::get_reg_with_size(offset_val, 4))
+                }
             }
             Value::Identifier { id } => {
                 if self.symbol_table.contains_key(id) {
