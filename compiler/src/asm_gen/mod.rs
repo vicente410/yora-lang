@@ -10,6 +10,7 @@ struct AsmGenerator {
     type_table: HashMap<String, String>,
     current_stack: usize,
     num_params: usize,
+    current_param_stack: usize,
 }
 
 pub fn generate_asm(ir: Ir, type_table: &mut HashMap<String, String>) -> String {
@@ -20,6 +21,7 @@ pub fn generate_asm(ir: Ir, type_table: &mut HashMap<String, String>) -> String 
         type_table: type_table.clone(),
         current_stack: 0,
         num_params: 0,
+        current_param_stack: 0,
     };
 
     dbg!(type_table);
@@ -82,7 +84,7 @@ impl AsmGenerator {
                 } => self.get_if_goto(&src1, &src2, cond, &label),
                 IrInstruction::Param { src } => self.get_param(&src),
                 IrInstruction::Call { label } => format!("\tcall {}\n", label),
-                IrInstruction::Ret { .. } => "".to_string(), // todo
+                IrInstruction::Ret { src } => self.get_ret(&src),
             };
             self.asm_text.push_str(&string);
         }
@@ -131,13 +133,13 @@ impl AsmGenerator {
         }
 
         format!(
-            // todo: does not account yet for stack, find generic way of dealing
-            // with stack operations instead of this mess
-            "\tmov {0}, {1}\n\
+            "\tmov {2}, {1}\n\
+            \tmov {0}, {1}\n\
             \tnot {0}\n\
             \tand {0}, 1\n",
             self.get_value(dest),
             self.get_value(src),
+            Self::get_reg_with_size("rax".to_string(), self.get_var_size(dest)),
         )
     }
 
@@ -268,19 +270,36 @@ impl AsmGenerator {
             }
         };
 
-        format!(
-            "\tmov {}, {}\n",
-            match self.num_params {
-                1 => Self::get_reg_with_size("rdi".to_string(), type_size),
-                2 => Self::get_reg_with_size("rsi".to_string(), type_size),
-                3 => Self::get_reg_with_size("rdx".to_string(), type_size),
-                4 => Self::get_reg_with_size("rcx".to_string(), type_size),
-                5 => Self::get_reg_with_size("r8".to_string(), type_size),
-                6 => Self::get_reg_with_size("r9".to_string(), type_size),
-                _ => panic!("Too many params"), // todo: implement stack for parameters
-            },
-            reg
-        )
+        if self.num_params < 7 {
+            format!(
+                "\tmov {}, {}\n",
+                match self.num_params {
+                    1 => Self::get_reg_with_size("rdi".to_string(), type_size),
+                    2 => Self::get_reg_with_size("rsi".to_string(), type_size),
+                    3 => Self::get_reg_with_size("rdx".to_string(), type_size),
+                    4 => Self::get_reg_with_size("rcx".to_string(), type_size),
+                    5 => Self::get_reg_with_size("r8".to_string(), type_size),
+                    6 => Self::get_reg_with_size("r9".to_string(), type_size),
+                    _ => unreachable!(),
+                },
+                reg
+            )
+        } else {
+            self.current_param_stack += type_size;
+            format!("\tpush {}\n", reg)
+        }
+    }
+
+    fn get_ret(&mut self, src: &Value) -> String {
+        let ret = format!(
+            "\tmov {}, {}\n\
+                \tret {}",
+            Self::get_reg_with_size("rax".to_string(), self.get_var_size(src)),
+            self.get_value(src),
+            self.current_param_stack
+        );
+        self.current_param_stack = 0;
+        ret
     }
 
     fn get_value(&mut self, value: &Value) -> String {
