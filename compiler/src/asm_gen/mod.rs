@@ -1,4 +1,3 @@
-use core::panic;
 use std::collections::HashMap;
 
 use crate::ir_gen::ir::*;
@@ -25,7 +24,7 @@ pub fn generate_asm(ir: Ir, type_table: &mut HashMap<String, String>) -> String 
 
     generator.generate_data(ir.data);
     generator.generate_code(ir.code);
-    //  dbg!(type_table);
+    dbg!(type_table);
     generator.asm_data + "\n" + &generator.asm_text
 }
 
@@ -379,142 +378,67 @@ impl AsmGenerator {
     }
 
     fn get_reg_with_size(reg: String, size: usize) -> String {
-        match reg.as_str() {
-            "rax" | "eax" | "ax" | "al" => match size {
-                8 => "rax",
-                4 => "eax",
-                2 => "ax",
-                1 => "al",
-                _ => panic!("Invalid accumulator size"),
-            }
-            .to_string(),
-            "rbx" | "ebx" | "bx" | "bl" => match size {
-                8 => "rbx",
-                4 => "ebx",
-                2 => "bx",
-                1 => "bl",
-                _ => panic!("Invalid register size"),
-            }
-            .to_string(),
-            "rcx" | "ecx" | "cx" | "cl" => match size {
-                8 => "rcx",
-                4 => "ecx",
-                2 => "cx",
-                1 => "cl",
-                _ => panic!("Invalid register size"),
-            }
-            .to_string(),
-            "rdx" | "edx" | "dx" | "dl" => match size {
-                8 => "rdx",
-                4 => "edx",
-                2 => "dx",
-                1 => "dl",
-                _ => panic!("Invalid register size"),
-            }
-            .to_string(),
-            "rdi" | "edi" | "di" | "dil" => match size {
-                8 => "rdi",
-                4 => "edi",
-                2 => "di",
-                1 => "dil",
-                _ => panic!("Invalid register size"),
-            }
-            .to_string(),
-            "rsi" | "esi" | "si" | "sil" => match size {
-                8 => "rsi",
-                4 => "esi",
-                2 => "si",
-                1 => "sil",
-                _ => panic!("Invalid register size"),
-            }
-            .to_string(),
-            _ => {
-                let mut new_reg = reg.clone();
+        if reg.parse::<i32>().is_ok() {
+            return reg;
+        } else if reg.contains("[") {
+            let split_reg: Vec<&str> = reg.split(' ').collect();
 
-                if new_reg.parse::<i32>().is_ok() {
-                    return new_reg;
-                } else if new_reg.contains("[") {
-                    let split_reg: Vec<&str> = reg.split(' ').collect();
-
-                    return new_reg.replace(
-                        split_reg[0],
-                        match size {
-                            8 => "qword",
-                            4 => "dword",
-                            2 => "word",
-                            1 => "byte",
-                            _ => panic!("Invalid register size"),
-                        },
-                    );
-                } else if let Some(ch) = reg.chars().last() {
-                    if ch.is_alphabetic() {
-                        new_reg.pop();
-                    }
-                }
-
-                format!(
-                    "{}{}",
-                    new_reg,
-                    match size {
-                        8 => "",
-                        4 => "d",
-                        2 => "w",
-                        1 => "b",
-                        _ => panic!("Invalid register size"),
-                    }
-                )
-            }
+            return reg.replace(
+                split_reg[0],
+                match size {
+                    8 => "qword",
+                    4 => "dword",
+                    2 => "word",
+                    1 => "byte",
+                    _ => panic!("Invalid register size"),
+                },
+            );
         }
-    }
 
-    /*fn get_instruction_op(
-        &mut self,
-        src1: String,
-        src2: String,
-        dest: String,
-        instruction: &Ir,
-    ) -> String {
-        let src_val1 = self.get_value(&src1);
-        let src_val2 = self.get_value(&src2);
-        let dest_val = self.get_value(&dest);
+        let mut reg_letter = &reg[reg.len() - 2..reg.len() - 1];
+        let reg_last = &reg[reg.len() - 1..reg.len()];
 
-        if let IrInstruction::Op { op, .. } = instruction {
-            if src_val1.contains('[') && src_val2.contains('[') {
-                let reg = if self.type_table[&src1] == "bool" {
-                    "al".to_string()
-                } else {
-                    "rax".to_string()
-                };
-
-                format!(
-                    "\tpush rax\n\
-                    \tmov {}, {}\n\
-                    \tmov {}, {}\n\
-                    \t{} {}, {}\n\
-                    \tpop rax\n",
-                    reg,
-                    src_val1,
-                    dest_val,
-                    src_val2,
-                    get_arit_op(op),
-                    dest_val,
-                    reg
-                )
-            } else {
-                format!(
-                    "\tmov {}, {}\n\
-                     \t{} {}, {}\n",
-                    dest_val,
-                    src_val1,
-                    get_arit_op(op),
-                    dest_val,
-                    src_val2
-                )
+        if reg_letter == "i" || reg_last == "i" {
+            if reg_last == "l" {
+                reg_letter = &reg[reg.len() - 3..reg.len() - 2]
+            }
+            match size {
+                8 => format!("r{}i", reg_letter),
+                4 => format!("e{}i", reg_letter),
+                2 => format!("{}i", reg_letter),
+                1 => format!("{}il", reg_letter),
+                _ => panic!("Invalid register size"),
+            }
+        } else if reg_last.parse::<i32>().is_err() && reg_letter.parse::<i32>().is_err() {
+            match size {
+                8 => format!("r{}x", reg_letter),
+                4 => format!("e{}x", reg_letter),
+                2 => format!("{}x", reg_letter),
+                1 => format!("{}l", reg_letter),
+                _ => panic!("Invalid register size"),
             }
         } else {
-            panic!();
+            let mut new_reg = reg.clone();
+
+            if let Some(ch) = reg.chars().last() {
+                if ch.is_alphabetic() {
+                    new_reg.pop();
+                }
+            }
+
+            format!(
+                "{}{}",
+                new_reg,
+                match size {
+                    8 => "",
+                    4 => "d",
+                    2 => "w",
+                    1 => "b",
+                    _ => panic!("Invalid register size"),
+                }
+            )
         }
-    }*/
+    }
 }
 
 fn get_relation_str(op: &Op) -> &str {
@@ -542,6 +466,14 @@ fn get_word_for_size(size: usize) -> String {
 fn get_size_for_type(type_to_check: String) -> usize {
     match type_to_check.as_str() {
         "ptr" => 1,
+        "i8" => 1,
+        "u8" => 1,
+        "i16" => 2,
+        "u16" => 2,
+        "i32" => 4,
+        "u32" => 4,
+        "i64" => 8,
+        "u64" => 8,
         "int" => 1,
         "bool" => 1,
         _ => panic!("Invalid type."),

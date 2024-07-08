@@ -189,7 +189,7 @@ impl Analyzer<'_> {
                 if match op {
                     Op::And | Op::Or => type1 != "bool" || type2 != "bool",
                     _ => type1 != "i32" || type2 != "i32",
-                } && (type1 != "ptr" || type2 != "int")
+                } && (type1 != "ptr" || type2 != "i32")
                 {
                     self.errors.add(
                         ErrorKind::OperationNotImplemented {
@@ -224,10 +224,10 @@ impl Analyzer<'_> {
 
                 match name.as_str() {
                     "exit" => {
-                        if type1 != "int" {
+                        if type1 != "i32" {
                             self.errors.add(
                                 ErrorKind::MismatchedTypes {
-                                    expected: "int".to_string(),
+                                    expected: "i32".to_string(),
                                     found: type1,
                                 },
                                 arg.line,

@@ -397,7 +397,7 @@ impl IrGenerator<'_> {
                 });
 
                 if let Value::Identifier { ref id } = destination.clone() {
-                    self.type_table.insert((*id).clone(), "int".to_string());
+                    self.type_table.insert((*id).clone(), "i8".to_string());
                 }
 
                 Box::new(destination)
