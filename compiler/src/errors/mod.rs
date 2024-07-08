@@ -52,6 +52,9 @@ impl Errors {
             ErrorKind::InvalidIdentifier => {
                 println!("{}:{}: invalid identifier", error.line, error.col)
             }
+            ErrorKind::UndefinedType { type1 } => {
+                println!("{}:{}: undefined type '{}'", error.line, error.col, type1);
+            }
         }
     }
 }
@@ -90,4 +93,7 @@ pub enum ErrorKind {
         found: String,
     },
     InvalidIdentifier,
+    UndefinedType {
+        type1: String,
+    },
 }

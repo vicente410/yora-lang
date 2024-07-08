@@ -64,7 +64,7 @@ pub enum ExpressionKind {
 
     // Variables
     Identifier(String),
-    Declare(Box<Expression>, Box<Expression>),
+    Declare(Box<Expression>, Box<Expression>, Option<String>),
     Assign(Box<Expression>, Box<Expression>),
     ArrayLit(Vec<Expression>),
 
@@ -112,7 +112,7 @@ fn get_sons(expr: Expression) -> Vec<Expression> {
         ExpressionKind::While(cond, seq) => vec![*cond, *seq],
         ExpressionKind::Continue => Vec::new(),
         ExpressionKind::Break => Vec::new(),
-        ExpressionKind::Declare(dest, src) => vec![*dest, *src],
+        ExpressionKind::Declare(dest, src, _) => vec![*dest, *src],
         ExpressionKind::Assign(dest, src) => vec![*dest, *src],
         ExpressionKind::ArrayLit(contents) => contents,
         ExpressionKind::Call(.., args) => vec![*args],

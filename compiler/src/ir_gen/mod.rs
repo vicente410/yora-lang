@@ -58,7 +58,7 @@ impl IrGenerator<'_> {
             ExpressionKind::ArrayLit(contents) => self.get_array_lit(contents),
             ExpressionKind::Call(name, arg) => self.get_call(name, arg),
             ExpressionKind::Assign(ref dest, ref src)
-            | ExpressionKind::Declare(ref dest, ref src) => self.get_declare_assign(dest, src),
+            | ExpressionKind::Declare(ref dest, ref src, _) => self.get_declare_assign(dest, src),
             ExpressionKind::Op(ref src1, op, ref src2) => self.get_operation(src1, op, src2),
             ExpressionKind::If(cond, seq) => self.get_if(cond, seq, expr),
             ExpressionKind::IfElse(cond, if_seq, else_seq) => {

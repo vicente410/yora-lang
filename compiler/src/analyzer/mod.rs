@@ -11,6 +11,7 @@ struct Analyzer<'a> {
 
 pub fn analyze(ast: &mut Vec<Expression>, errors: &mut Errors) -> HashMap<String, String> {
     let mut analyzer = Analyzer::new(errors);
+    analyzer.check_type_table();
 
     for expr in ast {
         analyzer.analyze(expr);
@@ -31,16 +32,76 @@ impl Analyzer<'_> {
         }
     }
 
+    // checks the type table to garantee no invalid types
+    fn check_type_table(&mut self) {
+        for (_, mut type_to_check) in self.type_table.clone() {
+            if type_to_check.contains("[]") {
+                type_to_check.pop();
+                type_to_check.pop();
+            }
+            match type_to_check.as_str() {
+                "bool" | "i8" | "i16" | "i32" | "i64" | "u8" | "u16" | "u32" | "u64" => (),
+                _ => self.errors.add(
+                    ErrorKind::UndefinedType {
+                        type1: type_to_check.clone(),
+                    },
+                    0,
+                    0,
+                ),
+            }
+        }
+    }
+
     fn analyze(&mut self, expr: &Expression) {
         match &expr.kind {
-            ExpressionKind::Declare(ref dest, ref src)
-            | ExpressionKind::Assign(ref dest, ref src) => {
+            ExpressionKind::Declare(ref dest, ref src, type_hint) => {
                 self.analyze(src);
 
                 match &dest.kind {
                     ExpressionKind::Identifier(id) => {
                         let type_to_add = self.get_type(src);
-                        self.type_table.insert(id.to_string(), type_to_add);
+                        if let Some(type_hint) = type_hint {
+                            if *type_hint != type_to_add {
+                                self.errors.add(
+                                    ErrorKind::MismatchedTypes {
+                                        expected: type_hint.clone(),
+                                        found: type_to_add.clone(),
+                                    },
+                                    src.line,
+                                    src.col,
+                                )
+                            } else {
+                                self.type_table
+                                    .insert(id.to_string(), type_hint.to_string());
+                            }
+                        } else {
+                            self.type_table.insert(id.to_string(), type_to_add);
+                        }
+                    }
+                    _ => {
+                        self.errors
+                            .add(ErrorKind::InvalidIdentifier, dest.line, dest.col);
+                    }
+                };
+            }
+            ExpressionKind::Assign(ref dest, ref src) => {
+                self.analyze(src);
+
+                match &dest.kind {
+                    ExpressionKind::Identifier(id) => {
+                        let type_to_add = self.get_type(src);
+                        if self.type_table.contains_key(id) && self.type_table[id] != type_to_add {
+                            self.errors.add(
+                                ErrorKind::MismatchedTypes {
+                                    expected: self.type_table[id].clone(),
+                                    found: type_to_add,
+                                },
+                                src.line,
+                                src.col,
+                            )
+                        } else {
+                            self.type_table.insert(id.to_string(), type_to_add);
+                        }
                     }
                     ExpressionKind::Idx(id, offset) => {
                         self.type_table.insert(
@@ -127,7 +188,7 @@ impl Analyzer<'_> {
 
                 if match op {
                     Op::And | Op::Or => type1 != "bool" || type2 != "bool",
-                    _ => type1 != "int" || type2 != "int",
+                    _ => type1 != "i32" || type2 != "i32",
                 } && (type1 != "ptr" || type2 != "int")
                 {
                     self.errors.add(
@@ -209,7 +270,7 @@ impl Analyzer<'_> {
                     "null"
                 }
             }
-            ExpressionKind::IntLit(..) | ExpressionKind::Idx(..) => "int",
+            ExpressionKind::IntLit(..) | ExpressionKind::Idx(..) => "i32",
             ExpressionKind::BoolLit(..) | ExpressionKind::Not(..) => "bool",
             ExpressionKind::StringLit(..) | ExpressionKind::ArrayLit(..) => "ptr",
             ExpressionKind::Op(_, op, _) => op.get_type(),
