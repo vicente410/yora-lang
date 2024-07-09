@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::core::*;
 use crate::ir::*;
 use crate::op::*;
@@ -7,16 +5,15 @@ use crate::parser::expression::*;
 
 pub mod ir;
 
-pub fn generate_ir(ast: Vec<Expression>, type_table: &mut HashMap<String, PrimitiveType>) -> Ir {
-    let mut generator = IrGenerator::new(type_table);
+pub fn generate_ir(ast: Vec<Expression>) -> Ir {
+    let mut generator = IrGenerator::new();
 
     generator.gen_ir(ast);
 
     generator.ir
 }
 
-pub struct IrGenerator<'a> {
-    type_table: &'a mut HashMap<String, PrimitiveType>,
+pub struct IrGenerator {
     nums: Nums,
     ir: Ir,
 }
@@ -28,10 +25,9 @@ struct Nums {
     buf: u32,
 }
 
-impl IrGenerator<'_> {
-    fn new(type_table: &mut HashMap<String, PrimitiveType>) -> IrGenerator {
+impl IrGenerator {
+    fn new() -> IrGenerator {
         IrGenerator {
-            type_table,
             nums: Nums {
                 tmp: 0,
                 ifs: 0,
@@ -59,7 +55,7 @@ impl IrGenerator<'_> {
             ExpressionKind::ArrayLit(contents) => self.get_array_lit(contents),
             ExpressionKind::Call(name, arg) => self.get_call(name, arg),
             ExpressionKind::Assign(ref dest, ref src)
-            | ExpressionKind::Declare(ref dest, ref src, _) => self.get_declare_assign(dest, src),
+            | ExpressionKind::Declare(ref dest, ref src) => self.get_declare_assign(dest, src),
             ExpressionKind::Op(ref src1, op, ref src2) => self.get_operation(src1, op, src2),
             ExpressionKind::If(cond, seq) => self.get_if(cond, seq, expr),
             ExpressionKind::IfElse(cond, if_seq, else_seq) => {
@@ -208,8 +204,8 @@ impl IrGenerator<'_> {
         });
 
         if let Value::Identifier { ref id } = dest.clone() {
-            self.type_table
-                .insert((*id).clone(), get_type(op.get_type().to_string()));
+            //self.type_table
+            //    .insert((*id).clone(), PrimitiveType::from_str(op.get_type()));
         }
 
         dest
@@ -376,7 +372,7 @@ impl IrGenerator<'_> {
         });
 
         if let Value::Identifier { ref id } = destination.clone() {
-            self.type_table.insert((*id).clone(), PrimitiveType::Bool);
+            //self.type_table.insert((*id).clone(), PrimitiveType::Bool);
         }
         destination
     }
@@ -398,7 +394,7 @@ impl IrGenerator<'_> {
                 });
 
                 if let Value::Identifier { ref id } = destination.clone() {
-                    self.type_table.insert((*id).clone(), PrimitiveType::I8);
+                    //self.type_table.insert((*id).clone(), PrimitiveType::I8);
                 }
 
                 Box::new(destination)

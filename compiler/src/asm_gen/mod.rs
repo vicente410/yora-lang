@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::core::PrimitiveType;
+//use crate::core::PrimitiveType;
 use crate::ir_gen::ir::*;
 use crate::op::Op;
 
@@ -8,18 +8,16 @@ struct AsmGenerator {
     asm_data: String,
     asm_text: String,
     symbol_table: HashMap<String, String>,
-    type_table: HashMap<String, PrimitiveType>,
     current_stack: usize,
     num_params: usize,
     current_param_stack: usize,
 }
 
-pub fn generate_asm(ir: Ir, type_table: &mut HashMap<String, PrimitiveType>) -> String {
+pub fn generate_asm(ir: Ir) -> String {
     let mut generator = AsmGenerator {
         asm_data: String::from("section .data\n"),
         asm_text: String::from("section .text\nglobal _start\n_start:\n\tmov rbp, rsp\n"),
         symbol_table: HashMap::new(),
-        type_table: type_table.clone(),
         current_stack: 0,
         num_params: 0,
         current_param_stack: 0,
@@ -415,7 +413,8 @@ impl AsmGenerator {
     }
 
     fn get_var_size(&self, var: &Value) -> usize {
-        self.type_table[&self.get_var(var)].clone().get_size()
+        //self.type_table[&self.get_var(var)].clone().get_size()
+        0
     }
 }
 

@@ -1,40 +1,51 @@
 use std::fmt;
 
+use crate::core::PrimitiveType;
 use crate::op::Op;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Expression {
     pub kind: ExpressionKind,
+    pub r#type: PrimitiveType,
     pub line: usize,
     pub col: usize,
 }
 
 impl Expression {
-    pub fn new(kind: ExpressionKind, line: usize, col: usize) -> Expression {
-        Expression { kind, line, col }
+    pub fn new(kind: ExpressionKind, line: usize, col: usize, r#type: PrimitiveType) -> Expression {
+        Expression {
+            kind,
+            line,
+            col,
+            r#type,
+        }
     }
 
-    pub fn to_str(&self) -> &str {
-        match &self.kind {
-            ExpressionKind::Identifier(str)
-            | ExpressionKind::BoolLit(str)
-            | ExpressionKind::IntLit(str)
-            | ExpressionKind::StringLit(str) => str,
-            ExpressionKind::Sequence(..) => "seq",
-            ExpressionKind::If(..) => "if",
-            ExpressionKind::IfElse(..) => "if_else",
-            ExpressionKind::Loop(..) => "loop",
-            ExpressionKind::While(..) => "while",
-            ExpressionKind::Continue => "continue",
-            ExpressionKind::Break => "break",
-            ExpressionKind::Declare(..) => "declare",
-            ExpressionKind::Assign(..) => "assign",
-            ExpressionKind::ArrayLit(..) => "array",
-            ExpressionKind::Call(name, ..) => &name,
-            ExpressionKind::Not(..) => "!",
-            ExpressionKind::Idx(..) => "[]",
-            ExpressionKind::Op(_, op, _) => op.to_str(),
-        }
+    pub fn to_str(&self) -> String {
+        format!(
+            "{}:{}",
+            self.r#type.as_string(),
+            match &self.kind {
+                ExpressionKind::Identifier(str)
+                | ExpressionKind::BoolLit(str)
+                | ExpressionKind::IntLit(str)
+                | ExpressionKind::StringLit(str) => str,
+                ExpressionKind::Sequence(..) => "seq",
+                ExpressionKind::If(..) => "if",
+                ExpressionKind::IfElse(..) => "if_else",
+                ExpressionKind::Loop(..) => "loop",
+                ExpressionKind::While(..) => "while",
+                ExpressionKind::Continue => "continue",
+                ExpressionKind::Break => "break",
+                ExpressionKind::Declare(..) => "declare",
+                ExpressionKind::Assign(..) => "assign",
+                ExpressionKind::ArrayLit(..) => "array",
+                ExpressionKind::Call(name, ..) => name.as_str(),
+                ExpressionKind::Not(..) => "!",
+                ExpressionKind::Idx(..) => "[]",
+                ExpressionKind::Op(_, op, _) => op.to_str(),
+            }
+        )
     }
 }
 
@@ -64,7 +75,7 @@ pub enum ExpressionKind {
 
     // Variables
     Identifier(String),
-    Declare(Box<Expression>, Box<Expression>, Option<String>),
+    Declare(Box<Expression>, Box<Expression>),
     Assign(Box<Expression>, Box<Expression>),
     ArrayLit(Vec<Expression>),
 
@@ -112,7 +123,7 @@ fn get_sons(expr: Expression) -> Vec<Expression> {
         ExpressionKind::While(cond, seq) => vec![*cond, *seq],
         ExpressionKind::Continue => Vec::new(),
         ExpressionKind::Break => Vec::new(),
-        ExpressionKind::Declare(dest, src, _) => vec![*dest, *src],
+        ExpressionKind::Declare(dest, src) => vec![*dest, *src],
         ExpressionKind::Assign(dest, src) => vec![*dest, *src],
         ExpressionKind::ArrayLit(contents) => contents,
         ExpressionKind::Call(.., args) => vec![*args],

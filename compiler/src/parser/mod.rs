@@ -1,5 +1,6 @@
 use std::process;
 
+use crate::core::PrimitiveType;
 use crate::expression::*;
 use crate::lexer::*;
 use crate::op::*;
@@ -28,6 +29,7 @@ impl Parser {
                 Self::get_expression(tokens).kind,
                 tokens[start].line,
                 tokens[start].col,
+                PrimitiveType::Void,
             ));
         }
         while end + 1 < tokens.len() {
@@ -52,18 +54,19 @@ impl Parser {
                 while end < tokens.len() && tokens[start].line == tokens[end].line {
                     end += 1;
                 }
-                sequence.push(Expression::new(
-                    Self::get_expression(&tokens[start..end]).kind,
-                    tokens[start].line,
-                    tokens[start].col,
-                ));
+                sequence.push(Self::get_expression(&tokens[start..end]));
             }
 
             start = end;
             end += 1;
         }
 
-        Expression::new(ExpressionKind::Sequence(sequence), 0, 0)
+        Expression::new(
+            ExpressionKind::Sequence(sequence),
+            0,
+            0,
+            PrimitiveType::Void,
+        )
     }
 
     fn get_if_expr(tokens: &[Token]) -> Expression {
@@ -96,6 +99,7 @@ impl Parser {
             },
             tokens[0].line,
             tokens[0].col,
+            PrimitiveType::Void,
         )
     }
 
@@ -119,6 +123,7 @@ impl Parser {
             ExpressionKind::Loop(Box::new(Self::get_sequence(&tokens[2..]))),
             tokens[0].line,
             tokens[0].col,
+            PrimitiveType::Void,
         )
     }
 
@@ -137,6 +142,7 @@ impl Parser {
             ),
             tokens[start_seq].line,
             tokens[start_seq].col,
+            PrimitiveType::Void,
         )
     }
 
@@ -167,6 +173,7 @@ impl Parser {
                 },
                 tokens[0].line,
                 tokens[0].col,
+                PrimitiveType::Void,
             );
         }
 
@@ -179,6 +186,21 @@ impl Parser {
                     _ => continue,
                 }
             }
+        } else if tokens.len() > 5 && &tokens[4].str == "=" {
+            return Expression::new(
+                ExpressionKind::Declare(
+                    Box::new(Expression::new(
+                        ExpressionKind::Identifier(tokens[1].str.to_string()),
+                        tokens[1].line,
+                        tokens[1].col,
+                        PrimitiveType::from_str(&tokens[3].str),
+                    )),
+                    Box::new(Self::get_expression(&tokens[5..])),
+                ),
+                tokens[4].line,
+                tokens[4].col,
+                PrimitiveType::Unit,
+            );
         }
 
         if tokens[1].str == "[" && tokens[len - 1].str == "]" {
@@ -189,6 +211,7 @@ impl Parser {
                 ),
                 tokens[0].line,
                 tokens[0].col,
+                PrimitiveType::Void,
             );
         }
 
@@ -207,13 +230,6 @@ impl Parser {
                         ExpressionKind::Declare(
                             Box::new(Self::get_expression(&tokens[1..2])),
                             Box::new(Self::get_expression(&tokens[3..])),
-                            None,
-                        )
-                    } else if &tokens[4].str == "=" {
-                        ExpressionKind::Declare(
-                            Box::new(Self::get_expression(&tokens[1..2])),
-                            Box::new(Self::get_expression(&tokens[5..])),
-                            Some(tokens[3].str.clone()),
                         )
                     } else {
                         println!("Unrecognized expression:");
@@ -263,6 +279,7 @@ impl Parser {
             },
             tokens[0].line,
             tokens[0].col,
+            PrimitiveType::Void,
         )
     }
 
@@ -333,6 +350,7 @@ impl Parser {
             },
             tokens[0].line,
             tokens[0].col,
+            PrimitiveType::Void,
         )
     }
 
@@ -345,6 +363,7 @@ impl Parser {
             ExpressionKind::Op(arg1, Op::from_str(&operation.str), arg2),
             operation.line,
             operation.col,
+            PrimitiveType::Void,
         )
     }
 

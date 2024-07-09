@@ -109,6 +109,7 @@ impl Compiler {
         }
 
         let mut ast = parse(tokens);
+        analyze(&mut ast, &mut errors);
 
         if self.flags.contains(&Flag::Debug(DebugOptions::Ast)) {
             for expr in &ast {
@@ -117,8 +118,7 @@ impl Compiler {
             process::exit(0);
         }
 
-        let mut type_table = analyze(&mut ast, &mut errors);
-        let mut ir = generate_ir(ast.clone(), &mut type_table);
+        let mut ir = generate_ir(ast.clone());
 
         if self.flags.contains(&Flag::Optimize) {
             ir = optimize(ir);
@@ -129,7 +129,7 @@ impl Compiler {
             process::exit(0);
         }
 
-        generate_asm(ir, &mut type_table)
+        generate_asm(ir)
     }
 
     fn assemble(&self) {

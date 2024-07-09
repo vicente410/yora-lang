@@ -50,13 +50,6 @@ impl fmt::Display for Ir {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
-pub enum Value {
-    Identifier { id: String },
-    Constant { value: String },
-    MemPos { id: String, offset: Box<Value> },
-}
-
 #[derive(Debug, PartialEq, Clone)]
 pub enum IrInstruction {
     // Operations
@@ -125,6 +118,13 @@ impl fmt::Display for IrInstruction {
             IrInstruction::Ret { src } => write!(f, "    ret {}", src),
         }
     }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+pub enum Value {
+    Identifier { id: String },
+    Constant { value: String },
+    MemPos { id: String, offset: Box<Value> },
 }
 
 impl fmt::Display for Value {

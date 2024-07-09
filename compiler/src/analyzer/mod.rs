@@ -10,7 +10,7 @@ struct Analyzer<'a> {
     errors: &'a mut Errors,
 }
 
-pub fn analyze(ast: &mut Vec<Expression>, errors: &mut Errors) -> HashMap<String, PrimitiveType> {
+pub fn analyze(ast: &mut Vec<Expression>, errors: &mut Errors) {
     let mut analyzer = Analyzer::new(errors);
 
     for expr in ast {
@@ -20,8 +20,6 @@ pub fn analyze(ast: &mut Vec<Expression>, errors: &mut Errors) -> HashMap<String
     if analyzer.errors.should_abort() {
         analyzer.errors.print_and_abort();
     }
-
-    analyzer.type_table
 }
 
 impl Analyzer<'_> {
@@ -32,40 +30,41 @@ impl Analyzer<'_> {
         }
     }
 
-    fn analyze(&mut self, expr: &Expression) {
-        match &expr.kind {
-            ExpressionKind::Declare(ref dest, ref src, type_hint) => {
+    fn analyze(&mut self, expr: &mut Expression) {
+        match &mut expr.kind {
+            ExpressionKind::Declare(ref mut dest, ref mut src) => {
                 self.analyze(src);
 
                 match &dest.kind {
                     ExpressionKind::Identifier(id) => {
-                        let type_to_add = self.get_type(src);
-                        if let Some(type_hint) = type_hint {
-                            if !is_valid_type(type_hint.to_string()) {
+                        if dest.r#type != PrimitiveType::Void {
+                            let src_type = self.get_type(&src);
+                            if !is_valid_type(dest.r#type.as_string()) {
                                 self.errors.add(
                                     ErrorKind::UndefinedType {
-                                        type1: type_hint.clone(),
+                                        type1: dest.r#type.as_string(),
                                     },
                                     src.line,
                                     src.col,
                                 )
-                            } else if *type_hint != type_to_add {
+                            } else if dest.r#type != src_type {
                                 self.errors.add(
                                     ErrorKind::MismatchedTypes {
-                                        expected: type_hint.clone(),
-                                        found: type_to_add.clone(),
+                                        expected: dest.r#type.as_string(),
+                                        found: src_type.as_string(),
                                     },
                                     src.line,
                                     src.col,
                                 )
                             } else {
-                                self.type_table
-                                    .insert(id.to_string(), get_type(type_hint.to_string()));
+                                src.r#type = src_type.clone();
+                                dest.r#type = src_type.clone();
                             }
                         } else {
-                            self.type_table
-                                .insert(id.to_string(), get_type(type_to_add));
+                            self.get_type(src);
+                            dest.r#type = src.r#type.clone();
                         }
+                        self.type_table.insert(id.to_string(), dest.r#type.clone());
                     }
                     _ => {
                         self.errors
@@ -73,33 +72,27 @@ impl Analyzer<'_> {
                     }
                 };
             }
-            ExpressionKind::Assign(ref dest, ref src) => {
+            ExpressionKind::Assign(ref mut dest, ref mut src) => {
                 self.analyze(src);
 
                 match &dest.kind {
                     ExpressionKind::Identifier(id) => {
                         let type_to_add = self.get_type(src);
-                        if self.type_table.contains_key(id)
-                            && self.type_table[id].as_string() != type_to_add
-                        {
+                        if self.type_table.contains_key(id) && self.type_table[id] != type_to_add {
                             self.errors.add(
                                 ErrorKind::MismatchedTypes {
                                     expected: self.type_table[id].as_string(),
-                                    found: type_to_add,
+                                    found: type_to_add.as_string(),
                                 },
                                 src.line,
                                 src.col,
                             )
                         } else {
-                            self.type_table
-                                .insert(id.to_string(), get_type(type_to_add));
+                            self.type_table.insert(id.to_string(), type_to_add.clone());
                         }
                     }
-                    ExpressionKind::Idx(id, offset) => {
-                        self.type_table.insert(
-                            format!("[{} + {}]", id.to_str(), offset.to_str()),
-                            get_type("ptr".to_string()),
-                        );
+                    ExpressionKind::Idx(..) => {
+                        expr.r#type = PrimitiveType::Ptr;
                     }
                     _ => {
                         self.errors
@@ -112,7 +105,7 @@ impl Analyzer<'_> {
                     self.analyze(expr);
                 }
             }
-            ExpressionKind::Op(ref arg1, _, ref arg2) => {
+            ExpressionKind::Op(ref mut arg1, _, ref mut arg2) => {
                 self.analyze(arg1);
                 self.analyze(arg2);
 
@@ -123,32 +116,32 @@ impl Analyzer<'_> {
                     self.analyze(expr);
                 }
             }
-            ExpressionKind::If(ref cond, ref seq) => {
+            ExpressionKind::If(ref mut cond, ref mut seq) => {
                 self.analyze(cond);
                 self.analyze(seq);
 
                 self.check_type(expr);
             }
-            ExpressionKind::IfElse(ref cond, ref if_seq, ref else_seq) => {
+            ExpressionKind::IfElse(ref mut cond, ref mut if_seq, ref mut else_seq) => {
                 self.analyze(cond);
                 self.analyze(if_seq);
                 self.analyze(else_seq);
 
                 self.check_type(expr);
             }
-            ExpressionKind::Not(ref arg) => {
+            ExpressionKind::Not(ref mut arg) => {
                 self.analyze(arg);
 
                 self.check_type(expr);
             }
-            ExpressionKind::Loop(ref seq) => self.analyze(seq),
-            ExpressionKind::While(ref cond, ref seq) => {
+            ExpressionKind::Loop(ref mut seq) => self.analyze(seq),
+            ExpressionKind::While(ref mut cond, ref mut seq) => {
                 self.analyze(cond);
                 self.analyze(seq);
 
                 self.check_type(expr);
             }
-            ExpressionKind::Call(.., ref arg) => {
+            ExpressionKind::Call(.., ref mut arg) => {
                 self.analyze(arg);
 
                 self.check_type(expr);
@@ -166,8 +159,8 @@ impl Analyzer<'_> {
                 if type1 != type2 {
                     self.errors.add(
                         ErrorKind::MismatchedTypes {
-                            expected: type1,
-                            found: type2,
+                            expected: type1.as_string(),
+                            found: type2.as_string(),
                         },
                         src.line,
                         dest.col,
@@ -179,15 +172,17 @@ impl Analyzer<'_> {
                 let type2 = self.get_type(arg2);
 
                 if match op {
-                    Op::And | Op::Or => type1 != "bool" || type2 != "bool",
-                    _ => type1 != "i8" || type2 != "i8",
-                } && (type1 != "ptr" || type2 != "i8")
+                    Op::And | Op::Or => {
+                        type1 != PrimitiveType::Bool || type2 != PrimitiveType::Bool
+                    }
+                    _ => type1 != PrimitiveType::I32 || type2 != PrimitiveType::I32,
+                } && (type1 != PrimitiveType::Ptr || type2 != PrimitiveType::I32)
                 {
                     self.errors.add(
                         ErrorKind::OperationNotImplemented {
                             op: op.clone(),
-                            type1,
-                            type2,
+                            type1: type1.as_string(),
+                            type2: type2.as_string(),
                         },
                         expr.line,
                         expr.col,
@@ -200,11 +195,11 @@ impl Analyzer<'_> {
             | ExpressionKind::Not(ref arg) => {
                 let type1 = self.get_type(arg);
 
-                if type1 != "bool" {
+                if type1 != PrimitiveType::Bool {
                     self.errors.add(
                         ErrorKind::MismatchedTypes {
                             expected: "bool".to_string(),
-                            found: type1,
+                            found: type1.as_string(),
                         },
                         arg.line,
                         arg.col,
@@ -216,11 +211,11 @@ impl Analyzer<'_> {
 
                 match name.as_str() {
                     "exit" => {
-                        if type1 != "i8" {
+                        if type1 != PrimitiveType::I32 {
                             self.errors.add(
                                 ErrorKind::MismatchedTypes {
                                     expected: "i8".to_string(),
-                                    found: type1,
+                                    found: type1.as_string(),
                                 },
                                 arg.line,
                                 arg.col,
@@ -228,11 +223,11 @@ impl Analyzer<'_> {
                         }
                     }
                     "print" => {
-                        if type1 != "string" && type1 != "ptr" {
+                        if type1 != PrimitiveType::Ptr {
                             self.errors.add(
                                 ErrorKind::MismatchedTypes {
                                     expected: "string".to_string(),
-                                    found: type1,
+                                    found: type1.as_string(),
                                 },
                                 arg.line,
                                 arg.col,
@@ -246,11 +241,11 @@ impl Analyzer<'_> {
         }
     }
 
-    fn get_type(&mut self, expr: &Expression) -> String {
+    fn get_type(&mut self, expr: &Expression) -> PrimitiveType {
         match &expr.kind {
             ExpressionKind::Identifier(id) => {
                 if self.type_table.contains_key(id) {
-                    return self.type_table[id].as_string();
+                    self.type_table[id].clone()
                 } else {
                     self.errors.add(
                         ErrorKind::UndeclaredVariable {
@@ -259,18 +254,17 @@ impl Analyzer<'_> {
                         expr.line,
                         expr.col,
                     );
-                    "null"
+                    PrimitiveType::Void
                 }
             }
-            ExpressionKind::IntLit(..) | ExpressionKind::Idx(..) => "i8",
-            ExpressionKind::BoolLit(..) | ExpressionKind::Not(..) => "bool",
-            ExpressionKind::StringLit(..) | ExpressionKind::ArrayLit(..) => "ptr",
+            ExpressionKind::IntLit(..) | ExpressionKind::Idx(..) => PrimitiveType::I32,
+            ExpressionKind::BoolLit(..) | ExpressionKind::Not(..) => PrimitiveType::Bool,
+            ExpressionKind::StringLit(..) | ExpressionKind::ArrayLit(..) => PrimitiveType::Ptr,
             ExpressionKind::Op(_, op, _) => op.get_type(),
             _ => {
                 dbg!(&expr);
                 panic!("Not a valid type")
             }
         }
-        .to_string()
     }
 }

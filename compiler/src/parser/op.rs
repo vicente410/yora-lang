@@ -1,6 +1,8 @@
 use std::fmt;
 use std::process;
 
+use crate::core::PrimitiveType;
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Op {
     Add,
@@ -59,10 +61,12 @@ impl Op {
         }
     }
 
-    pub fn get_type(&self) -> &str {
+    pub fn get_type(&self) -> PrimitiveType {
         match self {
-            Op::Add | Op::Sub | Op::Mul | Op::Div | Op::Mod => "i8",
-            Op::And | Op::Or | Op::Eq | Op::Neq | Op::Lt | Op::Leq | Op::Gt | Op::Geq => "bool",
+            Op::Add | Op::Sub | Op::Mul | Op::Div | Op::Mod => PrimitiveType::I32,
+            Op::And | Op::Or | Op::Eq | Op::Neq | Op::Lt | Op::Leq | Op::Gt | Op::Geq => {
+                PrimitiveType::Bool
+            }
         }
     }
 }
