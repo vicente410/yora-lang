@@ -49,6 +49,10 @@ impl Errors {
                     error.line, error.col, expected, found
                 )
             }
+            ErrorKind::InvalidArray => println!(
+                "{}:{}: All array elements must have the same type",
+                error.line, error.col
+            ),
             ErrorKind::InvalidIdentifier => {
                 println!("{}:{}: invalid identifier", error.line, error.col)
             }
@@ -92,6 +96,7 @@ pub enum ErrorKind {
         expected: String,
         found: String,
     },
+    InvalidArray,
     InvalidIdentifier,
     UndefinedType {
         type1: String,

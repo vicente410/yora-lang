@@ -1,4 +1,5 @@
 use std::fmt;
+use std::ops::Deref;
 
 pub fn get_syscall_num(syscall: String) -> usize {
     match syscall.as_str() {
@@ -15,9 +16,10 @@ pub fn get_syscall_num(syscall: String) -> usize {
 #[derive(Debug, PartialEq, Clone)]
 pub enum PrimitiveType {
     Void,
+    Ptr,
     Unit,
     Bool,
-    Ptr,
+    Arr(Box<PrimitiveType>),
     I8,
     I16,
     I32,
@@ -62,6 +64,7 @@ impl PrimitiveType {
             PrimitiveType::U16 => "u16",
             PrimitiveType::U32 => "u32",
             PrimitiveType::U64 => "u64",
+            PrimitiveType::Arr(r#type) => return format!("{}[]", r#type.deref().as_string()),
             PrimitiveType::Ptr => "ptr",
         }
         .to_string()
@@ -80,6 +83,7 @@ impl PrimitiveType {
             PrimitiveType::U16 => 2,
             PrimitiveType::U32 => 4,
             PrimitiveType::U64 => 8,
+            PrimitiveType::Arr(..) => 8,
             PrimitiveType::Ptr => 8,
         }
     }

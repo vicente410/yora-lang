@@ -33,77 +33,50 @@ impl Analyzer<'_> {
     fn analyze(&mut self, expr: &mut Expression) {
         match &mut expr.kind {
             ExpressionKind::Declare(ref mut dest, ref mut src) => {
-                self.analyze(src);
-
-                match &dest.kind {
-                    ExpressionKind::Identifier(id) => {
-                        if dest.r#type != PrimitiveType::Void {
-                            let src_type = self.get_type(&src);
-                            if !is_valid_type(dest.r#type.as_string()) {
-                                self.errors.add(
-                                    ErrorKind::UndefinedType {
-                                        type1: dest.r#type.as_string(),
-                                    },
-                                    src.line,
-                                    src.col,
-                                )
-                            } else if dest.r#type != src_type {
-                                self.errors.add(
-                                    ErrorKind::MismatchedTypes {
-                                        expected: dest.r#type.as_string(),
-                                        found: src_type.as_string(),
-                                    },
-                                    src.line,
-                                    src.col,
-                                )
-                            } else {
-                                src.r#type = src_type.clone();
-                                dest.r#type = src_type.clone();
-                            }
-                        } else {
-                            self.get_type(src);
-                            dest.r#type = src.r#type.clone();
-                        }
-                        self.type_table.insert(id.to_string(), dest.r#type.clone());
-                    }
-                    _ => {
-                        self.errors
-                            .add(ErrorKind::InvalidIdentifier, dest.line, dest.col);
-                    }
-                };
+                self.analyze_declare(dest, src);
+                expr.r#type = PrimitiveType::Unit;
             }
             ExpressionKind::Assign(ref mut dest, ref mut src) => {
                 self.analyze(src);
 
                 match &dest.kind {
                     ExpressionKind::Identifier(id) => {
-                        let type_to_add = self.get_type(src);
-                        if self.type_table.contains_key(id) && self.type_table[id] != type_to_add {
+                        let src_type = self.get_type(src);
+                        if self.type_table.contains_key(id) && self.type_table[id] != src_type {
                             self.errors.add(
                                 ErrorKind::MismatchedTypes {
                                     expected: self.type_table[id].as_string(),
-                                    found: type_to_add.as_string(),
+                                    found: src_type.as_string(),
                                 },
                                 src.line,
                                 src.col,
                             )
                         } else {
-                            self.type_table.insert(id.to_string(), type_to_add.clone());
+                            self.type_table.insert(id.to_string(), src_type.clone());
                         }
                     }
-                    ExpressionKind::Idx(..) => {
-                        expr.r#type = PrimitiveType::Ptr;
+                    ExpressionKind::Idx(id, ..) => {
+                        expr.r#type = self.get_type(id);
                     }
                     _ => {
                         self.errors
                             .add(ErrorKind::InvalidIdentifier, dest.line, dest.col);
                     }
                 };
+                expr.r#type = dest.r#type.clone();
             }
             ExpressionKind::ArrayLit(contents) => {
+                let array_type = self.get_type(&contents[0]);
                 for expr in contents {
                     self.analyze(expr);
+                    if self.get_type(expr) != array_type {
+                        self.errors
+                            .add(ErrorKind::InvalidArray, expr.line, expr.col);
+                        break;
+                    }
+                    expr.r#type = array_type.clone();
                 }
+                expr.r#type = self.get_type(expr);
             }
             ExpressionKind::Op(ref mut arg1, _, ref mut arg2) => {
                 self.analyze(arg1);
@@ -176,7 +149,7 @@ impl Analyzer<'_> {
                         type1 != PrimitiveType::Bool || type2 != PrimitiveType::Bool
                     }
                     _ => type1 != PrimitiveType::I32 || type2 != PrimitiveType::I32,
-                } && (type1 != PrimitiveType::Ptr || type2 != PrimitiveType::I32)
+                } && (!matches!(type1, PrimitiveType::Arr(..)) || type2 != PrimitiveType::I32)
                 {
                     self.errors.add(
                         ErrorKind::OperationNotImplemented {
@@ -223,7 +196,7 @@ impl Analyzer<'_> {
                         }
                     }
                     "print" => {
-                        if type1 != PrimitiveType::Ptr {
+                        if !matches!(type1, PrimitiveType::Arr(..)) {
                             self.errors.add(
                                 ErrorKind::MismatchedTypes {
                                     expected: "string".to_string(),
@@ -239,6 +212,46 @@ impl Analyzer<'_> {
             }
             _ => {}
         }
+    }
+
+    fn analyze_declare(&mut self, dest: &mut Box<Expression>, src: &mut Box<Expression>) {
+        self.analyze(src);
+
+        match &dest.kind {
+            ExpressionKind::Identifier(id) => {
+                if dest.r#type != PrimitiveType::Void {
+                    let src_type = self.get_type(&src);
+                    if !is_valid_type(dest.r#type.as_string()) {
+                        self.errors.add(
+                            ErrorKind::UndefinedType {
+                                type1: dest.r#type.as_string(),
+                            },
+                            src.line,
+                            src.col,
+                        )
+                    } else if dest.r#type != src_type && src.r#type != PrimitiveType::Void {
+                        self.errors.add(
+                            ErrorKind::MismatchedTypes {
+                                expected: dest.r#type.as_string(),
+                                found: src_type.as_string(),
+                            },
+                            src.line,
+                            src.col,
+                        )
+                    } else {
+                        src.r#type = dest.r#type.clone();
+                    }
+                } else {
+                    self.get_type(src);
+                    dest.r#type = src.r#type.clone();
+                }
+                self.type_table.insert(id.to_string(), dest.r#type.clone());
+            }
+            _ => {
+                self.errors
+                    .add(ErrorKind::InvalidIdentifier, dest.line, dest.col);
+            }
+        };
     }
 
     fn get_type(&mut self, expr: &Expression) -> PrimitiveType {
@@ -259,7 +272,8 @@ impl Analyzer<'_> {
             }
             ExpressionKind::IntLit(..) | ExpressionKind::Idx(..) => PrimitiveType::I32,
             ExpressionKind::BoolLit(..) | ExpressionKind::Not(..) => PrimitiveType::Bool,
-            ExpressionKind::StringLit(..) | ExpressionKind::ArrayLit(..) => PrimitiveType::Ptr,
+            ExpressionKind::StringLit(..) => PrimitiveType::Arr(Box::new(PrimitiveType::U8)),
+            ExpressionKind::ArrayLit(expr) => PrimitiveType::Arr(Box::new(self.get_type(&expr[0]))),
             ExpressionKind::Op(_, op, _) => op.get_type(),
             _ => {
                 dbg!(&expr);
