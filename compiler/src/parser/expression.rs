@@ -12,7 +12,40 @@ pub struct Expression {
 }
 
 impl Expression {
-    pub fn new(kind: ExpressionKind, line: usize, col: usize, r#type: PrimitiveType) -> Expression {
+    pub fn new(kind: ExpressionKind, line: usize, col: usize) -> Expression {
+        let r#type = match kind {
+            ExpressionKind::BoolLit(..) | ExpressionKind::Not(..) => PrimitiveType::Bool,
+            ExpressionKind::ArrayLit(..) | ExpressionKind::StringLit(..) => PrimitiveType::Ptr,
+            ExpressionKind::Break
+            | ExpressionKind::Continue
+            | ExpressionKind::Declare(..)
+            | ExpressionKind::Assign(..) => PrimitiveType::Unit,
+            ExpressionKind::IntLit(..)
+            | ExpressionKind::Idx(..)
+            | ExpressionKind::Identifier(..)
+            | ExpressionKind::Sequence(..)
+            | ExpressionKind::If(..)
+            | ExpressionKind::IfElse(..)
+            | ExpressionKind::Loop(..)
+            | ExpressionKind::While(..)
+            | ExpressionKind::Call(..) => PrimitiveType::Void,
+            ExpressionKind::Op(_, ref op, _) => op.get_type(),
+        };
+
+        Expression {
+            kind,
+            line,
+            col,
+            r#type,
+        }
+    }
+
+    pub fn new_with_type(
+        kind: ExpressionKind,
+        line: usize,
+        col: usize,
+        r#type: PrimitiveType,
+    ) -> Expression {
         Expression {
             kind,
             line,

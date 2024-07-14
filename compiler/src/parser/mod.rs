@@ -29,7 +29,6 @@ impl Parser {
                 Self::get_expression(tokens).kind,
                 tokens[start].line,
                 tokens[start].col,
-                PrimitiveType::Void,
             ));
         }
         while end + 1 < tokens.len() {
@@ -61,12 +60,7 @@ impl Parser {
             end += 1;
         }
 
-        Expression::new(
-            ExpressionKind::Sequence(sequence),
-            0,
-            0,
-            PrimitiveType::Void,
-        )
+        Expression::new(ExpressionKind::Sequence(sequence), 0, 0)
     }
 
     fn get_if_expr(tokens: &[Token]) -> Expression {
@@ -99,7 +93,6 @@ impl Parser {
             },
             tokens[0].line,
             tokens[0].col,
-            PrimitiveType::Void,
         )
     }
 
@@ -123,7 +116,6 @@ impl Parser {
             ExpressionKind::Loop(Box::new(Self::get_sequence(&tokens[2..]))),
             tokens[0].line,
             tokens[0].col,
-            PrimitiveType::Void,
         )
     }
 
@@ -142,7 +134,6 @@ impl Parser {
             ),
             tokens[start_seq].line,
             tokens[start_seq].col,
-            PrimitiveType::Void,
         )
     }
 
@@ -150,34 +141,40 @@ impl Parser {
         let len = tokens.len();
 
         if len == 1 {
-            return Expression::new(
-                match &tokens[0].kind {
-                    TokenKind::Identifier => ExpressionKind::Identifier(tokens[0].str.to_string()),
-                    TokenKind::BoolLit => ExpressionKind::BoolLit(tokens[0].str.to_string()),
-                    TokenKind::IntLit => ExpressionKind::IntLit(tokens[0].str.to_string()),
-                    TokenKind::StringLit => ExpressionKind::StringLit(tokens[0].str.to_string()),
-                    TokenKind::Keyword => match tokens[0].str.as_str() {
-                        "continue" => ExpressionKind::Continue,
-                        "break" => ExpressionKind::Break,
-                        _ => {
-                            println!("Unrecognized expression:");
-                            dbg!(tokens);
-                            process::exit(1);
-                        }
-                    },
-                    _ => {
-                        println!("Unrecognized expression:");
-                        dbg!(tokens);
-                        process::exit(1);
-                    }
-                },
-                tokens[0].line,
-                tokens[0].col,
-                PrimitiveType::Void,
-            );
-        }
-
-        if tokens[0].str.as_str() != "var" {
+            if tokens[0].kind == TokenKind::Identifier {
+                Expression::new(
+                    ExpressionKind::Identifier(tokens[0].str.to_string()),
+                    tokens[0].line,
+                    tokens[0].col,
+                )
+            } else if tokens[0].kind == TokenKind::BoolLit {
+                Expression::new(
+                    ExpressionKind::BoolLit(tokens[0].str.to_string()),
+                    tokens[0].line,
+                    tokens[0].col,
+                )
+            } else if tokens[0].kind == TokenKind::IntLit {
+                Expression::new(
+                    ExpressionKind::IntLit(tokens[0].str.to_string()),
+                    tokens[0].line,
+                    tokens[0].col,
+                )
+            } else if tokens[0].kind == TokenKind::StringLit {
+                Expression::new(
+                    ExpressionKind::StringLit(tokens[0].str.to_string()),
+                    tokens[0].line,
+                    tokens[0].col,
+                )
+            } else if tokens[0].str == "continue" {
+                Expression::new(ExpressionKind::Continue, tokens[0].line, tokens[0].col)
+            } else if tokens[0].str == "break" {
+                Expression::new(ExpressionKind::Break, tokens[0].line, tokens[0].col)
+            } else {
+                println!("unrecognized expression:");
+                dbg!(tokens);
+                process::exit(1);
+            }
+        } else if tokens[0].str.as_str() != "var" {
             for (i, token) in tokens.iter().enumerate() {
                 match token.str.as_str() {
                     "=" | "+=" | "-=" | "*=" | "/=" | "%=" => {
@@ -186,10 +183,13 @@ impl Parser {
                     _ => continue,
                 }
             }
+            println!("unrecognized expression:");
+            dbg!(tokens);
+            process::exit(1);
         } else if tokens.len() > 5 && &tokens[4].str == "=" {
-            return Expression::new(
+            Expression::new(
                 ExpressionKind::Declare(
-                    Box::new(Expression::new(
+                    Box::new(Expression::new_with_type(
                         ExpressionKind::Identifier(tokens[1].str.to_string()),
                         tokens[1].line,
                         tokens[1].col,
@@ -199,88 +199,70 @@ impl Parser {
                 ),
                 tokens[4].line,
                 tokens[4].col,
-                PrimitiveType::Unit,
-            );
-        }
-
-        if tokens[1].str == "[" && tokens[len - 1].str == "]" {
-            return Expression::new(
+            )
+        } else if tokens[1].str == "[" && tokens[len - 1].str == "]" {
+            Expression::new(
                 ExpressionKind::Idx(
                     Box::new(Self::get_expression(&tokens[0..1])),
                     Box::new(Self::get_expression(&tokens[2..len - 1])),
                 ),
                 tokens[0].line,
                 tokens[0].col,
-                PrimitiveType::Void,
-            );
+            )
+        } else if tokens[0].str == "exit" && tokens[0].str == "print" {
+            Expression::new(
+                ExpressionKind::Call(
+                    tokens[0].str.to_string(),
+                    Box::new(Self::get_expression(&tokens[2..len - 1])),
+                ),
+                tokens[0].line,
+                tokens[0].col,
+            )
+        } else if tokens[0].str == "[" {
+            let mut contents = Vec::new();
+            let mut buffer = Vec::new();
+            for token in &tokens[1..] {
+                match token.str.as_str() {
+                    "," | "]" => {
+                        contents.push(Self::get_expression(&buffer));
+                        buffer.clear()
+                    }
+                    _ => buffer.push(token.clone()),
+                }
+            }
+            Expression::new(
+                ExpressionKind::ArrayLit(contents),
+                tokens[0].line,
+                tokens[0].col,
+            )
+        } else if tokens[0].str == "!" {
+            Expression::new(
+                ExpressionKind::Not(Box::new(Self::get_expression(&tokens[1..]))),
+                tokens[0].line,
+                tokens[0].col,
+            )
+        } else {
+            let mut pos = 0;
+            let mut priority = 0;
+            for (i, token) in tokens.iter().enumerate() {
+                if token.str == "(" {
+                    return Self::get_parentheses(tokens);
+                }
+                if token.kind == TokenKind::Operator && priority <= Self::get_op_priority(token) {
+                    pos = i;
+                    priority = Self::get_op_priority(token);
+                }
+            }
+            if priority != 0 {
+                let arg1 = Box::new(Self::get_expression(&tokens[0..pos]));
+                let arg2 = Box::new(Self::get_expression(&tokens[pos + 1..]));
+                Self::get_operation(&tokens[pos], arg1, arg2)
+            } else {
+                println!("unrecognized expression:");
+                dbg!(tokens);
+                process::exit(1);
+            }
         }
-
-        Expression::new(
-            match tokens[0].str.as_str() {
-                "exit" => ExpressionKind::Call(
-                    "exit".to_string(),
-                    Box::new(Self::get_expression(&tokens[2..len - 1])),
-                ),
-                "print" => ExpressionKind::Call(
-                    "print".to_string(),
-                    Box::new(Self::get_expression(&tokens[2..len - 1])),
-                ),
-                "var" => {
-                    if &tokens[2].str == "=" {
-                        ExpressionKind::Declare(
-                            Box::new(Self::get_expression(&tokens[1..2])),
-                            Box::new(Self::get_expression(&tokens[3..])),
-                        )
-                    } else {
-                        println!("Unrecognized expression:");
-                        dbg!(tokens);
-                        process::exit(1);
-                    }
-                }
-                "[" => {
-                    let mut contents = Vec::new();
-                    let mut buffer = Vec::new();
-                    for token in &tokens[1..] {
-                        match token.str.as_str() {
-                            "," | "]" => {
-                                contents.push(Self::get_expression(&buffer));
-                                buffer.clear()
-                            }
-                            _ => buffer.push(token.clone()),
-                        }
-                    }
-                    ExpressionKind::ArrayLit(contents)
-                }
-                "!" => ExpressionKind::Not(Box::new(Self::get_expression(&tokens[1..]))),
-                _ => {
-                    let mut pos = 0;
-                    let mut priority = 0;
-                    for (i, token) in tokens.iter().enumerate() {
-                        if token.str == "(" {
-                            return Self::get_parentheses(tokens);
-                        }
-                        if token.kind == TokenKind::Operator
-                            && priority <= Self::get_op_priority(token)
-                        {
-                            pos = i;
-                            priority = Self::get_op_priority(token);
-                        }
-                    }
-                    if priority != 0 {
-                        let arg1 = Box::new(Self::get_expression(&tokens[0..pos]));
-                        let arg2 = Box::new(Self::get_expression(&tokens[pos + 1..]));
-                        Self::get_operation(&tokens[pos], arg1, arg2).kind
-                    } else {
-                        println!("Unrecognized expression:");
-                        dbg!(tokens);
-                        process::exit(1);
-                    }
-                }
-            },
-            tokens[0].line,
-            tokens[0].col,
-            PrimitiveType::Void,
-        )
     }
 
     fn get_parentheses(tokens: &[Token]) -> Expression {
@@ -317,7 +299,7 @@ impl Parser {
     fn get_assign(assign_pos: usize, tokens: &[Token]) -> Expression {
         Expression::new(
             match tokens[assign_pos].str.as_str() {
-                // todo: assign might be in different position if assinging for array
+                // todo: assign might be in different position if assigning for array
                 "=" => ExpressionKind::Assign(
                     Box::new(Self::get_expression(&tokens[0..assign_pos])),
                     Box::new(Self::get_expression(&tokens[assign_pos + 1..])),
@@ -350,7 +332,6 @@ impl Parser {
             },
             tokens[0].line,
             tokens[0].col,
-            PrimitiveType::Void,
         )
     }
 
@@ -363,7 +344,6 @@ impl Parser {
             ExpressionKind::Op(arg1, Op::from_str(&operation.str), arg2),
             operation.line,
             operation.col,
-            PrimitiveType::Void,
         )
     }
 
