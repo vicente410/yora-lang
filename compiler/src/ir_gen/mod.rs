@@ -56,7 +56,9 @@ impl IrGenerator {
             ExpressionKind::Call(name, arg) => self.get_call(name, arg),
             ExpressionKind::Assign(ref dest, ref src)
             | ExpressionKind::Declare(ref dest, ref src) => self.get_declare_assign(dest, src),
-            ExpressionKind::Op(ref src1, op, ref src2) => self.get_operation(src1, op, src2),
+            ExpressionKind::Op(ref src1, op, ref src2) => {
+                self.get_operation(src1, op, src2, expr.r#type.clone())
+            }
             ExpressionKind::If(cond, seq) => self.get_if(cond, seq, expr),
             ExpressionKind::IfElse(cond, if_seq, else_seq) => {
                 self.get_if_else(cond, if_seq, else_seq, expr)
@@ -111,17 +113,21 @@ impl IrGenerator {
     fn get_call(&mut self, name: &str, arg: &Expression) -> Value {
         let arg = self.get_value(arg);
         match name {
-            "exit" => self
-                .ir
-                .add_instruction(IrInstruction::Param { src: arg.clone() }),
+            "exit" => self.ir.add_instruction(IrInstruction::Param {
+                src: arg.clone(),
+                r#type: PrimitiveType::U8,
+            }),
             "print" => {
                 self.ir.add_instruction(IrInstruction::Param {
                     src: Value::Constant {
                         value: "1".to_string(),
                     },
+                    r#type: PrimitiveType::U64,
                 });
-                self.ir
-                    .add_instruction(IrInstruction::Param { src: arg.clone() });
+                self.ir.add_instruction(IrInstruction::Param {
+                    src: arg.clone(),
+                    r#type: PrimitiveType::Ptr,
+                });
 
                 let mut string_size = 0;
                 for buffer in &self.ir.data {
@@ -136,6 +142,7 @@ impl IrGenerator {
                     src: Value::Constant {
                         value: format!("{}", string_size),
                     },
+                    r#type: PrimitiveType::U64,
                 });
             }
             _ => panic!("Undefined function"),
@@ -168,16 +175,19 @@ impl IrGenerator {
                 ExpressionKind::Not(expr) => IrInstruction::Not {
                     dest: dest_str.clone(),
                     src: self.get_value(expr),
+                    r#type: dest.r#type.clone(),
                 },
                 ExpressionKind::Op(ref src1, op, ref src2) => IrInstruction::Op {
                     dest: dest_str.clone(),
                     src1: self.get_value(src1),
                     op: op.clone(),
                     src2: self.get_value(src2),
+                    r#type: dest.r#type.clone(),
                 },
                 _ => IrInstruction::Ass {
                     dest: dest_str.clone(),
                     src: self.get_value(src),
+                    r#type: dest.r#type.clone(),
                 },
             };
             self.ir.add_instruction(instruction);
@@ -186,7 +196,13 @@ impl IrGenerator {
         dest_str
     }
 
-    fn get_operation(&mut self, src1: &Expression, op: &Op, src2: &Expression) -> Value {
+    fn get_operation(
+        &mut self,
+        src1: &Expression,
+        op: &Op,
+        src2: &Expression,
+        r#type: PrimitiveType,
+    ) -> Value {
         self.nums.tmp += 1;
 
         let dest = Value::Identifier {
@@ -201,12 +217,8 @@ impl IrGenerator {
             src1: arg1.clone(),
             op: op.clone(),
             src2: arg2.clone(),
+            r#type,
         });
-
-        if let Value::Identifier { ref id } = dest.clone() {
-            //self.type_table
-            //    .insert((*id).clone(), PrimitiveType::from_str(op.get_type()));
-        }
 
         dest
     }
@@ -255,11 +267,11 @@ impl IrGenerator {
     fn get_condition(&mut self, cond: &Expression, kind: &ExpressionKind, num: u32) {
         if let ExpressionKind::Op(src1, op, src2) = &cond.kind {
             if *op != Op::And && *op != Op::Or {
-                let src1 = self.get_value(src1);
-                let src2 = self.get_value(src2);
+                let val1 = self.get_value(src1);
+                let val2 = self.get_value(src2);
                 return self.ir.add_instruction(IrInstruction::IfGoto {
-                    src1,
-                    src2,
+                    src1: val1,
+                    src2: val2,
                     cond: match op {
                         Op::Eq => Op::Neq,
                         Op::Neq => Op::Eq,
@@ -275,6 +287,7 @@ impl IrGenerator {
                         ExpressionKind::While(..) => format!("loop_end_{}", num),
                         _ => panic!("Not a condition expression"),
                     },
+                    r#type: src1.r#type.clone(),
                 });
             }
         }
@@ -292,6 +305,7 @@ impl IrGenerator {
                 ExpressionKind::While(..) => format!("loop_end_{}", num),
                 _ => panic!("Not a condition expression"),
             },
+            r#type: cond.r#type.clone(),
         });
     }
 
@@ -364,16 +378,14 @@ impl IrGenerator {
             id: format!("t{}", self.nums.tmp),
         };
 
-        let arg1 = self.get_value(arg);
+        let val = self.get_value(arg);
 
         self.ir.add_instruction(IrInstruction::Not {
             dest: destination.clone(),
-            src: arg1.clone(),
+            src: val.clone(),
+            r#type: arg.r#type.clone(),
         });
 
-        if let Value::Identifier { ref id } = destination.clone() {
-            //self.type_table.insert((*id).clone(), PrimitiveType::Bool);
-        }
         destination
     }
 
@@ -391,11 +403,8 @@ impl IrGenerator {
                 self.ir.add_instruction(IrInstruction::Ass {
                     dest: destination.clone(),
                     src: offset_val,
+                    r#type: offset.r#type.clone(),
                 });
-
-                if let Value::Identifier { ref id } = destination.clone() {
-                    //self.type_table.insert((*id).clone(), PrimitiveType::I8);
-                }
 
                 Box::new(destination)
             } else {

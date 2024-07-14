@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-//use crate::core::PrimitiveType;
+use crate::core::PrimitiveType;
 use crate::ir_gen::ir::*;
 use crate::op::Op;
 
@@ -49,26 +49,35 @@ impl AsmGenerator {
             }
 
             let string = match instruction {
-                IrInstruction::Ass { ref dest, ref src } => self.get_assign(dest, src),
-                IrInstruction::Not { ref dest, ref src } => self.get_not(dest, src),
+                IrInstruction::Ass {
+                    ref dest,
+                    ref src,
+                    r#type,
+                } => self.get_assign(dest, src, r#type),
+                IrInstruction::Not {
+                    ref dest,
+                    ref src,
+                    r#type,
+                } => self.get_not(dest, src, r#type),
                 IrInstruction::Op {
                     ref dest,
                     ref src1,
                     ref op,
                     ref src2,
+                    r#type,
                 } => {
                     let id = self.get_var(dest);
                     if !self.symbol_table.contains_key(&id) {
-                        self.insert_reg(id.clone(), self.get_var_size(dest));
+                        self.insert_reg(id.clone(), r#type.get_size());
                     }
                     match op {
                         Op::Add | Op::Sub | Op::And | Op::Or => {
-                            self.get_simple_op(dest, src1, src2, op)
+                            self.get_simple_op(dest, src1, src2, op, r#type)
                         }
-                        Op::Mul => self.get_mul(dest, src1, src2),
-                        Op::Div | Op::Mod => self.get_div_or_mod(dest, src1, src2, op),
+                        Op::Mul => self.get_mul(dest, src1, src2, r#type),
+                        Op::Div | Op::Mod => self.get_div_or_mod(dest, src1, src2, op, r#type),
                         Op::Eq | Op::Neq | Op::Lt | Op::Leq | Op::Gt | Op::Geq => {
-                            self.get_cmp(dest, src1, src2, op)
+                            self.get_cmp(dest, src1, src2, op, r#type)
                         }
                     }
                 }
@@ -79,10 +88,11 @@ impl AsmGenerator {
                     src2,
                     cond,
                     label,
+                    ..
                 } => self.get_if_goto(&src1, &src2, cond, &label),
-                IrInstruction::Param { src } => self.get_param(&src),
+                IrInstruction::Param { src, r#type } => self.get_param(&src, r#type),
                 IrInstruction::Call { label } => format!("\tcall {}\n", label),
-                IrInstruction::Ret { src } => self.get_ret(&src),
+                IrInstruction::Ret { src, r#type } => self.get_ret(&src, r#type),
             };
             self.asm_text.push_str(&string);
         }
@@ -102,15 +112,15 @@ impl AsmGenerator {
         );
     }
 
-    fn get_assign(&mut self, dest: &Value, src: &Value) -> String {
+    fn get_assign(&mut self, dest: &Value, src: &Value, r#type: PrimitiveType) -> String {
         let id = self.get_var(dest);
         if !self.symbol_table.contains_key(&id) {
-            self.insert_reg(id.clone(), self.get_var_size(dest));
+            self.insert_reg(id.clone(), r#type.get_size());
         }
 
         let src_val = self.get_value(src);
         let dest_val = self.get_value(dest);
-        let acc = Self::get_reg_with_size("rax".to_string(), 1);
+        let acc = Self::get_reg_with_size("rax".to_string(), r#type.get_size());
 
         if src_val.contains('[') && dest_val.contains('[') {
             format!(
@@ -124,10 +134,10 @@ impl AsmGenerator {
         }
     }
 
-    fn get_not(&mut self, dest: &Value, src: &Value) -> String {
+    fn get_not(&mut self, dest: &Value, src: &Value, r#type: PrimitiveType) -> String {
         let id = self.get_var(dest);
         if !self.symbol_table.contains_key(&id) {
-            self.insert_reg(id.clone(), self.get_var_size(dest));
+            self.insert_reg(id.clone(), r#type.get_size());
         }
 
         format!(
@@ -137,11 +147,18 @@ impl AsmGenerator {
             \tand {0}, 1\n",
             self.get_value(dest),
             self.get_value(src),
-            Self::get_reg_with_size("rax".to_string(), self.get_var_size(dest)),
+            Self::get_reg_with_size("rax".to_string(), r#type.get_size()),
         )
     }
 
-    fn get_simple_op(&mut self, dest: &Value, src1: &Value, src2: &Value, op: &Op) -> String {
+    fn get_simple_op(
+        &mut self,
+        dest: &Value,
+        src1: &Value,
+        src2: &Value,
+        op: &Op,
+        r#type: PrimitiveType,
+    ) -> String {
         let op_str = match op {
             Op::Add => "add",
             Op::Sub => "sub",
@@ -153,7 +170,7 @@ impl AsmGenerator {
         let dest_val = self.get_value(dest);
         let src1_val = self.get_value(src1);
         let src2_val = self.get_value(src2);
-        let acc = Self::get_reg_with_size("rax".to_string(), self.get_var_size(dest));
+        let acc = Self::get_reg_with_size("rax".to_string(), r#type.get_size());
 
         if dest == src1 {
             format!("\t{op_str} {dest_val}, {src2_val}\n")
@@ -166,11 +183,17 @@ impl AsmGenerator {
         }
     }
 
-    fn get_mul(&mut self, dest: &Value, src1: &Value, src2: &Value) -> String {
+    fn get_mul(
+        &mut self,
+        dest: &Value,
+        src1: &Value,
+        src2: &Value,
+        r#type: PrimitiveType,
+    ) -> String {
         let dest_val = self.get_value(dest);
         let src1_val = self.get_value(src1);
         let src2_val = self.get_value(src2);
-        let acc = Self::get_reg_with_size("rax".to_string(), self.get_var_size(dest));
+        let acc = Self::get_reg_with_size("rax".to_string(), r#type.get_size());
 
         if dest == src1 {
             format!(
@@ -195,15 +218,22 @@ impl AsmGenerator {
         }
     }
 
-    fn get_div_or_mod(&mut self, dest: &Value, src1: &Value, src2: &Value, op: &Op) -> String {
+    fn get_div_or_mod(
+        &mut self,
+        dest: &Value,
+        src1: &Value,
+        src2: &Value,
+        op: &Op,
+        r#type: PrimitiveType,
+    ) -> String {
         let dest_val = self.get_value(dest);
         let src1_val = self.get_value(src1);
-        let acc = Self::get_reg_with_size("rax".to_string(), self.get_var_size(dest));
+        let acc = Self::get_reg_with_size("rax".to_string(), r#type.get_size());
 
         let result_reg = if *op == Op::Div {
             acc.clone()
         } else {
-            Self::get_reg_with_size("rdx".to_string(), self.get_var_size(dest))
+            Self::get_reg_with_size("rdx".to_string(), r#type.get_size())
         };
 
         format!(
@@ -216,14 +246,21 @@ impl AsmGenerator {
         )
     }
 
-    fn get_cmp(&mut self, dest: &Value, src1: &Value, src2: &Value, op: &Op) -> String {
+    fn get_cmp(
+        &mut self,
+        dest: &Value,
+        src1: &Value,
+        src2: &Value,
+        op: &Op,
+        r#type: PrimitiveType,
+    ) -> String {
         let dest_val = self.get_value(dest);
         let src1_val = self.get_value(src1);
         let src2_val = self.get_value(src2);
 
         let id = self.get_var(dest);
         if !self.symbol_table.contains_key(&id) {
-            self.insert_reg(id.clone(), self.get_var_size(dest));
+            self.insert_reg(id.clone(), r#type.get_size());
         }
 
         self.asm_text
@@ -243,7 +280,7 @@ impl AsmGenerator {
         )
     }
 
-    fn get_param(&mut self, src: &Value) -> String {
+    fn get_param(&mut self, src: &Value, r#type: PrimitiveType) -> String {
         let mut type_size = 8;
 
         let reg = match src {
@@ -258,12 +295,12 @@ impl AsmGenerator {
                 if !self.symbol_table.contains_key(id) {
                     self.get_value(src)
                 } else {
-                    type_size = self.get_var_size(src);
+                    type_size = r#type.get_size();
                     self.get_value(src)
                 }
             }
             Value::MemPos { .. } => {
-                type_size = self.get_var_size(src);
+                type_size = r#type.get_size();
                 self.get_value(src)
             }
         };
@@ -288,11 +325,11 @@ impl AsmGenerator {
         }
     }
 
-    fn get_ret(&mut self, src: &Value) -> String {
+    fn get_ret(&mut self, src: &Value, r#type: PrimitiveType) -> String {
         let ret = format!(
             "\tmov {}, {}\n\
                 \tret {}",
-            Self::get_reg_with_size("rax".to_string(), self.get_var_size(src)),
+            Self::get_reg_with_size("rax".to_string(), r#type.get_size()),
             self.get_value(src),
             self.current_param_stack
         );
@@ -306,7 +343,7 @@ impl AsmGenerator {
                 let offset_val = self.get_value(offset); // register where it is
 
                 if offset_val.contains('[') {
-                    let acc = Self::get_reg_with_size("rax".to_string(), self.get_var_size(offset));
+                    let acc = Self::get_reg_with_size("rax".to_string(), 4);
                     self.asm_text
                         .push_str(&format!("\tmov {}, {}\n", acc, offset_val));
                     acc
@@ -410,11 +447,6 @@ impl AsmGenerator {
                 }
             )
         }
-    }
-
-    fn get_var_size(&self, var: &Value) -> usize {
-        //self.type_table[&self.get_var(var)].clone().get_size()
-        0
     }
 }
 

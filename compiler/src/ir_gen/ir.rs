@@ -1,6 +1,8 @@
 use crate::op::Op;
 use std::fmt;
 
+use super::PrimitiveType;
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct Ir {
     pub data: Vec<Buffer>,
@@ -56,16 +58,19 @@ pub enum IrInstruction {
     Ass {
         dest: Value,
         src: Value,
+        r#type: PrimitiveType,
     },
     Not {
         dest: Value,
         src: Value,
+        r#type: PrimitiveType,
     },
     Op {
         dest: Value,
         src1: Value,
         op: Op,
         src2: Value,
+        r#type: PrimitiveType,
     },
 
     // Control-flow
@@ -78,44 +83,49 @@ pub enum IrInstruction {
         src2: Value,
         cond: Op,
         label: String,
+        r#type: PrimitiveType,
     },
 
     // Funcion calls
     Param {
         src: Value,
+        r#type: PrimitiveType,
     },
     Call {
         label: String,
     },
     Ret {
         src: Value,
+        r#type: PrimitiveType,
     },
 }
 
 impl fmt::Display for IrInstruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            IrInstruction::Ass { dest, src } => write!(f, "    {} = {}", dest, src),
-            IrInstruction::Not { dest, src } => write!(f, "    {} = !{}", dest, src),
+            IrInstruction::Ass { dest, src, r#type } => write!(f, "\t{type}:\t{dest} = {src}"),
+            IrInstruction::Not { dest, src, r#type } => write!(f, "\t{type}:\t{dest} = !{src}"),
             IrInstruction::Op {
                 dest,
                 src1,
                 op,
                 src2,
+                r#type,
             } => {
-                write!(f, "    {} = {} {} {}", dest, src1, op, src2)
+                write!(f, "\t{type}: {dest} = {src1} {op} {src2}")
             }
             IrInstruction::Label(str) => write!(f, "{}:", str),
-            IrInstruction::Goto { label } => write!(f, "    goto {}", label),
+            IrInstruction::Goto { label, .. } => write!(f, "    goto {}", label),
             IrInstruction::IfGoto {
                 src1,
                 src2,
                 cond,
                 label,
+                ..
             } => write!(f, "    if {} {} {} goto {}", src1, cond, src2, label),
-            IrInstruction::Param { src } => write!(f, "    param {}", src),
+            IrInstruction::Param { src, .. } => write!(f, "    param {}", src),
             IrInstruction::Call { label } => write!(f, "    call {}", label),
-            IrInstruction::Ret { src } => write!(f, "    ret {}", src),
+            IrInstruction::Ret { src, .. } => write!(f, "    ret {}", src),
         }
     }
 }
