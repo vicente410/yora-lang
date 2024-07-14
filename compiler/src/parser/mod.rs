@@ -174,19 +174,16 @@ impl Parser {
                 dbg!(tokens);
                 process::exit(1);
             }
-        } else if tokens[0].str.as_str() != "var" {
-            for (i, token) in tokens.iter().enumerate() {
-                match token.str.as_str() {
-                    "=" | "+=" | "-=" | "*=" | "/=" | "%=" => {
-                        return Self::get_assign(i, tokens);
-                    }
-                    _ => continue,
-                }
-            }
-            println!("unrecognized expression:");
-            dbg!(tokens);
-            process::exit(1);
-        } else if tokens.len() > 5 && &tokens[4].str == "=" {
+        } else if tokens[0].str == "var" && tokens.len() > 3 && &tokens[2].str == "=" {
+            Expression::new(
+                ExpressionKind::Declare(
+                    Box::new(Self::get_expression(&tokens[1..2])),
+                    Box::new(Self::get_expression(&tokens[3..])),
+                ),
+                tokens[2].line,
+                tokens[2].col,
+            )
+        } else if tokens[0].str == "var" && tokens.len() > 5 && &tokens[4].str == "=" {
             Expression::new(
                 ExpressionKind::Declare(
                     Box::new(Expression::new_with_type(
@@ -242,6 +239,15 @@ impl Parser {
                 tokens[0].col,
             )
         } else {
+            for (i, token) in tokens.iter().enumerate() {
+                match token.str.as_str() {
+                    "=" | "+=" | "-=" | "*=" | "/=" | "%=" => {
+                        return Self::get_assign(i, tokens);
+                    }
+                    _ => continue,
+                }
+            }
+
             let mut pos = 0;
             let mut priority = 0;
             for (i, token) in tokens.iter().enumerate() {
