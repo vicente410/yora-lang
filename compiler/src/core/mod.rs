@@ -1,3 +1,5 @@
+use std::fmt;
+
 pub fn get_syscall_num(syscall: String) -> usize {
     match syscall.as_str() {
         "read" => 0,
@@ -80,6 +82,12 @@ impl PrimitiveType {
             PrimitiveType::U64 => 8,
             PrimitiveType::Ptr => 8,
         }
+    }
+}
+
+impl fmt::Display for PrimitiveType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_string())
     }
 }
 
