@@ -1,167 +1,83 @@
 use std::fmt;
 
 use crate::core::PrimitiveType;
-use crate::op::Op;
+use crate::op::*;
+use crate::{Token, TokenKind};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Expression {
     pub kind: ExpressionKind,
-    pub r#type: PrimitiveType,
     pub line: usize,
     pub col: usize,
-}
-
-impl Expression {
-    pub fn new(kind: ExpressionKind, line: usize, col: usize) -> Expression {
-        let r#type = match kind {
-            ExpressionKind::BoolLit(..) | ExpressionKind::Not(..) => PrimitiveType::Bool,
-            ExpressionKind::ArrayLit(..) | ExpressionKind::StringLit(..) => PrimitiveType::Ptr,
-            ExpressionKind::Break
-            | ExpressionKind::Continue
-            | ExpressionKind::Declare(..)
-            | ExpressionKind::Assign(..) => PrimitiveType::Unit,
-            ExpressionKind::IntLit(..)
-            | ExpressionKind::Idx(..)
-            | ExpressionKind::Identifier(..)
-            | ExpressionKind::Sequence(..)
-            | ExpressionKind::If(..)
-            | ExpressionKind::IfElse(..)
-            | ExpressionKind::Loop(..)
-            | ExpressionKind::While(..)
-            | ExpressionKind::Call(..) => PrimitiveType::Void,
-            ExpressionKind::Op(_, ref op, _) => op.get_type(),
-        };
-
-        Expression {
-            kind,
-            line,
-            col,
-            r#type,
-        }
-    }
-
-    pub fn new_with_type(
-        kind: ExpressionKind,
-        line: usize,
-        col: usize,
-        r#type: PrimitiveType,
-    ) -> Expression {
-        Expression {
-            kind,
-            line,
-            col,
-            r#type,
-        }
-    }
-
-    pub fn to_str(&self) -> String {
-        format!(
-            "{}:{}",
-            self.r#type.as_string(),
-            match &self.kind {
-                ExpressionKind::Identifier(str)
-                | ExpressionKind::BoolLit(str)
-                | ExpressionKind::IntLit(str)
-                | ExpressionKind::StringLit(str) => str,
-                ExpressionKind::Sequence(..) => "seq",
-                ExpressionKind::If(..) => "if",
-                ExpressionKind::IfElse(..) => "if_else",
-                ExpressionKind::Loop(..) => "loop",
-                ExpressionKind::While(..) => "while",
-                ExpressionKind::Continue => "continue",
-                ExpressionKind::Break => "break",
-                ExpressionKind::Declare(..) => "declare",
-                ExpressionKind::Assign(..) => "assign",
-                ExpressionKind::ArrayLit(..) => "array",
-                ExpressionKind::Call(name, ..) => name.as_str(),
-                ExpressionKind::Not(..) => "!",
-                ExpressionKind::Idx(..) => "[]",
-                ExpressionKind::Op(_, op, _) => op.to_str(),
-            }
-        )
-    }
-}
-
-impl fmt::Display for Expression {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}\n{}", self.to_str(), walk(self, ""))
-    }
+    pub r#type: PrimitiveType,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ExpressionKind {
-    Call(String, Box<Expression>),
-
-    // Literals
-    BoolLit(String),
-    IntLit(String),
-    StringLit(String),
-
-    // Control flow
-    Sequence(Vec<Expression>),
-    If(Box<Expression>, Box<Expression>),
-    IfElse(Box<Expression>, Box<Expression>, Box<Expression>),
-    Loop(Box<Expression>),
-    While(Box<Expression>, Box<Expression>),
-    Continue,
-    Break,
-
-    // Variables
-    Identifier(String),
-    Declare(Box<Expression>, Box<Expression>),
-    Assign(Box<Expression>, Box<Expression>),
-    ArrayLit(Vec<Expression>),
-
-    // Operators
-    Not(Box<Expression>),
-    Idx(Box<Expression>, Box<Expression>),
-    Op(Box<Expression>, Op, Box<Expression>),
+    Call(String, Vec<Expression>),
+    Lit(String),
+    Array(Vec<Expression>),
 }
 
-fn walk(expr: &Expression, prefix: &str) -> String {
-    let mut result = String::new();
-    let sons: Vec<_> = get_sons(expr.clone());
-    let mut index = sons.len();
+impl Expression {
+    pub fn new(kind: ExpressionKind, token: &Token) -> Expression {
+        let r#type = match token.kind {
+            TokenKind::BoolLit => PrimitiveType::Bool,
+            TokenKind::StringLit => PrimitiveType::Ptr,
+            TokenKind::Operator => Op::get_type(&Op::from_str(&token.str)),
+            _ => PrimitiveType::Void,
+        };
 
-    for son in sons {
-        let string = &son.to_str();
-        index -= 1;
-
-        if index == 0 {
-            result.push_str(&format!("{}└── {}\n", prefix, string));
-            if !get_sons(expr.clone()).is_empty() {
-                result.push_str(&walk(&son, &format!("{}    ", prefix)));
-            }
-        } else {
-            result.push_str(&format!("{}├── {}\n", prefix, string));
-            if !get_sons(expr.clone()).is_empty() {
-                result.push_str(&walk(&son, &format!("{}│   ", prefix)));
-            }
+        Expression {
+            kind,
+            line: token.line,
+            col: token.col,
+            r#type,
         }
     }
 
-    result
-}
+    pub fn format(&self, prefix: &str) -> String {
+        format!("{}\n{}", self.to_str(), self.walk(prefix))
+    }
 
-fn get_sons(expr: Expression) -> Vec<Expression> {
-    match expr.kind {
-        ExpressionKind::Identifier(..)
-        | ExpressionKind::BoolLit(..)
-        | ExpressionKind::IntLit(..)
-        | ExpressionKind::StringLit(..) => Vec::new(),
-        ExpressionKind::Sequence(seq) => seq,
-        ExpressionKind::If(cond, seq) => vec![*cond, *seq],
-        ExpressionKind::IfElse(cond, if_seq, else_seq) => vec![*cond, *if_seq, *else_seq],
-        ExpressionKind::Loop(seq) => vec![*seq],
-        ExpressionKind::While(cond, seq) => vec![*cond, *seq],
-        ExpressionKind::Continue => Vec::new(),
-        ExpressionKind::Break => Vec::new(),
-        ExpressionKind::Declare(dest, src) => vec![*dest, *src],
-        ExpressionKind::Assign(dest, src) => vec![*dest, *src],
-        ExpressionKind::ArrayLit(contents) => contents,
-        ExpressionKind::Call(.., args) => vec![*args],
-        ExpressionKind::Not(src) => vec![*src],
-        ExpressionKind::Idx(id, offset) => vec![*id, *offset],
-        ExpressionKind::Op(dest, _, src) => vec![*dest, *src],
+    pub fn walk(&self, prefix: &str) -> String {
+        let mut result = String::new();
+        let sons: Vec<_> = self.get_sons();
+        let mut index = sons.len();
+
+        for son in sons {
+            let string = &son.to_str();
+            index -= 1;
+
+            if index == 0 {
+                result.push_str(&format!("{}└── {}\n", prefix, string));
+                if !self.get_sons().is_empty() {
+                    result.push_str(&son.walk(&format!("{}    ", prefix)));
+                }
+            } else {
+                result.push_str(&format!("{}├── {}\n", prefix, string));
+                if !self.get_sons().is_empty() {
+                    result.push_str(&son.walk(&format!("{}│   ", prefix)));
+                }
+            }
+        }
+
+        result
+    }
+
+    pub fn to_str(&self) -> &str {
+        match &self.kind {
+            ExpressionKind::Call(name, ..) => name,
+            ExpressionKind::Lit(lit) => lit,
+            ExpressionKind::Array(..) => "array",
+        }
+    }
+
+    fn get_sons(&self) -> Vec<Expression> {
+        match &self.kind {
+            ExpressionKind::Call(_, args) => args.to_vec(),
+            ExpressionKind::Lit(..) => Vec::new(),
+            ExpressionKind::Array(values) => values.to_vec(),
+        }
     }
 }

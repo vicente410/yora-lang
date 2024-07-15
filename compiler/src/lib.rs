@@ -1,23 +1,23 @@
-use analyzer::analyze;
-use asm_gen::*;
-use errors::Errors;
-use ir_gen::*;
+//use analyzer::analyze;
+//use asm_gen::*;
+//use errors::Errors;
+//use ir_gen::*;
 use lexer::*;
-use optimizer::optimize;
+//use optimizer::optimize;
 use parser::*;
 use std::fs;
 use std::fs::File;
-use std::io::prelude::*;
+//use std::io::prelude::*;
 use std::process;
 use std::process::Command;
 
-pub mod analyzer;
-pub mod asm_gen;
+//pub mod analyzer;
+//pub mod asm_gen;
 pub mod core;
-pub mod errors;
-pub mod ir_gen;
+//pub mod errors;
+//pub mod ir_gen;
 pub mod lexer;
-pub mod optimizer;
+//pub mod optimizer;
 pub mod parser;
 
 #[derive(Eq, Debug, Hash, PartialEq)]
@@ -86,7 +86,7 @@ impl Compiler {
         let assembly = self.get_assembly(source);
 
         let mut asm_file = File::create(&self.asm_name).unwrap();
-        asm_file.write_all(&assembly.into_bytes()).unwrap();
+        /*asm_file.write_all(&assembly.into_bytes()).unwrap();
 
         if self.flags.contains(&Flag::Assembly) {
             process::exit(0);
@@ -94,11 +94,12 @@ impl Compiler {
 
         self.assemble();
         self.link();
-        self.remove_tmpfiles();
+        self.remove_tmpfiles();*/
     }
 
-    fn get_assembly(&self, source: String) -> String {
-        let mut errors = Errors::new();
+    //fn get_assembly(&self, source: String) -> String {
+    fn get_assembly(&self, source: String) {
+        //let mut errors = Errors::new();
         let tokens = lex(source);
 
         if self.flags.contains(&Flag::Debug(DebugOptions::Tokens)) {
@@ -109,16 +110,16 @@ impl Compiler {
         }
 
         let mut ast = parse(tokens);
-        analyze(&mut ast, &mut errors);
+        //analyze(&mut ast, &mut errors);
 
         if self.flags.contains(&Flag::Debug(DebugOptions::Ast)) {
-            for expr in &ast {
-                println!("{}", expr);
+            for statement in &ast {
+                print!("{}", statement);
             }
             process::exit(0);
         }
 
-        let mut ir = generate_ir(ast.clone());
+        /*let mut ir = generate_ir(ast.clone());
 
         if self.flags.contains(&Flag::Optimize) {
             ir = optimize(ir);
@@ -129,7 +130,7 @@ impl Compiler {
             process::exit(0);
         }
 
-        generate_asm(ir)
+        generate_asm(ir)*/
     }
 
     fn assemble(&self) {

@@ -111,7 +111,9 @@ impl Buffer {
                 && ch != '['
                 && ch != ']'
                 && ch != '('
-                && ch != ')'))
+                && ch != ')'
+                && ch != ','
+                && ch != ':'))
     }
 
     fn is_symbol(ch: char) -> bool {

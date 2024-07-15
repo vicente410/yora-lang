@@ -70,6 +70,7 @@ impl IrGenerator {
             ExpressionKind::Sequence(seq) => self.get_sequence(seq),
             ExpressionKind::Not(arg) => self.get_not(arg),
             ExpressionKind::Idx(id, offset) => self.get_idx(id, offset),
+            ExpressionKind::Procedure(..) | ExpressionKind::Return(..) => todo!(),
         }
     }
 
