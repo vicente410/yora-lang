@@ -16,7 +16,8 @@ pub enum StatementKind {
     // Procedures
     Procedure {
         name: String,
-        args: Vec<(String, PrimitiveType)>,
+        args: Vec<(String, Option<PrimitiveType>)>,
+        ret: Option<PrimitiveType>,
         body: Vec<Statement>,
     },
     Call {
@@ -70,9 +71,12 @@ impl Statement {
 
     fn format(&self, prefix: &str) -> String {
         match &self.kind {
-            StatementKind::Procedure { name, args, body } => {
-                Self::format_procedure(prefix, name, args, body)
-            }
+            StatementKind::Procedure {
+                name,
+                args,
+                ret,
+                body,
+            } => Self::format_procedure(prefix, name, args, ret, body),
             StatementKind::Call { name, args } => Self::format_call(prefix, name, args),
             StatementKind::Return { value } => Self::format_return(prefix, value),
             StatementKind::Declare {
@@ -97,7 +101,8 @@ impl Statement {
     fn format_procedure(
         prefix: &str,
         name: &String,
-        args: &Vec<(String, PrimitiveType)>,
+        args: &Vec<(String, Option<PrimitiveType>)>,
+        ret: &Option<PrimitiveType>,
         body: &Vec<Statement>,
     ) -> String {
         let mut string = String::new();
@@ -107,11 +112,24 @@ impl Statement {
             string.push_str(&format!("{prefix}├── args\n"));
             for (i, (name, type_hint)) in args.iter().enumerate() {
                 if i < args.len() - 1 {
-                    string.push_str(&format!("{prefix}│   ├── {name}: {type_hint}\n"));
+                    if let Some(type_hint) = type_hint {
+                        string.push_str(&format!("{prefix}│   ├── {name}: {type_hint}\n"));
+                    } else {
+                        string.push_str(&format!("{prefix}│   ├── {name}\n"));
+                    }
                 } else {
-                    string.push_str(&format!("{prefix}│   └── {name}: {type_hint}\n"));
+                    if let Some(type_hint) = type_hint {
+                        string.push_str(&format!("{prefix}│   └── {name}: {type_hint}\n"));
+                    } else {
+                        string.push_str(&format!("{prefix}│   └── {name}\n"));
+                    }
                 }
             }
+        }
+
+        if let Some(ret_type) = ret {
+            string.push_str(&format!("{prefix}├── ret\n"));
+            string.push_str(&format!("{prefix}│   └── {ret_type}\n"));
         }
 
         string.push_str(&format!("{prefix}└── body\n"));

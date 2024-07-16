@@ -138,21 +138,50 @@ impl Parser {
     fn get_procedure(tokens: &[Token]) -> Statement {
         let mut start_seq = 0;
         let mut args = Vec::new();
+        let ret;
 
-        // find end of signature
+        // find end of arguments
         while start_seq < tokens.len() && tokens[start_seq].str != ")" {
             start_seq += 1;
         }
 
         // parse args
-        for arg in tokens[3..start_seq].chunks(4) {
-            args.push((arg[0].str.clone(), PrimitiveType::from_str(&arg[2].str)));
+        let mut arg_tokens = tokens[3..=start_seq].iter();
+        while let Some(token) = arg_tokens.next() {
+            let arg_name = token.str.clone();
+            let mut arg_type = None;
+            if let Some(token) = arg_tokens.next() {
+                match token.str.as_str() {
+                    ":" => {
+                        if let Some(token) = arg_tokens.next() {
+                            arg_type = Some(PrimitiveType::from_str(&token.str))
+                        }
+                        if arg_tokens.next().is_some() {
+                            args.push((arg_name, arg_type));
+                            continue;
+                        }
+                    }
+                    "," | ")" => {
+                        args.push((arg_name, arg_type));
+                        continue;
+                    }
+                    _ => panic!("Error parsing procedure arguments"),
+                }
+            }
         }
+
+        ret = if tokens[start_seq + 1].str == "->" {
+            start_seq += 2;
+            Some(PrimitiveType::from_str(&tokens[start_seq].str))
+        } else {
+            None
+        };
 
         Statement::new(
             StatementKind::Procedure {
                 name: tokens[1].str.to_string(),
                 args,
+                ret,
                 body: Self::get_sequence(&tokens[start_seq + 2..]),
             },
             &tokens[0],

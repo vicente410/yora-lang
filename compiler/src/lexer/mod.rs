@@ -48,7 +48,7 @@ impl Token {
             "=" | "+" | "-" | "*" | "/" | "%" | "+=" | "-=" | "*=" | "/=" | "%=" | "!" | "and"
             | "or" | "==" | "!=" | "<" | "<=" | ">" | ">=" => TokenKind::Operator,
 
-            ":" | "(" | ")" | "[" | "]" | "," => TokenKind::Separator,
+            ":" | "(" | ")" | "[" | "]" | "," | "->" => TokenKind::Separator,
 
             "true" | "false" => TokenKind::BoolLit,
 
