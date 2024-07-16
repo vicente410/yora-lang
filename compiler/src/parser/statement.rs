@@ -34,8 +34,8 @@ pub enum StatementKind {
         value: Option<Expression>,
     },
     Assign {
-        name: Expression,
-        value: Expression,
+        dest: Expression,
+        src: Expression,
     },
 
     // Control flow
@@ -71,212 +71,247 @@ impl Statement {
     fn format(&self, prefix: &str) -> String {
         match &self.kind {
             StatementKind::Procedure { name, args, body } => {
-                let mut string = String::new();
-
-                string.push_str(&format!("{prefix}├── {name}\n"));
-                if !args.is_empty() {
-                    string.push_str(&format!("{prefix}├── args\n"));
-                    for (i, (name, type_hint)) in args.iter().enumerate() {
-                        if i < args.len() - 1 {
-                            string.push_str(&format!("{prefix}│   ├── {name}: {type_hint}\n"));
-                        } else {
-                            string.push_str(&format!("{prefix}│   └── {name}: {type_hint}\n"));
-                        }
-                    }
-                }
-
-                string.push_str(&format!("{prefix}└── body\n"));
-                for (i, statement) in body.iter().enumerate() {
-                    if i < body.len() - 1 {
-                        string.push_str(&format!(
-                            "{prefix}    ├── {}",
-                            statement.format(&format!("{prefix}    │   "))
-                        ));
-                    } else {
-                        string.push_str(&format!(
-                            "{prefix}    └── {}",
-                            statement.format(&format!("{prefix}        "))
-                        ));
-                    }
-                }
-
-                format!("pr\n{string}")
+                Self::format_procedure(prefix, name, args, body)
             }
-            StatementKind::Call { name, args } => {
-                let mut string = String::new();
-
-                for (i, arg) in args.iter().enumerate() {
-                    if i < args.len() - 1 {
-                        string.push_str(&format!(
-                            "{prefix}├── {}",
-                            arg.format(&format!("{prefix}│   "))
-                        ));
-                    } else {
-                        string.push_str(&format!(
-                            "{prefix}└── {}",
-                            arg.format(&format!("{prefix}    "))
-                        ));
-                    }
-                }
-
-                format!("{name}\n{string}")
-            }
-            StatementKind::Return { value } => {
-                format!(
-                    "return\n{prefix}└── {}",
-                    value.format(&format!("{prefix}    "))
-                )
-            }
+            StatementKind::Call { name, args } => Self::format_call(prefix, name, args),
+            StatementKind::Return { value } => Self::format_return(prefix, value),
             StatementKind::Declare {
                 name,
                 type_hint,
                 value,
-            } => {
-                let mut string = String::new();
-
-                if let Some(value) = value {
-                    if let Some(type_hint) = type_hint {
-                        string.push_str(&format!("{prefix}├── {name}: {type_hint}\n"));
-                    } else {
-                        string.push_str(&format!("{prefix}├── {name}\n"));
-                    }
-                    string.push_str(&format!(
-                        "{prefix}└── {}",
-                        value.format(&format!("{prefix}    "))
-                    ));
-                } else {
-                    if let Some(type_hint) = type_hint {
-                        string.push_str(&format!("{prefix}└── {name}: {type_hint}\n"));
-                    } else {
-                        string.push_str(&format!("{prefix}└── {name}\n"));
-                    }
-                }
-
-                format!("var\n{string}")
-            }
-            StatementKind::Assign { name, value } => {
-                format!(
-                    "=\n{prefix}├── {}{prefix}└── {}",
-                    name.format(&format!("{prefix}    ")),
-                    value.format(&format!("{prefix}    "))
-                )
-            }
-            StatementKind::If { cond, body } => {
-                let mut string = String::new();
-
-                string.push_str(&format!(
-                    "{prefix}├── {}",
-                    cond.format(&format!("{prefix}│   "))
-                ));
-
-                string.push_str(&format!("{prefix}└── then\n"));
-                for (i, statement) in body.iter().enumerate() {
-                    if i < body.len() - 1 {
-                        string.push_str(&format!(
-                            "{prefix}    ├── {}",
-                            statement.format(&format!("{prefix}    │   "))
-                        ));
-                    } else {
-                        string.push_str(&format!(
-                            "{prefix}    └── {}",
-                            statement.format(&format!("{prefix}        "))
-                        ));
-                    }
-                }
-
-                format!("if\n{string}")
-            }
+            } => Self::format_declare(prefix, name, type_hint, value),
+            StatementKind::Assign { dest, src } => Self::format_assign(prefix, dest, src),
+            StatementKind::If { cond, body } => Self::format_if(prefix, cond, body),
             StatementKind::IfElse {
                 cond,
                 true_body,
                 false_body,
-            } => {
-                let mut string = String::new();
-
-                string.push_str(&format!(
-                    "{prefix}├── {}",
-                    cond.format(&format!("{prefix}│   "))
-                ));
-
-                string.push_str(&format!("{prefix}├── then\n"));
-                for (i, statement) in true_body.iter().enumerate() {
-                    if i < true_body.len() - 1 {
-                        string.push_str(&format!(
-                            "{prefix}│   ├── {}",
-                            statement.format(&format!("{prefix}│   │   "))
-                        ));
-                    } else {
-                        string.push_str(&format!(
-                            "{prefix}│   └── {}",
-                            statement.format(&format!("{prefix}│       "))
-                        ));
-                    }
-                }
-
-                string.push_str(&format!("{prefix}└── else\n"));
-                for (i, statement) in false_body.iter().enumerate() {
-                    if i < false_body.len() - 1 {
-                        string.push_str(&format!(
-                            "{prefix}    ├── {}",
-                            statement.format(&format!("{prefix}    │   "))
-                        ));
-                    } else {
-                        string.push_str(&format!(
-                            "{prefix}    └── {}",
-                            statement.format(&format!("{prefix}        "))
-                        ));
-                    }
-                }
-
-                format!("if\n{string}")
-            }
-            StatementKind::Loop { body } => {
-                let mut string = String::new();
-
-                for (i, statement) in body.iter().enumerate() {
-                    if i < body.len() - 1 {
-                        string.push_str(&format!(
-                            "{prefix}├── {}",
-                            statement.format(&format!("{prefix}│   "))
-                        ));
-                    } else {
-                        string.push_str(&format!(
-                            "{prefix}└── {}",
-                            statement.format(&format!("{prefix}    "))
-                        ));
-                    }
-                }
-
-                format!("loop\n{string}")
-            }
-            StatementKind::While { cond, body } => {
-                let mut string = String::new();
-
-                string.push_str(&format!(
-                    "{prefix}├── {}",
-                    cond.format(&format!("{prefix}│   "))
-                ));
-
-                string.push_str(&format!("{prefix}└── then\n"));
-                for (i, statement) in body.iter().enumerate() {
-                    if i < body.len() - 1 {
-                        string.push_str(&format!(
-                            "{prefix}    ├── {}",
-                            statement.format(&format!("{prefix}    │   "))
-                        ));
-                    } else {
-                        string.push_str(&format!(
-                            "{prefix}    └── {}",
-                            statement.format(&format!("{prefix}        "))
-                        ));
-                    }
-                }
-
-                format!("while\n{string}")
-            }
-            StatementKind::Continue => format!("{prefix}continue\n"),
-            StatementKind::Break => format!("{prefix}break\n"),
+            } => Self::format_if_else(prefix, cond, true_body, false_body),
+            StatementKind::Loop { body } => Self::format_loop(prefix, body),
+            StatementKind::While { cond, body } => Self::format_while(prefix, cond, body),
+            StatementKind::Continue => format!("continue\n"),
+            StatementKind::Break => format!("break\n"),
         }
+    }
+
+    fn format_procedure(
+        prefix: &str,
+        name: &String,
+        args: &Vec<(String, PrimitiveType)>,
+        body: &Vec<Statement>,
+    ) -> String {
+        let mut string = String::new();
+
+        string.push_str(&format!("{prefix}├── {name}\n"));
+        if !args.is_empty() {
+            string.push_str(&format!("{prefix}├── args\n"));
+            for (i, (name, type_hint)) in args.iter().enumerate() {
+                if i < args.len() - 1 {
+                    string.push_str(&format!("{prefix}│   ├── {name}: {type_hint}\n"));
+                } else {
+                    string.push_str(&format!("{prefix}│   └── {name}: {type_hint}\n"));
+                }
+            }
+        }
+
+        string.push_str(&format!("{prefix}└── body\n"));
+        for (i, statement) in body.iter().enumerate() {
+            if i < body.len() - 1 {
+                string.push_str(&format!(
+                    "{prefix}    ├── {}",
+                    statement.format(&format!("{prefix}    │   "))
+                ));
+            } else {
+                string.push_str(&format!(
+                    "{prefix}    └── {}",
+                    statement.format(&format!("{prefix}        "))
+                ));
+            }
+        }
+
+        format!("pr\n{string}")
+    }
+
+    fn format_call(prefix: &str, name: &String, args: &Vec<Expression>) -> String {
+        let mut string = String::new();
+
+        for (i, arg) in args.iter().enumerate() {
+            if i < args.len() - 1 {
+                string.push_str(&format!(
+                    "{prefix}├── {}",
+                    arg.format(&format!("{prefix}│   "))
+                ));
+            } else {
+                string.push_str(&format!(
+                    "{prefix}└── {}",
+                    arg.format(&format!("{prefix}    "))
+                ));
+            }
+        }
+
+        format!("{name}\n{string}")
+    }
+
+    fn format_return(prefix: &str, value: &Expression) -> String {
+        format!(
+            "return\n{prefix}└── {}",
+            value.format(&format!("{prefix}    "))
+        )
+    }
+
+    fn format_declare(
+        prefix: &str,
+        name: &String,
+        type_hint: &Option<PrimitiveType>,
+        value: &Option<Expression>,
+    ) -> String {
+        let mut string = String::new();
+
+        if let Some(value) = value {
+            if let Some(type_hint) = type_hint {
+                string.push_str(&format!("{prefix}├── {name}: {type_hint}\n"));
+            } else {
+                string.push_str(&format!("{prefix}├── {name}\n"));
+            }
+            string.push_str(&format!(
+                "{prefix}└── {}",
+                value.format(&format!("{prefix}    "))
+            ));
+        } else {
+            if let Some(type_hint) = type_hint {
+                string.push_str(&format!("{prefix}└── {name}: {type_hint}\n"));
+            } else {
+                string.push_str(&format!("{prefix}└── {name}\n"));
+            }
+        }
+
+        format!("var\n{string}")
+    }
+
+    fn format_assign(prefix: &str, dest: &Expression, src: &Expression) -> String {
+        format!(
+            "=\n{prefix}├── {}{prefix}└── {}",
+            dest.format(&format!("{prefix}    ")),
+            src.format(&format!("{prefix}    "))
+        )
+    }
+
+    fn format_if(prefix: &str, cond: &Expression, body: &Vec<Statement>) -> String {
+        let mut string = String::new();
+
+        string.push_str(&format!(
+            "{prefix}├── {}",
+            cond.format(&format!("{prefix}│   "))
+        ));
+
+        string.push_str(&format!("{prefix}└── then\n"));
+        for (i, statement) in body.iter().enumerate() {
+            if i < body.len() - 1 {
+                string.push_str(&format!(
+                    "{prefix}    ├── {}",
+                    statement.format(&format!("{prefix}    │   "))
+                ));
+            } else {
+                string.push_str(&format!(
+                    "{prefix}    └── {}",
+                    statement.format(&format!("{prefix}        "))
+                ));
+            }
+        }
+
+        format!("if\n{string}")
+    }
+
+    fn format_if_else(
+        prefix: &str,
+        cond: &Expression,
+        true_body: &Vec<Statement>,
+        false_body: &Vec<Statement>,
+    ) -> String {
+        let mut string = String::new();
+
+        string.push_str(&format!(
+            "{prefix}├── {}",
+            cond.format(&format!("{prefix}│   "))
+        ));
+
+        string.push_str(&format!("{prefix}├── then\n"));
+        for (i, statement) in true_body.iter().enumerate() {
+            if i < true_body.len() - 1 {
+                string.push_str(&format!(
+                    "{prefix}│   ├── {}",
+                    statement.format(&format!("{prefix}│   │   "))
+                ));
+            } else {
+                string.push_str(&format!(
+                    "{prefix}│   └── {}",
+                    statement.format(&format!("{prefix}│       "))
+                ));
+            }
+        }
+
+        string.push_str(&format!("{prefix}└── else\n"));
+        for (i, statement) in false_body.iter().enumerate() {
+            if i < false_body.len() - 1 {
+                string.push_str(&format!(
+                    "{prefix}    ├── {}",
+                    statement.format(&format!("{prefix}    │   "))
+                ));
+            } else {
+                string.push_str(&format!(
+                    "{prefix}    └── {}",
+                    statement.format(&format!("{prefix}        "))
+                ));
+            }
+        }
+
+        format!("if\n{string}")
+    }
+
+    fn format_loop(prefix: &str, body: &Vec<Statement>) -> String {
+        let mut string = String::new();
+
+        for (i, statement) in body.iter().enumerate() {
+            if i < body.len() - 1 {
+                string.push_str(&format!(
+                    "{prefix}├── {}",
+                    statement.format(&format!("{prefix}│   "))
+                ));
+            } else {
+                string.push_str(&format!(
+                    "{prefix}└── {}",
+                    statement.format(&format!("{prefix}    "))
+                ));
+            }
+        }
+
+        format!("loop\n{string}")
+    }
+
+    fn format_while(prefix: &str, cond: &Expression, body: &Vec<Statement>) -> String {
+        let mut string = String::new();
+
+        string.push_str(&format!(
+            "{prefix}├── {}",
+            cond.format(&format!("{prefix}│   "))
+        ));
+
+        string.push_str(&format!("{prefix}└── then\n"));
+        for (i, statement) in body.iter().enumerate() {
+            if i < body.len() - 1 {
+                string.push_str(&format!(
+                    "{prefix}    ├── {}",
+                    statement.format(&format!("{prefix}    │   "))
+                ));
+            } else {
+                string.push_str(&format!(
+                    "{prefix}    └── {}",
+                    statement.format(&format!("{prefix}        "))
+                ));
+            }
+        }
+
+        format!("while\n{string}")
     }
 }
 

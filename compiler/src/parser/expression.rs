@@ -1,5 +1,3 @@
-use std::fmt;
-
 use crate::core::PrimitiveType;
 use crate::op::*;
 use crate::{Token, TokenKind};

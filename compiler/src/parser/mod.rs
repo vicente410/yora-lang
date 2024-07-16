@@ -1,4 +1,3 @@
-use core::num;
 use std::process;
 
 use crate::core::PrimitiveType;
@@ -261,8 +260,8 @@ impl Parser {
         match tokens[assign_pos].str.as_str() {
             "=" => Statement::new(
                 StatementKind::Assign {
-                    name: Self::get_expression(&tokens[0..assign_pos]),
-                    value: Self::get_expression(&tokens[assign_pos + 1..]),
+                    dest: Self::get_expression(&tokens[0..assign_pos]),
+                    src: Self::get_expression(&tokens[assign_pos + 1..]),
                 },
                 &tokens[0],
             ),
