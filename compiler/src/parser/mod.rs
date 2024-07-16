@@ -3,8 +3,7 @@ use std::process;
 use crate::core::PrimitiveType;
 use crate::expression::*;
 use crate::lexer::*;
-
-use self::statement::*;
+use crate::statement::*;
 
 pub mod expression;
 pub mod op;
@@ -82,13 +81,13 @@ impl Parser {
             if tokens[end_seq].str == "else" {
                 StatementKind::IfElse {
                     cond: Self::get_expression(&tokens[start..start_seq]),
-                    true_body: Self::get_sequence(&tokens[start_seq + 1..end_seq]),
-                    false_body: Self::get_else(&tokens[end_seq..]),
+                    true_block: Self::get_sequence(&tokens[start_seq + 1..end_seq]),
+                    false_block: Self::get_else(&tokens[end_seq..]),
                 }
             } else {
                 StatementKind::If {
                     cond: Self::get_expression(&tokens[start..start_seq]),
-                    body: Self::get_sequence(&tokens[start_seq + 1..]),
+                    block: Self::get_sequence(&tokens[start_seq + 1..]),
                 }
             },
             &tokens[0],
@@ -112,7 +111,7 @@ impl Parser {
         }
         Statement::new(
             StatementKind::Loop {
-                body: Self::get_sequence(&tokens[2..]),
+                block: Self::get_sequence(&tokens[2..]),
             },
             &tokens[0],
         )
@@ -129,7 +128,7 @@ impl Parser {
         Statement::new(
             StatementKind::While {
                 cond: Self::get_expression(&tokens[1..start_seq]),
-                body: Self::get_sequence(&tokens[start_seq + 1..]),
+                block: Self::get_sequence(&tokens[start_seq + 1..]),
             },
             &tokens[start_seq],
         )
@@ -146,15 +145,22 @@ impl Parser {
         }
 
         // parse args
-        let mut arg_tokens = tokens[3..=start_seq].iter();
+        let mut arg_tokens = tokens[3..=start_seq].iter().peekable();
         while let Some(token) = arg_tokens.next() {
             let arg_name = token.str.clone();
             let mut arg_type = None;
             if let Some(token) = arg_tokens.next() {
                 match token.str.as_str() {
                     ":" => {
-                        if let Some(token) = arg_tokens.next() {
-                            arg_type = Some(PrimitiveType::from_str(&token.str))
+                        let mut type_string = String::new();
+                        while let Some(token) = arg_tokens.peek() {
+                            match token.str.as_str() {
+                                "," | ")" => {
+                                    arg_type = Some(PrimitiveType::from_str(&type_string));
+                                    break;
+                                }
+                                _ => type_string.push_str(&arg_tokens.next().unwrap().str.clone()),
+                            }
                         }
                         if arg_tokens.next().is_some() {
                             args.push((arg_name, arg_type));
@@ -182,7 +188,7 @@ impl Parser {
                 name: tokens[1].str.to_string(),
                 args,
                 ret,
-                body: Self::get_sequence(&tokens[start_seq + 2..]),
+                block: Self::get_sequence(&tokens[start_seq + 2..]),
             },
             &tokens[0],
         )
@@ -205,16 +211,40 @@ impl Parser {
                 &tokens[0],
             )
         } else if tokens[0].str == "var" {
-            let type_hint = if tokens.len() > 3 && &tokens[2].str == ":" {
-                Some(PrimitiveType::from_str(&tokens[3].str))
+            let mut colon_pos = 0;
+            let mut assign_pos = tokens.len();
+            for (i, token) in tokens.iter().enumerate() {
+                match token.str.as_str() {
+                    ":" => {
+                        if colon_pos == 0 {
+                            colon_pos = i;
+                        } else {
+                            panic!("Invalid declaration, too many colons");
+                        }
+                    }
+                    "=" => {
+                        if assign_pos == tokens.len() {
+                            assign_pos = i;
+                        } else {
+                            panic!("Invalid declaration, too many assigns");
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            let type_hint = if colon_pos != 0 {
+                let mut type_string = String::new();
+                for token in &tokens[colon_pos + 1..assign_pos] {
+                    type_string.push_str(&token.str.clone());
+                }
+                Some(PrimitiveType::from_str(&type_string))
             } else {
                 None
             };
 
-            let value = if tokens.len() > 5 && tokens[4].str == "=" {
-                Some(Self::get_expression(&tokens[5..]))
-            } else if tokens.len() > 3 && tokens[2].str == "=" {
-                Some(Self::get_expression(&tokens[3..]))
+            let value = if assign_pos != tokens.len() {
+                Some(Self::get_expression(&tokens[assign_pos + 1..]))
             } else {
                 None
             };
@@ -328,10 +358,10 @@ impl Parser {
         if len == 1 {
             return Expression::new(
                 match &tokens[0].kind {
-                    TokenKind::Identifier
-                    | TokenKind::BoolLit
-                    | TokenKind::IntLit
-                    | TokenKind::StringLit => ExpressionKind::Lit(tokens[0].str.to_string()),
+                    TokenKind::Identifier => ExpressionKind::Id(tokens[0].str.to_string()),
+                    TokenKind::BoolLit | TokenKind::IntLit | TokenKind::StringLit => {
+                        ExpressionKind::Lit(tokens[0].str.to_string())
+                    }
                     _ => {
                         println!("Unrecognized expression:");
                         dbg!(tokens);
@@ -343,19 +373,64 @@ impl Parser {
         } else if tokens[1].str == "(" && tokens[len - 1].str == ")" {
             let mut args = Vec::new();
             let mut buffer = Vec::new();
+            let mut num_paren = 0;
             for token in &tokens[2..] {
                 match token.str.as_str() {
-                    "," | ")" => {
-                        args.push(Self::get_expression(&buffer));
-                        buffer.clear()
+                    "," => {
+                        if num_paren == 0 {
+                            args.push(Self::get_expression(&buffer));
+                            buffer.clear()
+                        } else {
+                            buffer.push(token.clone());
+                        }
+                    }
+                    "(" => {
+                        buffer.push(token.clone());
+                        num_paren += 1;
+                    }
+                    ")" => {
+                        if num_paren > 0 {
+                            buffer.push(token.clone());
+                            num_paren -= 1;
+                        }
                     }
                     _ => buffer.push(token.clone()),
                 }
             }
+            args.push(Self::get_expression(&buffer));
             Expression::new(
                 ExpressionKind::Call(tokens[0].str.to_string(), args),
                 &tokens[0],
             )
+        } else if tokens[0].str == "[" && tokens[len - 1].str == "]" {
+            let mut contents = Vec::new();
+            let mut buffer = Vec::new();
+            let mut num_brackets = 0;
+            for token in &tokens[1..] {
+                match token.str.as_str() {
+                    "," => {
+                        if num_brackets == 0 {
+                            contents.push(Self::get_expression(&buffer));
+                            buffer.clear()
+                        } else {
+                            buffer.push(token.clone());
+                        }
+                    }
+                    "[" => {
+                        buffer.push(token.clone());
+                        num_brackets += 1;
+                    }
+                    "]" => {
+                        if num_brackets > 0 {
+                            buffer.push(token.clone());
+                            num_brackets -= 1;
+                        }
+                    }
+                    _ => buffer.push(token.clone()),
+                }
+            }
+            contents.push(Self::get_expression(&buffer));
+            Expression::new(ExpressionKind::Array(contents), &tokens[0])
         } else {
             let mut pos = 0;
             let mut priority = 0;

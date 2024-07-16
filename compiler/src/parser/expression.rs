@@ -7,23 +7,25 @@ pub struct Expression {
     pub kind: ExpressionKind,
     pub line: usize,
     pub col: usize,
-    pub r#type: PrimitiveType,
+    pub r#type: Option<PrimitiveType>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ExpressionKind {
     Call(String, Vec<Expression>),
     Lit(String),
+    Id(String),
     Array(Vec<Expression>),
 }
 
 impl Expression {
     pub fn new(kind: ExpressionKind, token: &Token) -> Expression {
         let r#type = match token.kind {
-            TokenKind::BoolLit => PrimitiveType::Bool,
-            TokenKind::StringLit => PrimitiveType::Ptr,
-            TokenKind::Operator => Op::get_type(&Op::from_str(&token.str)),
-            _ => PrimitiveType::Void,
+            TokenKind::BoolLit => Some(PrimitiveType::Bool),
+            TokenKind::IntLit => Some(PrimitiveType::Int),
+            TokenKind::StringLit => Some(PrimitiveType::Arr(Box::new(PrimitiveType::Byte))),
+            TokenKind::Operator => Some(Op::get_type(&Op::from_str(&token.str))),
+            _ => None,
         };
 
         Expression {
@@ -67,6 +69,7 @@ impl Expression {
         match &self.kind {
             ExpressionKind::Call(name, ..) => name,
             ExpressionKind::Lit(lit) => lit,
+            ExpressionKind::Id(id) => id,
             ExpressionKind::Array(..) => "array",
         }
     }
@@ -75,6 +78,7 @@ impl Expression {
         match &self.kind {
             ExpressionKind::Call(_, args) => args.to_vec(),
             ExpressionKind::Lit(..) => Vec::new(),
+            ExpressionKind::Id(..) => Vec::new(),
             ExpressionKind::Array(values) => values.to_vec(),
         }
     }

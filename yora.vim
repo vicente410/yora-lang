@@ -4,7 +4,7 @@ syn keyword operator and or
 syn match number '\d\+'
 syn keyword boolean true false
 syn region string start="\"" end="\""
-syn keyword type i8 i16 i32 i64 u8 u16 u32 u64 f32 f64 bool
+syn keyword type Bool Byte Int
 syn match function "\<\h\w*\ze\_s\{-}(\%(\*\h\w*)\_s\{-}(\)\@!"
 syn match comment "#.*$"
 "syn region comments start="/\*" end="\*/"

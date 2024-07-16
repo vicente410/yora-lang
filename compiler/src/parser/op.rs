@@ -63,7 +63,7 @@ impl Op {
 
     pub fn get_type(&self) -> PrimitiveType {
         match self {
-            Op::Add | Op::Sub | Op::Mul | Op::Div | Op::Mod => PrimitiveType::Void,
+            Op::Add | Op::Sub | Op::Mul | Op::Div | Op::Mod => PrimitiveType::Int,
             Op::And | Op::Or | Op::Eq | Op::Neq | Op::Lt | Op::Leq | Op::Gt | Op::Geq => {
                 PrimitiveType::Bool
             }

@@ -15,76 +15,52 @@ pub fn get_syscall_num(syscall: String) -> usize {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum PrimitiveType {
-    Void,
-    Ptr,
-    Unit,
     Bool,
+    Int,
+    Byte,
     Arr(Box<PrimitiveType>),
-    I8,
-    I16,
-    I32,
-    I64,
-    U8,
-    U16,
-    U32,
-    U64,
 }
 
 impl PrimitiveType {
     pub fn from_str(type_str: &str) -> PrimitiveType {
         let mut type_copy = type_str;
-        if type_copy[type_copy.len() - 2..] == *"[]" {
-            type_copy = &type_copy[0..type_copy.len() - 2]
+        let mut array_count = 0;
+
+        while type_copy[type_copy.len() - 2..] == *"[]" {
+            array_count += 1;
+            type_copy = &type_copy[0..type_copy.len() - 2];
         }
 
-        match type_copy {
-            "bool" => PrimitiveType::Bool,
-            "i8" => PrimitiveType::I8,
-            "i16" => PrimitiveType::I16,
-            "i32" => PrimitiveType::I32,
-            "i64" => PrimitiveType::I64,
-            "u8" => PrimitiveType::U8,
-            "u16" => PrimitiveType::U16,
-            "u32" => PrimitiveType::U32,
-            "u64" => PrimitiveType::U64,
-            _ => panic!("Invalid type"),
+        let mut r#type = match type_copy {
+            "Bool" => PrimitiveType::Bool,
+            "Byte" => PrimitiveType::Byte,
+            "Int" => PrimitiveType::Int,
+            _ => panic!("Invalid type '{type_str}'"),
+        };
+
+        for _ in 0..array_count {
+            r#type = PrimitiveType::Arr(Box::new(r#type));
         }
+
+        r#type
     }
 
     pub fn as_string(&self) -> String {
         match self {
-            PrimitiveType::Void => "void",
-            PrimitiveType::Unit => "()",
-            PrimitiveType::Bool => "bool",
-            PrimitiveType::I8 => "i8",
-            PrimitiveType::I16 => "i16",
-            PrimitiveType::I32 => "i32",
-            PrimitiveType::I64 => "i64",
-            PrimitiveType::U8 => "u8",
-            PrimitiveType::U16 => "u16",
-            PrimitiveType::U32 => "u32",
-            PrimitiveType::U64 => "u64",
+            PrimitiveType::Bool => "Bool",
+            PrimitiveType::Byte => "Byte",
+            PrimitiveType::Int => "Int",
             PrimitiveType::Arr(r#type) => return format!("{}[]", r#type.deref().as_string()),
-            PrimitiveType::Ptr => "ptr",
         }
         .to_string()
     }
 
     pub fn get_size(&self) -> usize {
         match self {
-            PrimitiveType::Void => 0,
-            PrimitiveType::Unit => 0,
             PrimitiveType::Bool => 1,
-            PrimitiveType::I8 => 1,
-            PrimitiveType::I16 => 2,
-            PrimitiveType::I32 => 4,
-            PrimitiveType::I64 => 8,
-            PrimitiveType::U8 => 1,
-            PrimitiveType::U16 => 2,
-            PrimitiveType::U32 => 4,
-            PrimitiveType::U64 => 8,
+            PrimitiveType::Byte => 1,
+            PrimitiveType::Int => 8,
             PrimitiveType::Arr(..) => 8,
-            PrimitiveType::Ptr => 8,
         }
     }
 }
@@ -96,8 +72,5 @@ impl fmt::Display for PrimitiveType {
 }
 
 pub fn is_valid_type(type_str: String) -> bool {
-    matches!(
-        type_str.as_str(),
-        "()" | "bool" | "i8" | "i16" | "i32" | "i64" | "u8" | "u16" | "u32" | "u64"
-    )
+    matches!(type_str.as_str(), "Bool" | "Int" | "Byte")
 }

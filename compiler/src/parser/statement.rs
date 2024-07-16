@@ -18,7 +18,7 @@ pub enum StatementKind {
         name: String,
         args: Vec<(String, Option<PrimitiveType>)>,
         ret: Option<PrimitiveType>,
-        body: Vec<Statement>,
+        block: Vec<Statement>,
     },
     Call {
         name: String,
@@ -42,19 +42,19 @@ pub enum StatementKind {
     // Control flow
     If {
         cond: Expression,
-        body: Vec<Statement>,
+        block: Vec<Statement>,
     },
     IfElse {
         cond: Expression,
-        true_body: Vec<Statement>,
-        false_body: Vec<Statement>,
+        true_block: Vec<Statement>,
+        false_block: Vec<Statement>,
     },
     Loop {
-        body: Vec<Statement>,
+        block: Vec<Statement>,
     },
     While {
         cond: Expression,
-        body: Vec<Statement>,
+        block: Vec<Statement>,
     },
     Continue,
     Break,
@@ -75,8 +75,8 @@ impl Statement {
                 name,
                 args,
                 ret,
-                body,
-            } => Self::format_procedure(prefix, name, args, ret, body),
+                block,
+            } => Self::format_procedure(prefix, name, args, ret, block),
             StatementKind::Call { name, args } => Self::format_call(prefix, name, args),
             StatementKind::Return { value } => Self::format_return(prefix, value),
             StatementKind::Declare {
@@ -85,14 +85,14 @@ impl Statement {
                 value,
             } => Self::format_declare(prefix, name, type_hint, value),
             StatementKind::Assign { dest, src } => Self::format_assign(prefix, dest, src),
-            StatementKind::If { cond, body } => Self::format_if(prefix, cond, body),
+            StatementKind::If { cond, block } => Self::format_if(prefix, cond, block),
             StatementKind::IfElse {
                 cond,
-                true_body,
-                false_body,
-            } => Self::format_if_else(prefix, cond, true_body, false_body),
-            StatementKind::Loop { body } => Self::format_loop(prefix, body),
-            StatementKind::While { cond, body } => Self::format_while(prefix, cond, body),
+                true_block,
+                false_block,
+            } => Self::format_if_else(prefix, cond, true_block, false_block),
+            StatementKind::Loop { block } => Self::format_loop(prefix, block),
+            StatementKind::While { cond, block } => Self::format_while(prefix, cond, block),
             StatementKind::Continue => format!("continue\n"),
             StatementKind::Break => format!("break\n"),
         }
@@ -103,7 +103,7 @@ impl Statement {
         name: &String,
         args: &Vec<(String, Option<PrimitiveType>)>,
         ret: &Option<PrimitiveType>,
-        body: &Vec<Statement>,
+        block: &Vec<Statement>,
     ) -> String {
         let mut string = String::new();
 
@@ -132,9 +132,9 @@ impl Statement {
             string.push_str(&format!("{prefix}│   └── {ret_type}\n"));
         }
 
-        string.push_str(&format!("{prefix}└── body\n"));
-        for (i, statement) in body.iter().enumerate() {
-            if i < body.len() - 1 {
+        string.push_str(&format!("{prefix}└── block\n"));
+        for (i, statement) in block.iter().enumerate() {
+            if i < block.len() - 1 {
                 string.push_str(&format!(
                     "{prefix}    ├── {}",
                     statement.format(&format!("{prefix}    │   "))
@@ -214,7 +214,7 @@ impl Statement {
         )
     }
 
-    fn format_if(prefix: &str, cond: &Expression, body: &Vec<Statement>) -> String {
+    fn format_if(prefix: &str, cond: &Expression, block: &Vec<Statement>) -> String {
         let mut string = String::new();
 
         string.push_str(&format!(
@@ -223,8 +223,8 @@ impl Statement {
         ));
 
         string.push_str(&format!("{prefix}└── then\n"));
-        for (i, statement) in body.iter().enumerate() {
-            if i < body.len() - 1 {
+        for (i, statement) in block.iter().enumerate() {
+            if i < block.len() - 1 {
                 string.push_str(&format!(
                     "{prefix}    ├── {}",
                     statement.format(&format!("{prefix}    │   "))
@@ -243,8 +243,8 @@ impl Statement {
     fn format_if_else(
         prefix: &str,
         cond: &Expression,
-        true_body: &Vec<Statement>,
-        false_body: &Vec<Statement>,
+        true_block: &Vec<Statement>,
+        false_block: &Vec<Statement>,
     ) -> String {
         let mut string = String::new();
 
@@ -254,8 +254,8 @@ impl Statement {
         ));
 
         string.push_str(&format!("{prefix}├── then\n"));
-        for (i, statement) in true_body.iter().enumerate() {
-            if i < true_body.len() - 1 {
+        for (i, statement) in true_block.iter().enumerate() {
+            if i < true_block.len() - 1 {
                 string.push_str(&format!(
                     "{prefix}│   ├── {}",
                     statement.format(&format!("{prefix}│   │   "))
@@ -269,8 +269,8 @@ impl Statement {
         }
 
         string.push_str(&format!("{prefix}└── else\n"));
-        for (i, statement) in false_body.iter().enumerate() {
-            if i < false_body.len() - 1 {
+        for (i, statement) in false_block.iter().enumerate() {
+            if i < false_block.len() - 1 {
                 string.push_str(&format!(
                     "{prefix}    ├── {}",
                     statement.format(&format!("{prefix}    │   "))
@@ -286,11 +286,11 @@ impl Statement {
         format!("if\n{string}")
     }
 
-    fn format_loop(prefix: &str, body: &Vec<Statement>) -> String {
+    fn format_loop(prefix: &str, block: &Vec<Statement>) -> String {
         let mut string = String::new();
 
-        for (i, statement) in body.iter().enumerate() {
-            if i < body.len() - 1 {
+        for (i, statement) in block.iter().enumerate() {
+            if i < block.len() - 1 {
                 string.push_str(&format!(
                     "{prefix}├── {}",
                     statement.format(&format!("{prefix}│   "))
@@ -306,7 +306,7 @@ impl Statement {
         format!("loop\n{string}")
     }
 
-    fn format_while(prefix: &str, cond: &Expression, body: &Vec<Statement>) -> String {
+    fn format_while(prefix: &str, cond: &Expression, block: &Vec<Statement>) -> String {
         let mut string = String::new();
 
         string.push_str(&format!(
@@ -315,8 +315,8 @@ impl Statement {
         ));
 
         string.push_str(&format!("{prefix}└── then\n"));
-        for (i, statement) in body.iter().enumerate() {
-            if i < body.len() - 1 {
+        for (i, statement) in block.iter().enumerate() {
+            if i < block.len() - 1 {
                 string.push_str(&format!(
                     "{prefix}    ├── {}",
                     statement.format(&format!("{prefix}    │   "))
