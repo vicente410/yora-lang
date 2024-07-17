@@ -23,7 +23,8 @@ impl Expression {
         let r#type = match token.kind {
             TokenKind::BoolLit => Some(PrimitiveType::Bool),
             TokenKind::IntLit => Some(PrimitiveType::Int),
-            TokenKind::StringLit => Some(PrimitiveType::Arr(Box::new(PrimitiveType::Byte))),
+            TokenKind::CharLit => Some(PrimitiveType::Char),
+            TokenKind::StringLit => Some(PrimitiveType::Arr(Box::new(PrimitiveType::Bool))),
             TokenKind::Operator => Some(Op::get_type(&Op::from_str(&token.str))),
             _ => None,
         };

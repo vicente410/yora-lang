@@ -17,7 +17,7 @@ pub fn get_syscall_num(syscall: String) -> usize {
 pub enum PrimitiveType {
     Bool,
     Int,
-    Byte,
+    Char,
     Arr(Box<PrimitiveType>),
 }
 
@@ -33,7 +33,7 @@ impl PrimitiveType {
 
         let mut r#type = match type_copy {
             "Bool" => PrimitiveType::Bool,
-            "Byte" => PrimitiveType::Byte,
+            "Char" => PrimitiveType::Char,
             "Int" => PrimitiveType::Int,
             _ => panic!("Invalid type '{type_str}'"),
         };
@@ -48,7 +48,7 @@ impl PrimitiveType {
     pub fn as_string(&self) -> String {
         match self {
             PrimitiveType::Bool => "Bool",
-            PrimitiveType::Byte => "Byte",
+            PrimitiveType::Char => "Char",
             PrimitiveType::Int => "Int",
             PrimitiveType::Arr(r#type) => return format!("{}[]", r#type.deref().as_string()),
         }
@@ -58,7 +58,7 @@ impl PrimitiveType {
     pub fn get_size(&self) -> usize {
         match self {
             PrimitiveType::Bool => 1,
-            PrimitiveType::Byte => 1,
+            PrimitiveType::Char => 1,
             PrimitiveType::Int => 8,
             PrimitiveType::Arr(..) => 8,
         }

@@ -359,9 +359,10 @@ impl Parser {
             return Expression::new(
                 match &tokens[0].kind {
                     TokenKind::Identifier => ExpressionKind::Id(tokens[0].str.to_string()),
-                    TokenKind::BoolLit | TokenKind::IntLit | TokenKind::StringLit => {
-                        ExpressionKind::Lit(tokens[0].str.to_string())
-                    }
+                    TokenKind::BoolLit
+                    | TokenKind::IntLit
+                    | TokenKind::StringLit
+                    | TokenKind::CharLit => ExpressionKind::Lit(tokens[0].str.to_string()),
                     _ => {
                         println!("Unrecognized expression:");
                         dbg!(tokens);
