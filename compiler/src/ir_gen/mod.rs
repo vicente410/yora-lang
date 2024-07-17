@@ -2,10 +2,11 @@ use crate::core::*;
 use crate::ir::*;
 use crate::op::*;
 use crate::parser::expression::*;
+use crate::statement::*;
 
 pub mod ir;
 
-pub fn generate_ir(ast: Vec<Expression>) -> Ir {
+pub fn generate_ir(ast: Vec<Statement>) -> Ir {
     let mut generator = IrGenerator::new();
 
     generator.gen_ir(ast);
@@ -38,65 +39,44 @@ impl IrGenerator {
         }
     }
 
-    fn gen_ir(&mut self, ast: Vec<Expression>) {
-        for expr in ast {
-            self.get_value(&expr);
+    fn gen_ir(&mut self, ast: Vec<Statement>) {
+        for statement in ast {
+            self.get_statement(&statement);
         }
     }
 
-    fn get_value(&mut self, expr: &Expression) -> Value {
-        match &expr.kind {
-            ExpressionKind::Identifier(id) => Value::Identifier { id: id.to_string() },
-            ExpressionKind::IntLit(int) => Value::Constant {
-                value: int.to_string(),
-            },
-            ExpressionKind::StringLit(string) => self.get_string_lit(string),
-            ExpressionKind::BoolLit(bool) => self.get_bool_lit(bool),
-            ExpressionKind::ArrayLit(contents) => self.get_array_lit(contents),
-            ExpressionKind::Call(name, arg) => self.get_call(name, arg),
-            ExpressionKind::Assign(ref dest, ref src)
-            | ExpressionKind::Declare(ref dest, ref src) => self.get_declare_assign(dest, src),
-            ExpressionKind::Op(ref src1, op, ref src2) => {
-                self.get_operation(src1, op, src2, expr.r#type.clone())
-            }
-            ExpressionKind::If(cond, seq) => self.get_if(cond, seq, expr),
-            ExpressionKind::IfElse(cond, if_seq, else_seq) => {
-                self.get_if_else(cond, if_seq, else_seq, expr)
-            }
-            ExpressionKind::Loop(seq) => self.get_loop(seq),
-            ExpressionKind::While(cond, seq) => self.get_while(cond, seq, expr),
-            ExpressionKind::Break => self.get_break(),
-            ExpressionKind::Continue => self.get_continue(),
-            ExpressionKind::Sequence(seq) => self.get_sequence(seq),
-            ExpressionKind::Not(arg) => self.get_not(arg),
-            ExpressionKind::Idx(id, offset) => self.get_idx(id, offset),
-            ExpressionKind::Procedure(..) | ExpressionKind::Return(..) => todo!(),
-        }
-    }
+    fn get_statement(&mut self, statement: &Statement) {
+        match &statement.kind {
+            StatementKind::Procedure {
+                name,
+                args,
+                ret,
+                block,
+            } => todo!(),
+            StatementKind::Call { name, args } => self.get_call(name, args),
+            StatementKind::Return { value } => todo!(),
 
-    fn get_string_lit(&mut self, string: &str) -> Value {
-        self.nums.buf += 1;
-        self.ir.add_data(
-            format!("buf_{}", self.nums.buf),
-            string.to_string() + ", 10",
-            string.len() - 1,
-        );
-        Value::Identifier {
-            id: format!("buf_{}", self.nums.buf),
-        }
-    }
+            StatementKind::Declare { name, value, .. } => self.get_declare(name, value),
+            StatementKind::Assign { dest, src } => self.get_assign(dest, src),
 
-    fn get_bool_lit(&mut self, bool: &str) -> Value {
-        Value::Constant {
-            value: if bool == "true" { "1" } else { "0" }.to_string(),
+            StatementKind::If { cond, block } => self.get_if(cond, block, statement),
+            StatementKind::IfElse {
+                cond,
+                true_block,
+                false_block,
+            } => self.get_if_else(cond, true_block, false_block, statement),
+            StatementKind::Loop { block } => self.get_loop(block),
+            StatementKind::While { cond, block } => self.get_while(cond, block, statement),
+            StatementKind::Continue => self.get_continue(),
+            StatementKind::Break => self.get_break(),
         }
     }
 
     fn get_array_lit(&mut self, contents: &Vec<Expression>) -> Value {
         let mut string = String::new();
         for expr in contents {
-            match &expr.kind {
-                ExpressionKind::IntLit(int) => string.push_str(&int),
+            match &expr.r#type {
+                PrimitiveType::Int => string.push_str(&int),
                 _ => panic!("Array must be of int literals"),
             }
             string.push_str(", ")
@@ -111,28 +91,32 @@ impl IrGenerator {
         }
     }
 
-    fn get_call(&mut self, name: &str, arg: &Expression) -> Value {
-        let arg = self.get_value(arg);
+    fn get_call(&mut self, name: &str, args: &Vec<Expression>) {
+        let mut arg_vals = Vec::new();
+        for arg in args {
+            arg_vals.push(self.get_expression(arg));
+        }
+
         match name {
             "exit" => self.ir.add_instruction(IrInstruction::Param {
-                src: arg.clone(),
-                r#type: PrimitiveType::U8,
+                src: arg_vals[0].clone(),
+                r#type: PrimitiveType::Int,
             }),
             "print" => {
                 self.ir.add_instruction(IrInstruction::Param {
                     src: Value::Constant {
                         value: "1".to_string(),
                     },
-                    r#type: PrimitiveType::U64,
+                    r#type: PrimitiveType::Int,
                 });
                 self.ir.add_instruction(IrInstruction::Param {
-                    src: arg.clone(),
-                    r#type: PrimitiveType::Ptr,
+                    src: arg_vals[0].clone(),
+                    r#type: PrimitiveType::Arr(Box::new(PrimitiveType::Char)),
                 });
 
-                let mut string_size = 0;
+                let mut string_size = 0; // get size of buffer from ir.data
                 for buffer in &self.ir.data {
-                    if let Value::Identifier { ref id } = arg {
+                    if let Value::Identifier { ref id } = arg_vals[0] {
                         if *id == buffer.label {
                             string_size = buffer.size;
                             break;
@@ -143,7 +127,7 @@ impl IrGenerator {
                     src: Value::Constant {
                         value: format!("{}", string_size),
                     },
-                    r#type: PrimitiveType::U64,
+                    r#type: PrimitiveType::Int,
                 });
             }
             _ => panic!("Undefined function"),
@@ -151,50 +135,30 @@ impl IrGenerator {
         self.ir.add_instruction(IrInstruction::Call {
             label: name.to_string(),
         });
-        arg
     }
 
-    fn get_declare_assign(&mut self, dest: &Expression, src: &Expression) -> Value {
-        let dest_str = self.get_value(dest);
+    fn get_declare(&mut self, name: &String, value: &Option<Expression>) {
+        let src_val = self.get_expression(&value.unwrap());
+        let name_val = Value::Identifier {
+            id: name.to_string(),
+        };
 
-        if let ExpressionKind::ArrayLit(..) = &src.kind {
-            let buf_name = self.get_value(src);
-            for buffer in &mut self.ir.data {
-                if let Value::Identifier { ref id } = buf_name {
-                    if buffer.label == *id {
-                        buffer.label = if let Value::Identifier { ref id } = dest_str {
-                            (*id).clone()
-                        } else {
-                            panic!("Invalid value")
-                        }
-                    }
-                }
-            }
-        } else {
-            // no need to call get_value on not because temporary value can be assigned directly
-            let instruction = match &src.kind {
-                ExpressionKind::Not(expr) => IrInstruction::Not {
-                    dest: dest_str.clone(),
-                    src: self.get_value(expr),
-                    r#type: dest.r#type.clone(),
-                },
-                ExpressionKind::Op(ref src1, op, ref src2) => IrInstruction::Op {
-                    dest: dest_str.clone(),
-                    src1: self.get_value(src1),
-                    op: op.clone(),
-                    src2: self.get_value(src2),
-                    r#type: dest.r#type.clone(),
-                },
-                _ => IrInstruction::Ass {
-                    dest: dest_str.clone(),
-                    src: self.get_value(src),
-                    r#type: dest.r#type.clone(),
-                },
-            };
-            self.ir.add_instruction(instruction);
-        }
+        self.ir.add_instruction(IrInstruction::Ass {
+            dest: name_val,
+            src: src_val,
+            r#type: value.unwrap().r#type.unwrap(),
+        });
+    }
 
-        dest_str
+    fn get_assign(&mut self, dest: &Expression, src: &Expression) {
+        let src_val = self.get_expression(src);
+        let dest_val = self.get_expression(dest);
+
+        self.ir.add_instruction(IrInstruction::Ass {
+            dest: dest_val,
+            src: src_val,
+            r#type: dest_val.r#type.unwrap(),
+        });
     }
 
     fn get_operation(
@@ -203,7 +167,7 @@ impl IrGenerator {
         op: &Op,
         src2: &Expression,
         r#type: PrimitiveType,
-    ) -> Value {
+    ) {
         self.nums.tmp += 1;
 
         let dest = Value::Identifier {
@@ -220,11 +184,9 @@ impl IrGenerator {
             src2: arg2.clone(),
             r#type,
         });
-
-        dest
     }
 
-    fn get_if(&mut self, cond: &Expression, seq: &Expression, expr: &Expression) -> Value {
+    fn get_if(&mut self, cond: &Expression, seq: &Expression, expr: &Expression) {
         // todo: remove current_ifs
         self.nums.ifs += 1;
         let current_ifs = self.nums.ifs;
@@ -235,8 +197,6 @@ impl IrGenerator {
 
         self.ir
             .add_instruction(IrInstruction::Label(format!("end_if_{}", current_ifs)));
-
-        seq_value
     }
 
     fn get_if_else(
@@ -245,7 +205,7 @@ impl IrGenerator {
         if_seq: &Expression,
         else_seq: &Expression,
         expr: &Expression,
-    ) -> Value {
+    ) {
         self.nums.ifs += 1;
         let current_ifs = self.nums.ifs;
 
@@ -310,13 +270,15 @@ impl IrGenerator {
         });
     }
 
-    fn get_loop(&mut self, seq: &Expression) -> Value {
+    fn get_loop(&mut self, block: &Vec<Statement>) {
         self.nums.loops += 1;
         let current_loops = self.nums.loops;
 
         self.ir
             .add_instruction(IrInstruction::Label(format!("loop_{}", current_loops)));
-        let seq_value = self.get_value(seq);
+        for statement in block {
+            self.get_statement(statement);
+        }
 
         self.ir.add_instruction(IrInstruction::Goto {
             label: format!("loop_{}", current_loops),
@@ -324,11 +286,9 @@ impl IrGenerator {
 
         self.ir
             .add_instruction(IrInstruction::Label(format!("loop_end_{}", current_loops)));
-
-        seq_value
     }
 
-    fn get_while(&mut self, cond: &Expression, seq: &Expression, expr: &Expression) -> Value {
+    fn get_while(&mut self, cond: &Expression, seq: &Expression, expr: &Expression) {
         self.nums.loops += 1;
         let current_loops = self.nums.loops;
 
@@ -348,29 +308,16 @@ impl IrGenerator {
         seq_value
     }
 
-    fn get_break(&mut self) -> Value {
+    fn get_break(&mut self) {
         self.ir.add_instruction(IrInstruction::Goto {
             label: format!("loop_end_{}", self.nums.loops),
         });
-        Value::Constant {
-            value: "".to_string(),
-        }
     }
 
-    fn get_continue(&mut self) -> Value {
+    fn get_continue(&mut self) {
         self.ir.add_instruction(IrInstruction::Goto {
             label: format!("loop_{}", self.nums.loops),
         });
-        Value::Constant {
-            value: "".to_string(),
-        }
-    }
-
-    fn get_sequence(&mut self, seq: &Vec<Expression>) -> Value {
-        for expr in &seq[0..seq.len() - 1] {
-            self.get_value(expr);
-        }
-        self.get_value(&seq[seq.len() - 1])
     }
 
     fn get_not(&mut self, arg: &Expression) -> Value {
@@ -411,6 +358,33 @@ impl IrGenerator {
             } else {
                 Box::new(self.get_value(offset))
             },
+        }
+    }
+
+    fn get_expression(&mut self, expr: &Expression) -> Value {
+        match &expr.kind {
+            ExpressionKind::Id(id) => Value::Identifier { id: id.to_string() },
+            ExpressionKind::Lit(lit) => match expr.r#type.unwrap() {
+                PrimitiveType::Int | PrimitiveType::Char => Value::Constant {
+                    value: lit.to_string(),
+                },
+                PrimitiveType::Bool => Value::Constant {
+                    value: if lit == "true" { "1" } else { "0" }.to_string(),
+                },
+                PrimitiveType::Arr(..) => panic!("Lit expressions cannot have type array") 
+            },
+            ExpressionKind::Array(contents) => {
+                    self.nums.buf += 1;
+                    self.ir.add_data(
+                        format!("buf_{}", self.nums.buf),
+                        lit.to_string() + ", 10",
+                        lit.len() - 1,
+                    );
+                    Value::Identifier {
+                        id: format!("buf_{}", self.nums.buf),
+                    }
+                }
+            ExpressionKind::Call(name, args) => 
         }
     }
 }
