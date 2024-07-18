@@ -4,6 +4,7 @@ use errors::Errors;
 //use ir_gen::*;
 use lexer::*;
 //use optimizer::optimize;
+use interpreter::*;
 use parser::*;
 use std::fs;
 use std::fs::File;
@@ -18,6 +19,7 @@ pub mod errors;
 //pub mod ir_gen;
 pub mod lexer;
 //pub mod optimizer;
+pub mod interpreter;
 pub mod parser;
 
 #[derive(Eq, Debug, Hash, PartialEq)]
@@ -119,6 +121,9 @@ impl Compiler {
             }
             process::exit(0);
         }
+
+        let mut interpreter = Interpreter::new();
+        interpreter.run(&ast);
 
         /*let mut ir = generate_ir(ast.clone());
 
