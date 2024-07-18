@@ -1,6 +1,6 @@
-//use analyzer::analyze;
+use analyzer::analyze;
 //use asm_gen::*;
-//use errors::Errors;
+use errors::Errors;
 //use ir_gen::*;
 use lexer::*;
 //use optimizer::optimize;
@@ -11,10 +11,10 @@ use std::fs::File;
 use std::process;
 use std::process::Command;
 
-//pub mod analyzer;
+pub mod analyzer;
 //pub mod asm_gen;
 pub mod core;
-//pub mod errors;
+pub mod errors;
 //pub mod ir_gen;
 pub mod lexer;
 //pub mod optimizer;
@@ -99,7 +99,7 @@ impl Compiler {
 
     //fn get_assembly(&self, source: String) -> String {
     fn get_assembly(&self, source: String) {
-        //let mut errors = Errors::new();
+        let mut errors = Errors::new();
         let tokens = lex(source);
 
         if self.flags.contains(&Flag::Debug(DebugOptions::Tokens)) {
@@ -110,7 +110,8 @@ impl Compiler {
         }
 
         let mut ast = parse(tokens);
-        //analyze(&mut ast, &mut errors);
+
+        analyze(&mut ast, &mut errors);
 
         if self.flags.contains(&Flag::Debug(DebugOptions::Ast)) {
             for statement in &ast {

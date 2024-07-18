@@ -62,6 +62,9 @@ impl Errors {
             ErrorKind::UndefinedType { type1 } => {
                 println!("{}:{}: undefined type '{}'", error.line, error.col, type1);
             }
+            ErrorKind::UndefinedProcedure => {
+                println!("{}:{}: undefined procedure", error.line, error.col);
+            }
         }
     }
 }
@@ -107,4 +110,5 @@ pub enum ErrorKind {
     UndefinedType {
         type1: String,
     },
+    UndefinedProcedure,
 }

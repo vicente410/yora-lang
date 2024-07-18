@@ -13,7 +13,7 @@ pub fn get_syscall_num(syscall: String) -> usize {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub enum PrimitiveType {
     Bool,
     Int,
@@ -67,7 +67,16 @@ impl PrimitiveType {
 
 impl fmt::Display for PrimitiveType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_string())
+        write!(
+            f,
+            "{}",
+            match self {
+                PrimitiveType::Bool => "Bool",
+                PrimitiveType::Int => "Int",
+                PrimitiveType::Char => "Char",
+                PrimitiveType::Arr(r#type) => return write!(f, "{}[]", r#type.deref().to_string()),
+            }
+        )
     }
 }
 
