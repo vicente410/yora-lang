@@ -13,12 +13,10 @@ struct Analyzer<'a> {
 
 pub fn analyze(ast: &mut Vec<Statement>, errors: &mut Errors) {
     let mut analyzer = Analyzer::new(errors);
-    dbg!(&ast);
+
     for statement in ast {
         analyzer.analyze_statement(statement);
     }
-
-    dbg!(analyzer.type_table);
 
     if analyzer.errors.should_abort() {
         analyzer.errors.print_and_abort();

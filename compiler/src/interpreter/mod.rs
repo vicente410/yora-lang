@@ -5,7 +5,7 @@ use crate::core::PrimitiveType;
 use crate::expression::*;
 use crate::statement::*;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum Value {
     Int(i64),
     Bool(bool),
@@ -23,20 +23,34 @@ impl Value {
     fn get_bool(&self) -> bool {
         match self {
             Value::Bool(bool) => *bool,
-            _ => panic!("Not an bool"),
+            _ => panic!("Not a bool"),
+        }
+    }
+    fn get_char(&self) -> char {
+        match self {
+            Value::Char(char) => *char,
+            _ => panic!("Not a char"),
+        }
+    }
+    fn get_string(&self) -> String {
+        match self {
+            Value::String(string) => string.clone(),
+            _ => panic!("Not a string"),
         }
     }
 }
 
 pub struct Interpreter {
     values: HashMap<String, Value>,
-    //procedures: HashMap<String, Statement>,
+    procedures:
+        HashMap<(String, Vec<PrimitiveType>), (Vec<Statement>, Option<PrimitiveType>, Vec<String>)>,
 }
 
 impl Interpreter {
     pub fn new() -> Interpreter {
         Interpreter {
             values: HashMap::new(),
+            procedures: HashMap::new(),
         }
     }
 
@@ -53,9 +67,30 @@ impl Interpreter {
                 args,
                 ret,
                 block,
-            } => todo!(),
-            StatementKind::Call { name, args } => todo!(),
-            StatementKind::Return { value } => todo!(),
+            } => {
+                let mut args_types: Vec<PrimitiveType> = Vec::with_capacity(args.len());
+                let mut args_names: Vec<String> = Vec::with_capacity(args.len());
+                for arg in args {
+                    if let Some(arg_type) = &arg.1 {
+                        args_types.push(arg_type.clone());
+                    } else {
+                        panic!("Insert type hint in procedure declaration");
+                    }
+                    args_names.push(arg.0.clone())
+                }
+
+                self.procedures.insert(
+                    (name.to_string(), args_types),
+                    (block.to_vec(), ret.clone(), args_names),
+                );
+            }
+            StatementKind::Call { name, args } => {
+                self.run_call(name.to_string(), args.to_vec());
+            }
+            StatementKind::Return { value } => {
+                let ret_value = self.eval_expression(value);
+                self.values.insert("@acc".to_string(), ret_value);
+            }
             StatementKind::Declare { name, value, .. } => {
                 if let Some(value) = value {
                     let value = self.eval_expression(&value);
@@ -64,7 +99,12 @@ impl Interpreter {
                     self.values.insert(name.to_string(), Value::Int(0));
                 }
             }
-            StatementKind::Assign { dest, src } => todo!(),
+            StatementKind::Assign { dest, src } => {
+                if let ExpressionKind::Id(id) = &dest.kind {
+                    let src_value = self.eval_expression(src);
+                    self.values.insert(id.to_string(), src_value);
+                }
+            }
             StatementKind::If { cond, block } => self.run_if(cond, block),
             StatementKind::IfElse {
                 cond,
@@ -107,23 +147,38 @@ impl Interpreter {
         }
     }
 
-    fn run_if(&mut self, cond: &Expression, block: &Vec<Statement>) {
-        if let Value::Bool(cond) = self.eval_expression(cond) {
-            if cond {
-                for statement in block {
-                    self.run_statement(statement);
-                }
-            }
-        }
-    }
+    fn run_call(&mut self, name: String, args: Vec<Expression>) {
+        let mut args_types: Vec<PrimitiveType> = Vec::with_capacity(args.len());
+        let mut changed_vars: Vec<(String, Value)> = Vec::with_capacity(args.len());
 
-    fn run_if(&mut self, cond: &Expression, block: &Vec<Statement>) {
-        if let Value::Bool(cond) = self.eval_expression(cond) {
-            if cond {
-                for statement in block {
-                    self.run_statement(statement);
-                }
+        for arg in &args {
+            let arg_val = self.eval_expression(&arg);
+            args_types.push(self.get_val_type(arg_val));
+        }
+
+        for (i, name) in self.procedures[&(name.clone(), args_types.clone())]
+            .2
+            .clone()
+            .into_iter()
+            .enumerate()
+        {
+            if self.values.contains_key(&name) {
+                changed_vars.push((name.clone(), self.values[&name].clone()));
             }
+
+            let arg_value = self.eval_expression(&args[i]);
+            self.values.insert(name.clone(), arg_value);
+        }
+
+        for statement in self.procedures[&(name.clone(), args_types.clone())]
+            .0
+            .clone()
+        {
+            self.run_statement(&statement);
+        }
+
+        for var in changed_vars {
+            self.values.insert(var.0.clone(), var.1);
         }
     }
 
@@ -158,19 +213,35 @@ impl Interpreter {
                         "<=" => Value::Bool(arg0.get_int() <= arg1.get_int()),
                         ">" => Value::Bool(arg0.get_int() > arg1.get_int()),
                         ">=" => Value::Bool(arg0.get_int() >= arg1.get_int()),
-                        _ => todo!(),
+                        _ => {
+                            self.run_call(name.to_string(), args.to_vec());
+                            self.values["@acc"].clone()
+                        }
                     }
                 } else if args.len() == 1 {
                     let arg0 = self.eval_expression(&args[0]);
                     match name.as_str() {
                         "!" => Value::Bool(!arg0.get_bool()),
-                        _ => todo!(),
+                        _ => {
+                            self.run_call(name.to_string(), args.to_vec());
+                            self.values["@acc"].clone()
+                        }
                     }
                 } else {
-                    todo!();
+                    self.run_call(name.to_string(), args.to_vec());
+                    self.values["@acc"].clone()
                 }
             }
             ExpressionKind::Array(..) => todo!(),
+        }
+    }
+
+    fn get_val_type(&mut self, val: Value) -> PrimitiveType {
+        match val {
+            Value::Int(_) => PrimitiveType::Int,
+            Value::Bool(_) => PrimitiveType::Bool,
+            Value::Char(_) => PrimitiveType::Char,
+            Value::String(_) => PrimitiveType::Arr(Box::new(PrimitiveType::Char)),
         }
     }
 }
