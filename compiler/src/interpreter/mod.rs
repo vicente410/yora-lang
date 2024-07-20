@@ -1,11 +1,11 @@
-use core::panic;
 use std::collections::HashMap;
+use std::process;
 
 use crate::core::PrimitiveType;
 use crate::expression::*;
 use crate::statement::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, PartialEq)]
 enum Value {
     Int(i64),
     Bool(bool),
@@ -40,10 +40,18 @@ impl Value {
     }
 }
 
+#[derive(PartialEq)]
+enum Signal {
+    Normal,
+    Continue,
+    Break,
+    Return(Value),
+}
+
 pub struct Interpreter {
     values: HashMap<String, Value>,
-    procedures:
-        HashMap<(String, Vec<PrimitiveType>), (Vec<Statement>, Option<PrimitiveType>, Vec<String>)>,
+    procedures: HashMap<String, StatementKind>,
+    signal: Signal,
 }
 
 impl Interpreter {
@@ -51,6 +59,7 @@ impl Interpreter {
         Interpreter {
             values: HashMap::new(),
             procedures: HashMap::new(),
+            signal: Signal::Normal,
         }
     }
 
@@ -62,59 +71,91 @@ impl Interpreter {
 
     fn run_statement(&mut self, statement: &Statement) {
         match &statement.kind {
-            StatementKind::Procedure {
-                name,
-                args,
-                ret,
-                block,
-            } => {
-                let mut args_types: Vec<PrimitiveType> = Vec::with_capacity(args.len());
-                let mut args_names: Vec<String> = Vec::with_capacity(args.len());
-                for arg in args {
-                    if let Some(arg_type) = &arg.1 {
-                        args_types.push(arg_type.clone());
-                    } else {
-                        panic!("Insert type hint in procedure declaration");
-                    }
-                    args_names.push(arg.0.clone())
-                }
-
-                self.procedures.insert(
-                    (name.to_string(), args_types),
-                    (block.to_vec(), ret.clone(), args_names),
-                );
+            StatementKind::Procedure { name, .. } => {
+                self.procedures
+                    .insert(name.to_string(), statement.kind.clone());
             }
-            StatementKind::Call { name, args } => {
-                self.run_call(name.to_string(), args.to_vec());
-            }
+            StatementKind::Call { name, args } => self.run_call(name, args),
             StatementKind::Return { value } => {
-                let ret_value = self.eval_expression(value);
-                self.values.insert("@acc".to_string(), ret_value);
+                self.signal = Signal::Return(self.eval_expression(value))
             }
-            StatementKind::Declare { name, value, .. } => {
-                if let Some(value) = value {
-                    let value = self.eval_expression(&value);
-                    self.values.insert(name.to_string(), value);
-                } else {
-                    self.values.insert(name.to_string(), Value::Int(0));
-                }
-            }
-            StatementKind::Assign { dest, src } => {
-                if let ExpressionKind::Id(id) = &dest.kind {
-                    let src_value = self.eval_expression(src);
-                    self.values.insert(id.to_string(), src_value);
-                }
-            }
+            StatementKind::Declare { name, value, .. } => self.run_declare(name, value),
+            StatementKind::Assign { dest, src } => self.run_assign(dest, src),
             StatementKind::If { cond, block } => self.run_if(cond, block),
             StatementKind::IfElse {
                 cond,
                 true_block,
                 false_block,
             } => self.run_if_else(cond, true_block, false_block),
-            StatementKind::Loop { block } => todo!(),
-            StatementKind::While { cond, block } => todo!(),
-            StatementKind::Continue => todo!(),
-            StatementKind::Break => todo!(),
+            StatementKind::Loop { block } => self.run_loop(block),
+            StatementKind::While { cond, block } => self.run_while(cond, block),
+            StatementKind::Continue => self.signal = Signal::Continue,
+            StatementKind::Break => self.signal = Signal::Break,
+        }
+    }
+
+    fn run_call(&mut self, name: &String, call_args: &Vec<Expression>) {
+        match name.as_str() {
+            "exit" => {
+                println!(
+                    "Process exited with exit code {}",
+                    self.eval_expression(&call_args[0]).get_int()
+                );
+                process::exit(0);
+            }
+            "print" => match self.eval_expression(&call_args[0]) {
+                Value::String(string) => println!("{}", string.trim_matches('\"')),
+                Value::Int(int) => println!("{}", int),
+                Value::Bool(boolean) => println!("{}", boolean),
+                Value::Char(character) => println!("{}", character),
+            },
+            _ => {
+                let StatementKind::Procedure {
+                    ref args,
+                    ref block,
+                    ..
+                } = self.procedures[name].clone()
+                else {
+                    panic!("Undeclared function {name}");
+                };
+
+                for (i, (arg_name, _)) in args.iter().enumerate() {
+                    let arg_val = self.eval_expression(&call_args[i]);
+                    self.values.insert(arg_name.to_string(), arg_val);
+                }
+                for statement in block {
+                    self.run_statement(&statement);
+                    if let Signal::Return(_) = &self.signal {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    fn run_declare(&mut self, name: &String, value: &Option<Expression>) {
+        if let Some(value) = value {
+            let value = self.eval_expression(&value);
+            self.values.insert(name.to_string(), value);
+        } else {
+            self.values.insert(name.to_string(), Value::Int(0));
+        }
+    }
+
+    fn run_assign(&mut self, dest: &Expression, src: &Expression) {
+        match &dest.kind {
+            ExpressionKind::Id(id) => {
+                let src_val = self.eval_expression(src);
+                self.values.insert(id.to_string(), src_val);
+            }
+            ExpressionKind::Call(name, args) => {
+                if name == "[]" {
+                    todo!();
+                } else {
+                    panic!("Invalid assignment");
+                }
+            }
+            _ => panic!("Invalid assignment"),
         }
     }
 
@@ -138,47 +179,54 @@ impl Interpreter {
             if cond {
                 for statement in true_block {
                     self.run_statement(statement);
+                    if self.signal == Signal::Break || self.signal == Signal::Continue {
+                        break;
+                    }
                 }
             } else {
                 for statement in false_block {
                     self.run_statement(statement);
+                    if self.signal == Signal::Break || self.signal == Signal::Continue {
+                        break;
+                    }
                 }
             }
         }
     }
 
-    fn run_call(&mut self, name: String, args: Vec<Expression>) {
-        let mut args_types: Vec<PrimitiveType> = Vec::with_capacity(args.len());
-        let mut changed_vars: Vec<(String, Value)> = Vec::with_capacity(args.len());
-
-        for arg in &args {
-            let arg_val = self.eval_expression(&arg);
-            args_types.push(self.get_val_type(arg_val));
-        }
-
-        for (i, name) in self.procedures[&(name.clone(), args_types.clone())]
-            .2
-            .clone()
-            .into_iter()
-            .enumerate()
-        {
-            if self.values.contains_key(&name) {
-                changed_vars.push((name.clone(), self.values[&name].clone()));
+    fn run_loop(&mut self, block: &Vec<Statement>) {
+        loop {
+            for statement in block {
+                self.run_statement(statement);
+                if self.signal == Signal::Break {
+                    self.signal = Signal::Normal;
+                    break;
+                } else if self.signal == Signal::Continue {
+                    self.signal = Signal::Normal;
+                    continue;
+                }
             }
-
-            let arg_value = self.eval_expression(&args[i]);
-            self.values.insert(name.clone(), arg_value);
         }
+    }
 
-        for statement in self.procedures[&(name.clone(), args_types.clone())]
-            .0
-            .clone()
-        {
-            self.run_statement(&statement);
-        }
-
-        for var in changed_vars {
-            self.values.insert(var.0.clone(), var.1);
+    fn run_while(&mut self, cond: &Expression, block: &Vec<Statement>) {
+        'outer: loop {
+            if let Value::Bool(cond) = self.eval_expression(cond) {
+                if cond {
+                    for statement in block {
+                        self.run_statement(statement);
+                        if self.signal == Signal::Break {
+                            self.signal = Signal::Normal;
+                            break 'outer;
+                        } else if self.signal == Signal::Continue {
+                            self.signal = Signal::Normal;
+                            continue 'outer;
+                        }
+                    }
+                } else {
+                    break;
+                }
+            }
         }
     }
 
@@ -191,7 +239,10 @@ impl Interpreter {
                 PrimitiveType::Char => Value::Char(lit.chars().nth(1).unwrap()),
                 PrimitiveType::Arr(r#type) => match **r#type {
                     PrimitiveType::Char => Value::String(lit.to_string()),
-                    _ => panic!("Literal arrays can only be of type Char[]"),
+                    _ => panic!(
+                        "Literal arrays can only be of type Char[], {}[] given",
+                        r#type
+                    ),
                 },
             },
             ExpressionKind::Call(name, args) => {
@@ -213,35 +264,30 @@ impl Interpreter {
                         "<=" => Value::Bool(arg0.get_int() <= arg1.get_int()),
                         ">" => Value::Bool(arg0.get_int() > arg1.get_int()),
                         ">=" => Value::Bool(arg0.get_int() >= arg1.get_int()),
-                        _ => {
-                            self.run_call(name.to_string(), args.to_vec());
-                            self.values["@acc"].clone()
-                        }
+                        _ => self.run_call_expr(name, args),
                     }
                 } else if args.len() == 1 {
                     let arg0 = self.eval_expression(&args[0]);
                     match name.as_str() {
                         "!" => Value::Bool(!arg0.get_bool()),
-                        _ => {
-                            self.run_call(name.to_string(), args.to_vec());
-                            self.values["@acc"].clone()
-                        }
+                        _ => self.run_call_expr(name, args),
                     }
                 } else {
-                    self.run_call(name.to_string(), args.to_vec());
-                    self.values["@acc"].clone()
+                    self.run_call_expr(name, args)
                 }
             }
             ExpressionKind::Array(..) => todo!(),
         }
     }
 
-    fn get_val_type(&mut self, val: Value) -> PrimitiveType {
-        match val {
-            Value::Int(_) => PrimitiveType::Int,
-            Value::Bool(_) => PrimitiveType::Bool,
-            Value::Char(_) => PrimitiveType::Char,
-            Value::String(_) => PrimitiveType::Arr(Box::new(PrimitiveType::Char)),
-        }
+    fn run_call_expr(&mut self, name: &String, args: &Vec<Expression>) -> Value {
+        self.run_call(name, args);
+        let ret_value = if let Signal::Return(value) = &self.signal {
+            value.clone()
+        } else {
+            panic!("Procedure '{name}' did not return")
+        };
+        self.signal = Signal::Normal;
+        ret_value
     }
 }

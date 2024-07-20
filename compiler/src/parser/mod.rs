@@ -284,7 +284,9 @@ impl Parser {
                     _ => buffer.push(token.clone()),
                 }
             }
-            args.push(Self::get_expression(&buffer));
+            if buffer.len() > 0 {
+                args.push(Self::get_expression(&buffer));
+            }
             Statement::new(
                 StatementKind::Call {
                     name: tokens[0].str.clone(),
@@ -371,6 +373,22 @@ impl Parser {
                 },
                 &tokens[0],
             );
+        } else if tokens[1].str == "[" && tokens[len - 1].str == "]" {
+            Expression::new(
+                ExpressionKind::Call(
+                    "[]".to_string(),
+                    vec![
+                        Self::get_expression(&tokens[0..1]),
+                        Self::get_expression(&tokens[2..len - 1]),
+                    ],
+                ),
+                &Token {
+                    str: "[]".to_string(),
+                    kind: TokenKind::Operator,
+                    line: tokens[1].line,
+                    col: tokens[1].col,
+                },
+            )
         } else if tokens[1].str == "(" && tokens[len - 1].str == ")" {
             let mut args = Vec::new();
             let mut buffer = Vec::new();
