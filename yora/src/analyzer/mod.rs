@@ -96,6 +96,13 @@ impl Analyzer<'_> {
                 ("input".to_string(), vec![]),
                 Some(PrimitiveType::Arr(Box::new(PrimitiveType::Char))),
             ),
+            (
+                (
+                    "parse".to_string(),
+                    vec![PrimitiveType::Arr(Box::new(PrimitiveType::Char))],
+                ),
+                Some(PrimitiveType::Int),
+            ),
         ]);
         Analyzer {
             type_table: HashMap::new(),

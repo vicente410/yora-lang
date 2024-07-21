@@ -122,6 +122,18 @@ impl Interpreter {
                 }
                 self.signal = Signal::Return(Value::Array(values));
             }
+            "parse" => {
+                if let Value::Array(values) = self.eval_expression(&call_args[0]) {
+                    let mut string = String::new();
+                    for value in values {
+                        string.push(value.get_char());
+                    }
+                    string.pop();
+                    self.signal = Signal::Return(Value::Int(string.parse().unwrap()))
+                } else {
+                    panic!()
+                }
+            }
             _ => {
                 let StatementKind::Procedure {
                     ref args,
