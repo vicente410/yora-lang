@@ -112,7 +112,6 @@ impl Compiler {
         }
 
         let mut ast = parse(tokens);
-
         analyze(&mut ast, &mut errors);
 
         if self.flags.contains(&Flag::Debug(DebugOptions::Ast)) {

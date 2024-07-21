@@ -93,6 +93,16 @@ impl Analyzer<'_> {
                 Some(PrimitiveType::Int),
             ),
             (
+                (
+                    "[]".to_string(),
+                    vec![
+                        PrimitiveType::Arr(Box::new(PrimitiveType::Char)),
+                        PrimitiveType::Int,
+                    ],
+                ),
+                Some(PrimitiveType::Char),
+            ),
+            (
                 ("input".to_string(), vec![]),
                 Some(PrimitiveType::Arr(Box::new(PrimitiveType::Char))),
             ),

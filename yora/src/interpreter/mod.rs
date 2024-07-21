@@ -33,6 +33,12 @@ impl Value {
             _ => panic!("Not a char"),
         }
     }
+    fn get_array(&self) -> Vec<Value> {
+        match self {
+            Value::Array(array) => array.clone(),
+            _ => panic!("Not a char"),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -177,7 +183,12 @@ impl Interpreter {
             }
             ExpressionKind::Call(name, args) => {
                 if name == "[]" {
-                    todo!();
+                    let idx = self.eval_expression(&args[1]).get_int();
+                    if let ExpressionKind::Id(id) = &args[0].kind {
+                        let mut new_array = self.get_value_by_name(id).get_array();
+                        new_array[idx as usize] = self.eval_expression(src);
+                        self.set_value_by_name(id, Value::Array(new_array))
+                    }
                 } else {
                     panic!("Invalid assignment");
                 }
@@ -274,15 +285,11 @@ impl Interpreter {
                 PrimitiveType::Char => Value::Char(lit.chars().nth(1).unwrap()),
                 PrimitiveType::Arr(r#type) => match **r#type {
                     PrimitiveType::Char => {
-                        if let ExpressionKind::Array(contents) = &expr.kind {
-                            let mut values = Vec::new();
-                            for expr in contents {
-                                values.push(self.eval_expression(&expr));
-                            }
-                            Value::Array(values)
-                        } else {
-                            panic!()
+                        let mut chars = Vec::new();
+                        for ch in lit[1..lit.len() - 1].chars() {
+                            chars.push(Value::Char(ch));
                         }
+                        Value::Array(chars)
                     }
                     _ => panic!(
                         "Literal arrays can only be of type Char[], {}[] given",
@@ -323,9 +330,8 @@ impl Interpreter {
                         _ => self.run_call_expr(name, args),
                     }
                 } else if args.len() == 1 {
-                    let arg0 = self.eval_expression(&args[0]);
                     match name.as_str() {
-                        "!" => Value::Bool(!arg0.get_bool()),
+                        "!" => Value::Bool(!self.eval_expression(&args[0]).get_bool()),
                         _ => self.run_call_expr(name, args),
                     }
                 } else {

@@ -209,8 +209,8 @@ impl Statement {
     fn format_assign(prefix: &str, dest: &Expression, src: &Expression) -> String {
         format!(
             "=\n{prefix}├── {}{prefix}└── {}",
-            dest.format(&format!("{prefix}    ")),
-            src.format(&format!("{prefix}    "))
+            dest.format(&format!("{prefix}│   ")),
+            src.format(&format!("{prefix}│  "))
         )
     }
 
