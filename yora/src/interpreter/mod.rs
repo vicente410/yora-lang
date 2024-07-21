@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 use std::process;
-use std::usize;
 
 use crate::core::PrimitiveType;
 use crate::expression::*;
 use crate::statement::*;
 
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 enum Value {
     Int(i64),
     Bool(bool),
@@ -42,7 +41,7 @@ impl Value {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 enum Signal {
     Normal,
     Continue,
@@ -51,7 +50,8 @@ enum Signal {
 }
 
 pub struct Interpreter {
-    values: HashMap<String, Value>,
+    variables: Vec<(String, Value)>,
+    num_vars_scope: Vec<i8>,
     procedures: HashMap<String, StatementKind>,
     signal: Signal,
 }
@@ -59,16 +59,19 @@ pub struct Interpreter {
 impl Interpreter {
     pub fn new() -> Interpreter {
         Interpreter {
-            values: HashMap::new(),
+            variables: Vec::new(),
+            num_vars_scope: Vec::new(),
             procedures: HashMap::new(),
             signal: Signal::Normal,
         }
     }
 
     pub fn run(&mut self, ast: &Vec<Statement>) {
+        self.start_scope();
         for statement in ast {
             self.run_statement(statement);
         }
+        self.end_scope();
     }
 
     fn run_statement(&mut self, statement: &Statement) {
@@ -124,7 +127,7 @@ impl Interpreter {
 
                 for (i, (arg_name, _)) in args.iter().enumerate() {
                     let arg_val = self.eval_expression(&call_args[i]);
-                    self.values.insert(arg_name.to_string(), arg_val);
+                    self.variables.push((arg_name.to_string(), arg_val));
                 }
                 for statement in block {
                     self.run_statement(&statement);
@@ -137,11 +140,13 @@ impl Interpreter {
     }
 
     fn run_declare(&mut self, name: &String, value: &Option<Expression>) {
+        let len = self.num_vars_scope.len();
+        self.num_vars_scope[len - 1] += 1;
         if let Some(value) = value {
             let value = self.eval_expression(&value);
-            self.values.insert(name.to_string(), value);
+            self.variables.push((name.to_string(), value));
         } else {
-            self.values.insert(name.to_string(), Value::Int(0));
+            self.variables.push((name.to_string(), Value::Int(0)));
         }
     }
 
@@ -149,7 +154,7 @@ impl Interpreter {
         match &dest.kind {
             ExpressionKind::Id(id) => {
                 let src_val = self.eval_expression(src);
-                self.values.insert(id.to_string(), src_val);
+                self.set_value_by_name(id, src_val);
             }
             ExpressionKind::Call(name, args) => {
                 if name == "[]" {
@@ -163,6 +168,7 @@ impl Interpreter {
     }
 
     fn run_if(&mut self, cond: &Expression, block: &Vec<Statement>) {
+        self.start_scope();
         if let Value::Bool(cond) = self.eval_expression(cond) {
             if cond {
                 for statement in block {
@@ -170,6 +176,7 @@ impl Interpreter {
                 }
             }
         }
+        self.end_scope();
     }
 
     fn run_if_else(
@@ -178,6 +185,7 @@ impl Interpreter {
         true_block: &Vec<Statement>,
         false_block: &Vec<Statement>,
     ) {
+        self.start_scope();
         if let Value::Bool(cond) = self.eval_expression(cond) {
             if cond {
                 for statement in true_block {
@@ -195,24 +203,28 @@ impl Interpreter {
                 }
             }
         }
+        self.end_scope();
     }
 
     fn run_loop(&mut self, block: &Vec<Statement>) {
-        loop {
+        self.start_scope();
+        'outer: loop {
             for statement in block {
                 self.run_statement(statement);
                 if self.signal == Signal::Break {
                     self.signal = Signal::Normal;
-                    break;
+                    break 'outer;
                 } else if self.signal == Signal::Continue {
                     self.signal = Signal::Normal;
-                    continue;
+                    continue 'outer;
                 }
             }
         }
+        self.end_scope();
     }
 
     fn run_while(&mut self, cond: &Expression, block: &Vec<Statement>) {
+        self.start_scope();
         'outer: loop {
             if let Value::Bool(cond) = self.eval_expression(cond) {
                 if cond {
@@ -231,11 +243,12 @@ impl Interpreter {
                 }
             }
         }
+        self.end_scope();
     }
 
     fn eval_expression(&mut self, expr: &Expression) -> Value {
         match &expr.kind {
-            ExpressionKind::Id(id) => self.values[id].clone(),
+            ExpressionKind::Id(id) => self.get_value_by_name(id),
             ExpressionKind::Lit(lit) => match &expr.r#type.clone().unwrap() {
                 PrimitiveType::Int => Value::Int(lit.parse::<i64>().unwrap()),
                 PrimitiveType::Bool => Value::Bool(if lit == "true" { true } else { false }),
@@ -269,7 +282,7 @@ impl Interpreter {
                         ">=" => Value::Bool(arg0.get_int() >= arg1.get_int()),
                         "[]" => {
                             if let ExpressionKind::Id(id) = &args[0].kind {
-                                if let Value::Array(values) = &self.values[id.as_str()] {
+                                if let Value::Array(values) = &self.get_value_by_name(id) {
                                     values[arg1.get_int() as usize].clone()
                                 } else {
                                     panic!("Not an array");
@@ -311,5 +324,36 @@ impl Interpreter {
         };
         self.signal = Signal::Normal;
         ret_value
+    }
+
+    fn get_value_by_name(&self, name: &String) -> Value {
+        let vars = self.variables.iter().rev();
+        for var in vars {
+            if var.0 == *name {
+                return var.1.clone();
+            }
+        }
+        panic!("Undeclared variable '{name}' used");
+    }
+
+    fn set_value_by_name(&mut self, name: &String, value: Value) {
+        let vars = self.variables.iter().enumerate().rev();
+        for (i, var) in vars {
+            if var.0 == *name {
+                self.variables[i].1 = value;
+                return;
+            }
+        }
+        panic!("Undeclared variable '{name}' used");
+    }
+
+    fn start_scope(&mut self) {
+        self.num_vars_scope.push(0);
+    }
+
+    fn end_scope(&mut self) {
+        for _ in 0..self.num_vars_scope.pop().unwrap() {
+            self.variables.pop();
+        }
     }
 }

@@ -27,7 +27,7 @@ impl Parser {
         if tokens.len() == 1 {
             sequence.push(Self::get_statement(tokens));
         }
-        while end < tokens.len() {
+        while end < tokens.len() + 1 {
             if tokens[start].str == "if"
                 || tokens[start].str == "loop"
                 || tokens[start].str == "while"
@@ -123,7 +123,6 @@ impl Parser {
         while start_seq < tokens.len() && tokens[start_seq].str != ":" {
             start_seq += 1;
         }
-
         Statement::new(
             StatementKind::While {
                 cond: Self::get_expression(&tokens[1..start_seq]),
