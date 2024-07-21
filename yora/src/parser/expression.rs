@@ -1,6 +1,6 @@
 use crate::core::PrimitiveType;
-use crate::op::*;
-use crate::{Token, TokenKind};
+use crate::lexer::*;
+use std::process;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Expression {
@@ -25,7 +25,7 @@ impl Expression {
             TokenKind::IntLit => Some(PrimitiveType::Int),
             TokenKind::CharLit => Some(PrimitiveType::Char),
             TokenKind::StringLit => Some(PrimitiveType::Arr(Box::new(PrimitiveType::Char))),
-            TokenKind::Operator => Some(Op::get_type(&Op::from_str(&token.str))),
+            TokenKind::Operator => Some(Self::get_type(&token.str)),
             _ => None,
         };
 
@@ -34,6 +34,17 @@ impl Expression {
             line: token.line,
             col: token.col,
             r#type,
+        }
+    }
+
+    fn get_type(str: &str) -> PrimitiveType {
+        match str {
+            "+" | "-" | "*" | "/" | "%" => PrimitiveType::Int,
+            "and" | "or" | "!" | "==" | "!=" | "<" | "<=" | ">" | ">=" => PrimitiveType::Bool,
+            _ => {
+                println!("Unrecognized operation:\n\t{}", str);
+                process::exit(1);
+            }
         }
     }
 

@@ -78,6 +78,10 @@ impl Analyzer<'_> {
                 ("or".to_string(), vec![PrimitiveType::Bool; 2]),
                 Some(PrimitiveType::Bool),
             ),
+            (
+                ("!".to_string(), vec![PrimitiveType::Bool]),
+                Some(PrimitiveType::Bool),
+            ),
         ]);
         Analyzer {
             type_table: HashMap::new(),

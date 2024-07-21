@@ -1,4 +1,4 @@
-use std::fmt;
+/*use std::fmt;
 use std::process;
 
 use crate::core::PrimitiveType;
@@ -61,11 +61,13 @@ impl Op {
         }
     }
 
-    pub fn get_type(&self) -> PrimitiveType {
-        match self {
-            Op::Add | Op::Sub | Op::Mul | Op::Div | Op::Mod => PrimitiveType::Int,
-            Op::And | Op::Or | Op::Eq | Op::Neq | Op::Lt | Op::Leq | Op::Gt | Op::Geq => {
-                PrimitiveType::Bool
+    pub fn get_type(str: &str) -> PrimitiveType {
+        match str {
+            "+" | "-" | "*" | "/" | "%" => PrimitiveType::Int,
+            "and" | "or" | "!" | "==" | "!=" | "<" | "<=" | ">" | ">=" => PrimitiveType::Bool,
+            _ => {
+                println!("Unrecognized operation:\n\t{}", str);
+                process::exit(1);
             }
         }
     }
@@ -75,4 +77,4 @@ impl fmt::Display for Op {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.to_str())
     }
-}
+}*/

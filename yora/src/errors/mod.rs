@@ -42,8 +42,8 @@ impl Errors {
             }
             ErrorKind::OperationNotImplemented { op, type1, type2 } => {
                 println!(
-                    "{}:{}: operation '{}' not implemented between types '{type1}' and '{type2}'",
-                    error.line, error.col, op
+                    "{}:{}: operation '{op}' not implemented between types '{type1}' and '{type2}'",
+                    error.line, error.col
                 )
             }
             ErrorKind::MismatchedTypes { expected, found } => {
@@ -97,7 +97,7 @@ pub enum ErrorKind {
         var: String,
     },
     OperationNotImplemented {
-        op: Op,
+        op: String,
         type1: String,
         type2: String,
     },

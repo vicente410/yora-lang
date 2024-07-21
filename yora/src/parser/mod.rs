@@ -366,7 +366,7 @@ impl Parser {
                     | TokenKind::StringLit
                     | TokenKind::CharLit => ExpressionKind::Lit(tokens[0].str.to_string()),
                     _ => {
-                        println!("Unrecognized expression:");
+                        println!("Parser: Unrecognized expression:");
                         dbg!(tokens);
                         process::exit(1);
                     }
@@ -463,11 +463,19 @@ impl Parser {
                 }
             }
             if priority != 0 {
-                let arg1 = Self::get_expression(&tokens[0..pos]);
-                let arg2 = Self::get_expression(&tokens[pos + 1..]);
-                Self::get_operation(&tokens[pos], arg1, arg2)
+                if pos > 0 {
+                    let arg1 = Self::get_expression(&tokens[0..pos]);
+                    let arg2 = Self::get_expression(&tokens[pos + 1..]);
+                    Self::get_operation(&tokens[pos], arg1, arg2)
+                } else {
+                    let arg = Self::get_expression(&tokens[pos + 1..]);
+                    Expression::new(
+                        ExpressionKind::Call(tokens[pos].str.clone(), vec![arg]),
+                        &tokens[pos],
+                    )
+                }
             } else {
-                println!("Unrecognized expression:");
+                println!("Parser: Unrecognized expression:");
                 dbg!(tokens);
                 process::exit(1);
             }
@@ -520,7 +528,7 @@ impl Parser {
             "==" | "!=" | "<" | "<=" | ">" | ">=" => 4,
             "and" | "or" => 5,
             _ => {
-                println!("Unrecognized operation:");
+                println!("Parser: Unrecognized operation:");
                 dbg!(operation);
                 process::exit(1);
             }
