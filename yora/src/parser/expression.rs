@@ -26,6 +26,13 @@ impl Expression {
             TokenKind::CharLit => Some(PrimitiveType::Char),
             TokenKind::StringLit => Some(PrimitiveType::Arr(Box::new(PrimitiveType::Char))),
             TokenKind::Operator => Some(Self::get_type(&token.str)),
+            TokenKind::Separator => {
+                if token.str == "[" {
+                    Some(PrimitiveType::Arr(Box::new(PrimitiveType::Int)))
+                } else {
+                    None
+                } // TODO: move type detecting of indexing to analyzer
+            }
             _ => None,
         };
 
@@ -39,6 +46,7 @@ impl Expression {
 
     fn get_type(str: &str) -> PrimitiveType {
         match str {
+            "[]" => PrimitiveType::Int, // TODO: move type detecting of indexing to analyzer
             "+" | "-" | "*" | "/" | "%" => PrimitiveType::Int,
             "and" | "or" | "!" | "==" | "!=" | "<" | "<=" | ">" | ">=" => PrimitiveType::Bool,
             _ => {

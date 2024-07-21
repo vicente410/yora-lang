@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::process;
+use std::usize;
 
 use crate::core::PrimitiveType;
 use crate::expression::*;
@@ -11,6 +12,7 @@ enum Value {
     Bool(bool),
     Char(char),
     String(String),
+    Array(Vec<Value>),
 }
 
 impl Value {
@@ -108,6 +110,7 @@ impl Interpreter {
                 Value::Int(int) => println!("{}", int),
                 Value::Bool(boolean) => println!("{}", boolean),
                 Value::Char(character) => println!("{}", character),
+                _ => panic!("Printing not implement for arrays"),
             },
             _ => {
                 let StatementKind::Procedure {
@@ -264,6 +267,17 @@ impl Interpreter {
                         "<=" => Value::Bool(arg0.get_int() <= arg1.get_int()),
                         ">" => Value::Bool(arg0.get_int() > arg1.get_int()),
                         ">=" => Value::Bool(arg0.get_int() >= arg1.get_int()),
+                        "[]" => {
+                            if let ExpressionKind::Id(id) = &args[0].kind {
+                                if let Value::Array(values) = &self.values[id.as_str()] {
+                                    values[arg1.get_int() as usize].clone()
+                                } else {
+                                    panic!("Not an array");
+                                }
+                            } else {
+                                panic!("Not an array")
+                            }
+                        }
                         _ => self.run_call_expr(name, args),
                     }
                 } else if args.len() == 1 {
@@ -276,7 +290,15 @@ impl Interpreter {
                     self.run_call_expr(name, args)
                 }
             }
-            ExpressionKind::Array(..) => todo!(),
+            ExpressionKind::Array(contents) => {
+                let mut values = Vec::new();
+
+                for expr in contents {
+                    values.push(self.eval_expression(expr));
+                }
+
+                Value::Array(values)
+            }
         }
     }
 

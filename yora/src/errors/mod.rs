@@ -1,4 +1,3 @@
-use crate::parser::op::*;
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
 use std::process;
@@ -62,8 +61,11 @@ impl Errors {
             ErrorKind::UndefinedType { type1 } => {
                 println!("{}:{}: undefined type '{}'", error.line, error.col, type1);
             }
-            ErrorKind::UndefinedProcedure => {
-                println!("{}:{}: undefined procedure", error.line, error.col);
+            ErrorKind::UndefinedProcedure { name } => {
+                println!(
+                    "{}:{}: undefined procedure '{}'",
+                    error.line, error.col, name
+                );
             }
         }
     }
@@ -110,5 +112,7 @@ pub enum ErrorKind {
     UndefinedType {
         type1: String,
     },
-    UndefinedProcedure,
+    UndefinedProcedure {
+        name: String,
+    },
 }

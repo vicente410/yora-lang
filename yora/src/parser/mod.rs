@@ -6,7 +6,6 @@ use crate::lexer::*;
 use crate::statement::*;
 
 pub mod expression;
-pub mod op;
 pub mod statement;
 
 pub fn parse(tokens: Vec<Token>) -> Vec<Statement> {

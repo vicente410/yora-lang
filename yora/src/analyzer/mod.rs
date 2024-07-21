@@ -82,6 +82,16 @@ impl Analyzer<'_> {
                 ("!".to_string(), vec![PrimitiveType::Bool]),
                 Some(PrimitiveType::Bool),
             ),
+            (
+                (
+                    "[]".to_string(),
+                    vec![
+                        PrimitiveType::Arr(Box::new(PrimitiveType::Int)),
+                        PrimitiveType::Int,
+                    ],
+                ),
+                Some(PrimitiveType::Int),
+            ),
         ]);
         Analyzer {
             type_table: HashMap::new(),
@@ -121,6 +131,8 @@ impl Analyzer<'_> {
                                     statement.line,
                                     statement.col,
                                 )
+                            } else {
+                                self.type_table.insert(name.to_string(), value_type.clone());
                             }
                         } else {
                             self.type_table.insert(name.to_string(), value_type.clone());
@@ -251,8 +263,11 @@ impl Analyzer<'_> {
                 {
                     expr.r#type = self.call_signatures[&(name.clone(), args_types)].clone();
                 } else {
-                    self.errors
-                        .add(ErrorKind::UndefinedProcedure, expr.line, expr.col)
+                    self.errors.add(
+                        ErrorKind::UndefinedProcedure { name: name.clone() },
+                        expr.line,
+                        expr.col,
+                    )
                 }
             }
             ExpressionKind::Lit(..) => {}
