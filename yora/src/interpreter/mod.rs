@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::io::stdin;
+use std::io::Write;
 use std::process;
 
 use crate::core::PrimitiveType;
@@ -108,16 +109,20 @@ impl Interpreter {
                 );
                 process::exit(0);
             }
-            "print" => match self.eval_expression(&call_args[0]) {
-                Value::Int(int) => println!("{}", int),
-                Value::Bool(boolean) => println!("{}", boolean),
-                Value::Char(character) => println!("{}", character),
-                Value::Array(values) => {
-                    for value in values {
-                        print!("{}", value.get_char())
+            "print" => {
+                match self.eval_expression(&call_args[0]) {
+                    Value::Int(int) => println!("{}", int),
+                    Value::Bool(boolean) => println!("{}", boolean),
+                    Value::Char(character) => println!("{}", character),
+                    Value::Array(values) => {
+                        for value in values {
+                            print!("{}", value.get_char());
+                        }
+                        print!("\n");
                     }
-                }
-            },
+                };
+                let _ = std::io::stdout().flush();
+            }
             "input" => {
                 let mut buffer = String::new();
                 let mut values = Vec::new();
