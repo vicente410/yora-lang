@@ -92,6 +92,10 @@ impl Analyzer<'_> {
                 ),
                 Some(PrimitiveType::Int),
             ),
+            (
+                ("input".to_string(), vec![]),
+                Some(PrimitiveType::Arr(Box::new(PrimitiveType::Char))),
+            ),
         ]);
         Analyzer {
             type_table: HashMap::new(),
@@ -125,8 +129,8 @@ impl Analyzer<'_> {
                             if *type_hint != *value_type {
                                 self.errors.add(
                                     ErrorKind::MismatchedTypes {
-                                        expected: type_hint.to_string(),
-                                        found: value_type.to_string(),
+                                        expected: value_type.to_string(),
+                                        found: type_hint.to_string(),
                                     },
                                     statement.line,
                                     statement.col,

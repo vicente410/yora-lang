@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::io::stdin;
 use std::process;
 
 use crate::core::PrimitiveType;
@@ -10,7 +11,6 @@ enum Value {
     Int(i64),
     Bool(bool),
     Char(char),
-    String(String),
     Array(Vec<Value>),
 }
 
@@ -31,12 +31,6 @@ impl Value {
         match self {
             Value::Char(char) => *char,
             _ => panic!("Not a char"),
-        }
-    }
-    fn get_string(&self) -> String {
-        match self {
-            Value::String(string) => string.clone(),
-            _ => panic!("Not a string"),
         }
     }
 }
@@ -109,12 +103,25 @@ impl Interpreter {
                 process::exit(0);
             }
             "print" => match self.eval_expression(&call_args[0]) {
-                Value::String(string) => println!("{}", string.trim_matches('\"')),
                 Value::Int(int) => println!("{}", int),
                 Value::Bool(boolean) => println!("{}", boolean),
                 Value::Char(character) => println!("{}", character),
-                _ => panic!("Printing not implement for arrays"),
+                Value::Array(values) => {
+                    for value in values {
+                        print!("{}", value.get_char())
+                    }
+                }
             },
+            "input" => {
+                let mut buffer = String::new();
+                let mut values = Vec::new();
+
+                let _ = stdin().read_line(&mut buffer);
+                for ch in buffer.chars() {
+                    values.push(Value::Char(ch))
+                }
+                self.signal = Signal::Return(Value::Array(values));
+            }
             _ => {
                 let StatementKind::Procedure {
                     ref args,
@@ -254,7 +261,17 @@ impl Interpreter {
                 PrimitiveType::Bool => Value::Bool(if lit == "true" { true } else { false }),
                 PrimitiveType::Char => Value::Char(lit.chars().nth(1).unwrap()),
                 PrimitiveType::Arr(r#type) => match **r#type {
-                    PrimitiveType::Char => Value::String(lit.to_string()),
+                    PrimitiveType::Char => {
+                        if let ExpressionKind::Array(contents) = &expr.kind {
+                            let mut values = Vec::new();
+                            for expr in contents {
+                                values.push(self.eval_expression(&expr));
+                            }
+                            Value::Array(values)
+                        } else {
+                            panic!()
+                        }
+                    }
                     _ => panic!(
                         "Literal arrays can only be of type Char[], {}[] given",
                         r#type

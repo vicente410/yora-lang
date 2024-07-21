@@ -414,7 +414,9 @@ impl Parser {
                     _ => buffer.push(token.clone()),
                 }
             }
-            args.push(Self::get_expression(&buffer));
+            if buffer.len() > 0 {
+                args.push(Self::get_expression(&buffer));
+            }
             Expression::new(
                 ExpressionKind::Call(tokens[0].str.to_string(), args),
                 &tokens[0],
