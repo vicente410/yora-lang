@@ -101,6 +101,7 @@ impl Interpreter {
     }
 
     fn run_call(&mut self, name: &String, call_args: &Vec<Expression>) {
+        self.start_scope();
         match name.as_str() {
             "exit" => {
                 println!(
@@ -157,6 +158,8 @@ impl Interpreter {
 
                 for (i, (arg_name, _)) in args.iter().enumerate() {
                     let arg_val = self.eval_expression(&call_args[i]);
+                    let len = self.num_vars_scope.len();
+                    self.num_vars_scope[len - 1] += 1;
                     self.variables.push((arg_name.to_string(), arg_val));
                 }
                 for statement in block {
@@ -167,6 +170,7 @@ impl Interpreter {
                 }
             }
         }
+        self.end_scope();
     }
 
     fn run_declare(&mut self, name: &String, value: &Option<Expression>) {
