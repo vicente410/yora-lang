@@ -1,5 +1,5 @@
 use crate::core::PrimitiveType;
-use crate::lexer::*;
+use crate::syntax_analysis::lexer::*;
 use std::process;
 
 #[derive(Debug, PartialEq, Clone)]

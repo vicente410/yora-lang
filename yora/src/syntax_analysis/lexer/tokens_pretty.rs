@@ -1,7 +1,7 @@
 use std::fmt;
 
-use crate::Token;
-use crate::TokenKind;
+use super::Token;
+use super::TokenKind;
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {

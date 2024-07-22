@@ -74,7 +74,7 @@ impl fmt::Display for PrimitiveType {
                 PrimitiveType::Bool => "Bool",
                 PrimitiveType::Int => "Int",
                 PrimitiveType::Char => "Char",
-                PrimitiveType::Arr(r#type) => return write!(f, "{}[]", r#type.deref().to_string()),
+                PrimitiveType::Arr(r#type) => return write!(f, "{}[]", r#type.deref()),
             }
         )
     }

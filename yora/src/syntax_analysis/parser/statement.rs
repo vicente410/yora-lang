@@ -1,8 +1,8 @@
 use std::fmt;
 
+use super::Expression;
+use super::Token;
 use crate::core::PrimitiveType;
-use crate::expression::Expression;
-use crate::Token;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Statement {
@@ -93,17 +93,17 @@ impl Statement {
             } => Self::format_if_else(prefix, cond, true_block, false_block),
             StatementKind::Loop { block } => Self::format_loop(prefix, block),
             StatementKind::While { cond, block } => Self::format_while(prefix, cond, block),
-            StatementKind::Continue => format!("continue\n"),
-            StatementKind::Break => format!("break\n"),
+            StatementKind::Continue => "continue\n".to_string(),
+            StatementKind::Break => "break\n".to_string(),
         }
     }
 
     fn format_procedure(
         prefix: &str,
         name: &String,
-        args: &Vec<(String, Option<PrimitiveType>)>,
+        args: &[(String, Option<PrimitiveType>)],
         ret: &Option<PrimitiveType>,
-        block: &Vec<Statement>,
+        block: &[Statement],
     ) -> String {
         let mut string = String::new();
 
@@ -117,12 +117,10 @@ impl Statement {
                     } else {
                         string.push_str(&format!("{prefix}│   ├── {name}\n"));
                     }
+                } else if let Some(type_hint) = type_hint {
+                    string.push_str(&format!("{prefix}│   └── {name}: {type_hint}\n"));
                 } else {
-                    if let Some(type_hint) = type_hint {
-                        string.push_str(&format!("{prefix}│   └── {name}: {type_hint}\n"));
-                    } else {
-                        string.push_str(&format!("{prefix}│   └── {name}\n"));
-                    }
+                    string.push_str(&format!("{prefix}│   └── {name}\n"));
                 }
             }
         }
@@ -150,7 +148,7 @@ impl Statement {
         format!("pr\n{string}")
     }
 
-    fn format_call(prefix: &str, name: &String, args: &Vec<Expression>) -> String {
+    fn format_call(prefix: &str, name: &String, args: &[Expression]) -> String {
         let mut string = String::new();
 
         for (i, arg) in args.iter().enumerate() {
@@ -195,12 +193,10 @@ impl Statement {
                 "{prefix}└── {}",
                 value.format(&format!("{prefix}    "))
             ));
+        } else if let Some(type_hint) = type_hint {
+            string.push_str(&format!("{prefix}└── {name}: {type_hint}\n"));
         } else {
-            if let Some(type_hint) = type_hint {
-                string.push_str(&format!("{prefix}└── {name}: {type_hint}\n"));
-            } else {
-                string.push_str(&format!("{prefix}└── {name}\n"));
-            }
+            string.push_str(&format!("{prefix}└── {name}\n"));
         }
 
         format!("var\n{string}")
@@ -214,7 +210,7 @@ impl Statement {
         )
     }
 
-    fn format_if(prefix: &str, cond: &Expression, block: &Vec<Statement>) -> String {
+    fn format_if(prefix: &str, cond: &Expression, block: &[Statement]) -> String {
         let mut string = String::new();
 
         string.push_str(&format!(
@@ -243,8 +239,8 @@ impl Statement {
     fn format_if_else(
         prefix: &str,
         cond: &Expression,
-        true_block: &Vec<Statement>,
-        false_block: &Vec<Statement>,
+        true_block: &[Statement],
+        false_block: &[Statement],
     ) -> String {
         let mut string = String::new();
 
@@ -286,7 +282,7 @@ impl Statement {
         format!("if\n{string}")
     }
 
-    fn format_loop(prefix: &str, block: &Vec<Statement>) -> String {
+    fn format_loop(prefix: &str, block: &[Statement]) -> String {
         let mut string = String::new();
 
         for (i, statement) in block.iter().enumerate() {
@@ -306,7 +302,7 @@ impl Statement {
         format!("loop\n{string}")
     }
 
-    fn format_while(prefix: &str, cond: &Expression, block: &Vec<Statement>) -> String {
+    fn format_while(prefix: &str, cond: &Expression, block: &[Statement]) -> String {
         let mut string = String::new();
 
         string.push_str(&format!(

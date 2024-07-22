@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
+use super::errors::*;
+use super::parser::expression::*;
+use super::parser::statement::*;
 use crate::core::*;
-use crate::errors::*;
-use crate::parser::expression::*;
-use crate::statement::*;
 
 struct Analyzer<'a> {
     type_table: HashMap<String, PrimitiveType>,
@@ -161,12 +161,10 @@ impl Analyzer<'_> {
                     } else {
                         todo!("Infere a type in the expression");
                     }
+                } else if let Some(type_hint) = type_hint {
+                    self.type_table.insert(name.to_string(), type_hint.clone());
                 } else {
-                    if let Some(type_hint) = type_hint {
-                        self.type_table.insert(name.to_string(), type_hint.clone());
-                    } else {
-                        todo!("Insert type hint on uninitialized variables");
-                    }
+                    todo!("Insert type hint on uninitialized variables");
                 }
             }
             StatementKind::Assign { dest, src } => {
@@ -268,14 +266,12 @@ impl Analyzer<'_> {
         match &mut expr.kind {
             ExpressionKind::Call(name, args) => {
                 let mut args_types: Vec<PrimitiveType> = Vec::new();
-                for mut arg in args {
-                    self.analyze_expression(&mut arg);
+                for arg in args {
+                    self.analyze_expression(arg);
                     if let ExpressionKind::Id(id) = &arg.kind {
                         args_types.push(self.type_table[&id.clone()].clone());
-                    } else {
-                        if let Some(arg_type) = &arg.r#type {
-                            args_types.push(arg_type.clone());
-                        }
+                    } else if let Some(arg_type) = &arg.r#type {
+                        args_types.push(arg_type.clone());
                     }
                 }
                 if self
@@ -298,8 +294,8 @@ impl Analyzer<'_> {
                 }
             }
             ExpressionKind::Array(values) => {
-                for mut value in values {
-                    self.analyze_expression(&mut value)
+                for value in values {
+                    self.analyze_expression(value)
                 }
             }
         }

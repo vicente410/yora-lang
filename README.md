@@ -21,4 +21,4 @@ Aside from being known for their verbosity, object-oriented languages have multi
 Yora is currently in very early development, aiming to release 0.1.0 in the near future. The first release will include the basic features of the language: variables, an integer and a boolean type, control-flow and basic compiler errors. It will also be the basic framework from which we will build upon all of the mentioned features. After that, Yora will continue its rapid development. Before the release of 1.0.0, stability and backwards compatibility are not the main concern, to allow for rapid development. The main feature in 0.2.0 is expected to be functions.
 
 ## Installation
-The Yora compiler will later be rewritten in Yora itself, but for now the first compiler is written in Rust. As such, clone this repo and run ```cargo install --path /path/to/yora-compiler```. You can then run ```yora-compiler -h``` for more information.
+The Yora compiler will later be rewritten in Yora itself, but for now the first compiler is written in Rust. As such, clone this repo and run ```cargo install --path /path/to/yora-compiler```.

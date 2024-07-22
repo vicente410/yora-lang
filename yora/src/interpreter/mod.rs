@@ -4,8 +4,8 @@ use std::io::Write;
 use std::process;
 
 use crate::core::PrimitiveType;
-use crate::expression::*;
-use crate::statement::*;
+use crate::syntax_analysis::parser::expression::*;
+use crate::syntax_analysis::parser::statement::*;
 
 #[derive(Debug, Clone, PartialEq)]
 enum Value {
@@ -100,7 +100,7 @@ impl Interpreter {
         }
     }
 
-    fn run_call(&mut self, name: &String, call_args: &Vec<Expression>) {
+    fn run_call(&mut self, name: &String, call_args: &[Expression]) {
         self.start_scope();
         match name.as_str() {
             "exit" => {
@@ -119,7 +119,7 @@ impl Interpreter {
                         for value in values {
                             print!("{}", value.get_char());
                         }
-                        print!("\n");
+                        println!();
                     }
                 };
                 let _ = std::io::stdout().flush();
@@ -163,7 +163,7 @@ impl Interpreter {
                     self.variables.push((arg_name.to_string(), arg_val));
                 }
                 for statement in block {
-                    self.run_statement(&statement);
+                    self.run_statement(statement);
                     if let Signal::Return(_) = &self.signal {
                         break;
                     }
@@ -177,7 +177,7 @@ impl Interpreter {
         let len = self.num_vars_scope.len();
         self.num_vars_scope[len - 1] += 1;
         if let Some(value) = value {
-            let value = self.eval_expression(&value);
+            let value = self.eval_expression(value);
             self.variables.push((name.to_string(), value));
         } else {
             self.variables.push((name.to_string(), Value::Int(0)));
@@ -290,7 +290,7 @@ impl Interpreter {
             ExpressionKind::Id(id) => self.get_value_by_name(id),
             ExpressionKind::Lit(lit) => match &expr.r#type.clone().unwrap() {
                 PrimitiveType::Int => Value::Int(lit.parse::<i64>().unwrap()),
-                PrimitiveType::Bool => Value::Bool(if lit == "true" { true } else { false }),
+                PrimitiveType::Bool => Value::Bool(lit == "true"),
                 PrimitiveType::Char => Value::Char(lit.chars().nth(1).unwrap()),
                 PrimitiveType::Arr(r#type) => match **r#type {
                     PrimitiveType::Char => {
@@ -359,7 +359,7 @@ impl Interpreter {
         }
     }
 
-    fn run_call_expr(&mut self, name: &String, args: &Vec<Expression>) -> Value {
+    fn run_call_expr(&mut self, name: &String, args: &[Expression]) -> Value {
         self.run_call(name, args);
         let ret_value = if let Signal::Return(value) = &self.signal {
             value.clone()

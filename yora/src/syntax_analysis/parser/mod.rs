@@ -1,9 +1,9 @@
 use std::process;
 
+use self::expression::*;
+use self::statement::*;
+use super::lexer::*;
 use crate::core::PrimitiveType;
-use crate::expression::*;
-use crate::lexer::*;
-use crate::statement::*;
 
 pub mod expression;
 pub mod statement;
@@ -16,7 +16,7 @@ pub struct Parser;
 
 impl Parser {
     fn parse(tokens: &[Token]) -> Vec<Statement> {
-        Self::get_sequence(&tokens)
+        Self::get_sequence(tokens)
     }
 
     fn get_sequence(tokens: &[Token]) -> Vec<Statement> {
@@ -135,7 +135,6 @@ impl Parser {
     fn get_procedure(tokens: &[Token]) -> Statement {
         let mut start_seq = 0;
         let mut args = Vec::new();
-        let ret;
 
         // find end of arguments
         while start_seq < tokens.len() && tokens[start_seq].str != ")" {
@@ -174,7 +173,7 @@ impl Parser {
             }
         }
 
-        ret = if tokens[start_seq + 1].str == "->" {
+        let ret = if tokens[start_seq + 1].str == "->" {
             start_seq += 2;
             Some(PrimitiveType::from_str(&tokens[start_seq].str))
         } else {
@@ -282,7 +281,7 @@ impl Parser {
                     _ => buffer.push(token.clone()),
                 }
             }
-            if buffer.len() > 0 {
+            if !buffer.is_empty() {
                 args.push(Self::get_expression(&buffer));
             }
             Statement::new(
@@ -356,7 +355,7 @@ impl Parser {
         let len = tokens.len();
 
         if len == 1 {
-            return Expression::new(
+            Expression::new(
                 match &tokens[0].kind {
                     TokenKind::Identifier => ExpressionKind::Id(tokens[0].str.to_string()),
                     TokenKind::BoolLit
@@ -370,7 +369,7 @@ impl Parser {
                     }
                 },
                 &tokens[0],
-            );
+            )
         } else if tokens[1].str == "[" && tokens[len - 1].str == "]" {
             Expression::new(
                 ExpressionKind::Call(
@@ -414,7 +413,7 @@ impl Parser {
                     _ => buffer.push(token.clone()),
                 }
             }
-            if buffer.len() > 0 {
+            if !buffer.is_empty() {
                 args.push(Self::get_expression(&buffer));
             }
             Expression::new(
@@ -510,13 +509,13 @@ impl Parser {
             let right_of_paren = Self::get_expression(&tokens[end + 1..]);
             expr = Self::get_operation(&tokens[end], expr, right_of_paren);
         }
-        return expr;
+        expr
     }
 
     fn get_operation(operation: &Token, arg1: Expression, arg2: Expression) -> Expression {
         Expression::new(
             ExpressionKind::Call(operation.str.clone(), vec![arg1, arg2]),
-            &operation,
+            operation,
         )
     }
 
