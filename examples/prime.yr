@@ -10,7 +10,9 @@ pr is_prime(num: Int) -> Bool:
     
     return div * div > num
 
+print("Write the number to check if it is prime.")
+print("Write 0 to exit.")
 var input = 1
 while input > 0:
-	input = string_to_int(input())
+	input = parse(input())
 	print(is_prime(input))

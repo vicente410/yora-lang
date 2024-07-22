@@ -6,6 +6,6 @@ pr fibonacci(n: Int) -> Int:
 	else:
 		return 1
 
-print("Nth fibonacci number to calculate:")
+print("Nth fibonacci number to calculate: ")
 var input = string_to_int(input())
 print(fibonacci(input))

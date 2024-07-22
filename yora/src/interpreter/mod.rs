@@ -119,7 +119,6 @@ impl Interpreter {
                         for value in values {
                             print!("{}", value.get_char());
                         }
-                        println!();
                     }
                 };
                 let _ = std::io::stdout().flush();
@@ -317,8 +316,19 @@ impl Interpreter {
                 PrimitiveType::Arr(r#type) => match **r#type {
                     PrimitiveType::Char => {
                         let mut chars = Vec::new();
-                        for ch in lit[1..lit.len() - 1].chars() {
-                            chars.push(Value::Char(ch));
+                        let mut char_it = lit[1..lit.len() - 1].chars();
+                        while let Some(ch) = char_it.next() {
+                            if ch == '\\' {
+                                chars.push(Value::Char(match char_it.next().unwrap() {
+                                    'n' => '\n',
+                                    't' => '\t',
+                                    '0' => '\0',
+                                    '\\' => '\\',
+                                    _ => panic!("Unterminated escape code"),
+                                }))
+                            } else {
+                                chars.push(Value::Char(ch));
+                            }
                         }
                         Value::Array(chars)
                     }
