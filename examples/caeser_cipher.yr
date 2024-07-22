@@ -1,0 +1,30 @@
+# This program applies the caeser cipher to the input
+
+pr caeser_cipher(text: Char[], shift: Int) -> Char[]:
+	var i = 0
+	shift = shift % 26
+
+	while i < string_len(text):
+		var char_value = char_to_int(text[i])
+
+		if char_value >= char_to_int('a') and char_value <= char_to_int('z'):
+			char_value = (char_value - char_to_int('a') + shift) % 26
+			text[i] = int_to_char(char_value + char_to_int('a'))
+		else if char_value >= char_to_int('A') and char_value <= char_to_int('Z'):
+			char_value = (char_value - char_to_int('A') + shift) % 26
+			text[i] = int_to_char(char_value + char_to_int('A'))
+		
+		i += 1
+	
+	return text
+
+print("Shift: ")
+var shift = string_to_int(input())
+print("Text: ")
+var text = input()
+
+if shift < 0 - 25 or shift > 25:
+	print("Shift must be between -25 and 25\n")
+	exit(1)
+
+print(caeser_cipher(text, shift))
