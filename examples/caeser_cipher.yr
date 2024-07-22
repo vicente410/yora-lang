@@ -23,7 +23,7 @@ var shift = string_to_int(input())
 print("Text: ")
 var text = input()
 
-if shift < 0 - 25 or shift > 25:
+if shift < -25 or shift > 25:
 	print("Shift must be between -25 and 25\n")
 	exit(1)
 

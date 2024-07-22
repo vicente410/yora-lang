@@ -369,6 +369,7 @@ impl Interpreter {
                 } else if args.len() == 1 {
                     match name.as_str() {
                         "!" => Value::Bool(!self.eval_expression(&args[0]).get_bool()),
+                        "-" => Value::Int(-self.eval_expression(&args[0]).get_int()),
                         _ => self.run_call_expr(name, args),
                     }
                 } else {

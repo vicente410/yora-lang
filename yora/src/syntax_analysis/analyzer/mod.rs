@@ -35,6 +35,10 @@ impl Analyzer<'_> {
                 Some(PrimitiveType::Int),
             ),
             (
+                ("-".to_string(), vec![PrimitiveType::Int; 1]),
+                Some(PrimitiveType::Int),
+            ),
+            (
                 ("/".to_string(), vec![PrimitiveType::Int; 2]),
                 Some(PrimitiveType::Int),
             ),
