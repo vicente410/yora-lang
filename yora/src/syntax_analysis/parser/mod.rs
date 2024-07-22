@@ -186,6 +186,7 @@ impl Parser {
             }
             Some(PrimitiveType::from_str(&ret_type))
         } else {
+            start_seq += 1;
             None
         };
 

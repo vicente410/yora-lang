@@ -10,8 +10,8 @@ pr is_prime(num: Int) -> Bool:
     
     return div * div > num
 
-print("Write the number to check if it is prime.")
-print("Write 0 to exit.")
+print("Write the number to check if it is prime.\n")
+print("Write 0 to exit.\n")
 var input = 1
 while input > 0:
 	input = parse(input())

@@ -104,17 +104,13 @@ impl Interpreter {
         self.start_scope();
         match name.as_str() {
             "exit" => {
-                println!(
-                    "Process exited with exit code {}",
-                    self.eval_expression(&call_args[0]).get_int()
-                );
                 process::exit(0);
             }
             "print" => {
                 match self.eval_expression(&call_args[0]) {
-                    Value::Int(int) => println!("{}", int),
-                    Value::Bool(boolean) => println!("{}", boolean),
-                    Value::Char(character) => println!("{}", character),
+                    Value::Int(int) => print!("{}", int),
+                    Value::Bool(boolean) => print!("{}", boolean),
+                    Value::Char(character) => print!("{}", character),
                     Value::Array(values) => {
                         for value in values {
                             print!("{}", value.get_char());
@@ -128,10 +124,10 @@ impl Interpreter {
                 let mut values = Vec::new();
 
                 let _ = stdin().read_line(&mut buffer);
+                let _ = buffer.strip_suffix('\n');
                 for ch in buffer.chars() {
                     values.push(Value::Char(ch))
                 }
-                values.pop();
                 self.signal = Signal::Return(Value::Array(values));
             }
             "string_to_int" => {
