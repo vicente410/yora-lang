@@ -353,7 +353,6 @@ impl Parser {
 
     fn get_expression(tokens: &[Token]) -> Expression {
         let len = tokens.len();
-
         if len == 1 {
             Expression::new(
                 match &tokens[0].kind {
@@ -386,7 +385,8 @@ impl Parser {
                     col: tokens[1].col,
                 },
             )
-        } else if tokens[1].str == "(" && tokens[len - 1].str == ")" {
+        } else if tokens[1].str == "(" && tokens[len - 1].str == ")" && Self::is_single_call(tokens)
+        {
             let mut args = Vec::new();
             let mut buffer = Vec::new();
             let mut num_paren = 0;
@@ -454,7 +454,11 @@ impl Parser {
             let mut priority = 0;
             for (i, token) in tokens.iter().enumerate() {
                 if token.str == "(" {
-                    return Self::get_parentheses(tokens);
+                    return if i > 0 && tokens[i - 1].kind == TokenKind::Identifier {
+                        Self::get_call_expr(tokens)
+                    } else {
+                        Self::get_parentheses(tokens)
+                    };
                 }
                 if token.kind == TokenKind::Operator && priority <= Self::get_op_priority(token) {
                     pos = i;
@@ -510,6 +514,52 @@ impl Parser {
             expr = Self::get_operation(&tokens[end], expr, right_of_paren);
         }
         expr
+    }
+
+    fn get_call_expr(tokens: &[Token]) -> Expression {
+        let mut start = 0;
+        while start < tokens.len() && tokens[start].str != "(" {
+            start += 1;
+        }
+        let mut end = start + 1;
+        let mut num_paren = 1;
+        while end < tokens.len() && num_paren > 0 {
+            if tokens[end].str == "(" {
+                num_paren += 1;
+            } else if tokens[end].str == ")" {
+                num_paren -= 1;
+            }
+            end += 1;
+        }
+        if num_paren != 0 {
+            panic!("Unmatched parentheses");
+        }
+
+        let mut call = Self::get_expression(&tokens[start - 1..end]);
+        if start > 2 {
+            let left_of_paren = Self::get_expression(&tokens[0..start - 2]);
+            call = Self::get_operation(&tokens[start - 2], left_of_paren, call);
+        }
+        if end < tokens.len() {
+            let right_of_paren = Self::get_expression(&tokens[end + 1..]);
+            call = Self::get_operation(&tokens[end], call, right_of_paren);
+        }
+        call
+    }
+
+    fn is_single_call(tokens: &[Token]) -> bool {
+        let mut end = 2;
+        let mut num_paren = 1;
+        while end < tokens.len() && num_paren > 0 {
+            if tokens[end].str == "(" {
+                num_paren += 1;
+            } else if tokens[end].str == ")" {
+                num_paren -= 1;
+            }
+            end += 1;
+        }
+
+        end == tokens.len()
     }
 
     fn get_operation(operation: &Token, arg1: Expression, arg2: Expression) -> Expression {
