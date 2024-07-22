@@ -174,8 +174,17 @@ impl Parser {
         }
 
         let ret = if tokens[start_seq + 1].str == "->" {
+            let mut ret_type = String::new();
             start_seq += 2;
-            Some(PrimitiveType::from_str(&tokens[start_seq].str))
+            for token in &tokens[start_seq..] {
+                if token.str != ":" {
+                    ret_type.push_str(&token.str);
+                    start_seq += 1;
+                } else {
+                    break;
+                }
+            }
+            Some(PrimitiveType::from_str(&ret_type))
         } else {
             None
         };
@@ -185,7 +194,7 @@ impl Parser {
                 name: tokens[1].str.to_string(),
                 args,
                 ret,
-                block: Self::get_sequence(&tokens[start_seq + 2..]),
+                block: Self::get_sequence(&tokens[start_seq + 1..]),
             },
             &tokens[0],
         )
@@ -308,7 +317,7 @@ impl Parser {
                 }
             }
 
-            println!("unrecognized expression:");
+            println!("Parser: Unrecognized statement:");
             dbg!(tokens);
             process::exit(1);
         }

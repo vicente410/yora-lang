@@ -132,6 +132,7 @@ impl Interpreter {
                 for ch in buffer.chars() {
                     values.push(Value::Char(ch))
                 }
+                values.pop();
                 self.signal = Signal::Return(Value::Array(values));
             }
             "string_to_int" => {
