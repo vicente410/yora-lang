@@ -206,7 +206,7 @@ impl Statement {
         format!(
             "=\n{prefix}├── {}{prefix}└── {}",
             dest.format(&format!("{prefix}│   ")),
-            src.format(&format!("{prefix}│  "))
+            src.format(&format!("{prefix}   "))
         )
     }
 

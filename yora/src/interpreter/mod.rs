@@ -37,7 +37,7 @@ impl Value {
     fn get_array(&self) -> Vec<Value> {
         match self {
             Value::Array(array) => array.clone(),
-            _ => panic!("Not a char"),
+            _ => panic!("Not a string"),
         }
     }
 }
@@ -134,7 +134,7 @@ impl Interpreter {
                 }
                 self.signal = Signal::Return(Value::Array(values));
             }
-            "parse" => {
+            "string_to_int" => {
                 if let Value::Array(values) = self.eval_expression(&call_args[0]) {
                     let mut string = String::new();
                     for value in values {
@@ -142,6 +142,27 @@ impl Interpreter {
                     }
                     string.pop();
                     self.signal = Signal::Return(Value::Int(string.parse().unwrap()))
+                } else {
+                    panic!()
+                }
+            }
+            "char_to_int" => {
+                if let Value::Char(ch) = self.eval_expression(&call_args[0]) {
+                    self.signal = Signal::Return(Value::Int(ch as i64))
+                } else {
+                    panic!()
+                }
+            }
+            "int_to_char" => {
+                if let Value::Int(int) = self.eval_expression(&call_args[0]) {
+                    self.signal = Signal::Return(Value::Char(char::from_u32(int as u32).unwrap()))
+                } else {
+                    panic!()
+                }
+            }
+            "string_len" => {
+                if let Value::Array(contents) = self.eval_expression(&call_args[0]) {
+                    self.signal = Signal::Return(Value::Int(contents.len() as i64))
                 } else {
                     panic!()
                 }

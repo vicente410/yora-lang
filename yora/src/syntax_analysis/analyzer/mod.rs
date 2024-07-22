@@ -108,7 +108,22 @@ impl Analyzer<'_> {
             ),
             (
                 (
-                    "parse".to_string(),
+                    "string_to_int".to_string(),
+                    vec![PrimitiveType::Arr(Box::new(PrimitiveType::Char))],
+                ),
+                Some(PrimitiveType::Int),
+            ),
+            (
+                ("char_to_int".to_string(), vec![PrimitiveType::Char]),
+                Some(PrimitiveType::Int),
+            ),
+            (
+                ("int_to_char".to_string(), vec![PrimitiveType::Int]),
+                Some(PrimitiveType::Char),
+            ),
+            (
+                (
+                    "string_len".to_string(),
                     vec![PrimitiveType::Arr(Box::new(PrimitiveType::Char))],
                 ),
                 Some(PrimitiveType::Int),
@@ -128,16 +143,6 @@ impl Analyzer<'_> {
                 type_hint,
                 value,
             } => {
-                if self.type_table.contains_key(name) {
-                    self.errors.add(
-                        ErrorKind::AlreadyDeclared {
-                            var: name.to_string(),
-                        },
-                        statement.line,
-                        statement.col,
-                    )
-                }
-
                 if let Some(value) = value {
                     self.analyze_expression(value);
 

@@ -36,9 +36,6 @@ impl Errors {
                     error.line, error.col
                 )
             }
-            ErrorKind::AlreadyDeclared { var } => {
-                println!("{}:{}: '{var}' previously declared", error.line, error.col)
-            }
             ErrorKind::OperationNotImplemented { op, type1, type2 } => {
                 println!(
                     "{}:{}: operation '{op}' not implemented between types '{type1}' and '{type2}'",
@@ -93,9 +90,6 @@ impl PartialOrd for Error {
 #[derive(PartialEq, Eq)]
 pub enum ErrorKind {
     UndeclaredVariable {
-        var: String,
-    },
-    AlreadyDeclared {
         var: String,
     },
     OperationNotImplemented {
