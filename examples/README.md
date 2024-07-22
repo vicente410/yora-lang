@@ -135,13 +135,14 @@ while condition():
     var num = string_to_int(input())
     if num >= 10:
         continue
-    print(num)
+    do_stuff()
 ```
 
-A break end the loop.
+A break ends the loop.
 ```nim
 var num = 0
 while condition():
+    print(num)
     num += 1
     if num >= 10:
         break
@@ -170,10 +171,10 @@ print(num + 5)
 ### Output
 You can print a char array or any primitive type directly.
 ```nim
-print(42)
-print(true)
-print('B')
-print("Answer")
+print(42) # 42
+print(true) # true
+print('B') # B
+print("Answer") # Answer
 ```
 
 ## Procedures
