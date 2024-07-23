@@ -6,7 +6,8 @@ use super::parser::statement::*;
 use crate::core::*;
 
 struct Analyzer<'a> {
-    type_table: HashMap<String, PrimitiveType>,
+    variables: Vec<(String, PrimitiveType)>,
+    num_vars_scope: Vec<i8>,
     call_signatures: HashMap<(String, Vec<PrimitiveType>), Option<PrimitiveType>>,
     errors: &'a mut Errors,
 }
@@ -14,9 +15,11 @@ struct Analyzer<'a> {
 pub fn analyze(ast: &mut Vec<Statement>, errors: &mut Errors) {
     let mut analyzer = Analyzer::new(errors);
 
+    analyzer.start_scope();
     for statement in ast {
         analyzer.analyze_statement(statement);
     }
+    analyzer.end_scope();
 
     if analyzer.errors.should_abort() {
         analyzer.errors.print_and_abort();
@@ -134,7 +137,8 @@ impl Analyzer<'_> {
             ),
         ]);
         Analyzer {
-            type_table: HashMap::new(),
+            variables: Vec::new(),
+            num_vars_scope: Vec::new(),
             call_signatures,
             errors,
         }
@@ -162,16 +166,16 @@ impl Analyzer<'_> {
                                     statement.col,
                                 )
                             } else {
-                                self.type_table.insert(name.to_string(), value_type.clone());
+                                self.add_variable(name.clone(), value_type.clone());
                             }
                         } else {
-                            self.type_table.insert(name.to_string(), value_type.clone());
+                            self.add_variable(name.clone(), value_type.clone());
                         }
                     } else {
                         todo!("Infere a type in the expression");
                     }
                 } else if let Some(type_hint) = type_hint {
-                    self.type_table.insert(name.to_string(), type_hint.clone());
+                    self.add_variable(name.clone(), type_hint.clone());
                 } else {
                     todo!("Insert type hint on uninitialized variables");
                 }
@@ -180,26 +184,48 @@ impl Analyzer<'_> {
                 self.analyze_expression(dest);
                 self.analyze_expression(src);
 
-                let dest_type = dest.r#type.clone().unwrap();
                 let src_type = src.r#type.clone().unwrap();
-
-                if dest_type != src_type {
-                    self.errors.add(
-                        ErrorKind::MismatchedTypes {
-                            expected: dest_type.to_string(),
-                            found: src_type.to_string(),
-                        },
-                        src.line,
-                        dest.col,
-                    );
+                if let ExpressionKind::Id(id) = &dest.kind {
+                    if self.contains_variable(id.clone()) {
+                        let dest_type = dest.r#type.clone().unwrap();
+                        if dest_type != src_type {
+                            self.errors.add(
+                                ErrorKind::MismatchedTypes {
+                                    expected: dest_type.to_string(),
+                                    found: src_type.to_string(),
+                                },
+                                dest.line,
+                                dest.col,
+                            );
+                        }
+                    } else {
+                        self.errors.add(
+                            ErrorKind::UndeclaredVariable { var: id.clone() },
+                            dest.line,
+                            dest.col,
+                        );
+                    }
+                } else if let ExpressionKind::Call(name, ref mut exprs) = &mut dest.kind {
+                    if name == "[]" {
+                        for expr in exprs {
+                            self.analyze_expression(expr);
+                        }
+                    }
+                } else {
+                    dbg!(&dest);
+                    self.errors
+                        .add(ErrorKind::InvalidIdentifier, dest.line, dest.col);
                 }
             }
             StatementKind::If { cond, block } => {
+                self.start_scope();
                 self.analyze_condition(cond);
 
                 for statement in block {
                     self.analyze_statement(statement);
                 }
+
+                self.end_scope();
             }
             StatementKind::IfElse {
                 cond,
@@ -208,25 +234,34 @@ impl Analyzer<'_> {
             } => {
                 self.analyze_condition(cond);
 
+                self.start_scope();
                 for statement in true_block {
                     self.analyze_statement(statement);
                 }
 
+                self.end_scope();
+
+                self.start_scope();
                 for statement in false_block {
                     self.analyze_statement(statement);
                 }
+                self.end_scope();
             }
             StatementKind::Loop { block } => {
+                self.start_scope();
                 for statement in block {
                     self.analyze_statement(statement);
                 }
+                self.end_scope();
             }
             StatementKind::While { cond, block } => {
+                self.start_scope();
                 self.analyze_condition(cond);
 
                 for statement in block {
                     self.analyze_statement(statement);
                 }
+                self.end_scope();
             }
             StatementKind::Call { name: _, args } => {
                 for arg in args {
@@ -237,18 +272,34 @@ impl Analyzer<'_> {
                 name,
                 args,
                 ret,
-                block: _,
+                block,
             } => {
+                //todo change this approach
+                let variables_copy = self.variables.clone();
+                self.variables.clear();
+
+                self.start_scope();
+
                 let mut args_types: Vec<PrimitiveType> = Vec::with_capacity(args.len());
                 for arg in args {
                     if let Some(arg_type) = &arg.1 {
                         args_types.push(arg_type.clone());
+                        self.add_variable(arg.0.clone(), arg_type.clone());
                     } else {
                         panic!("Insert type hint in procedure declaration");
                     }
                 }
+
+                for statement in block {
+                    self.analyze_statement(statement);
+                }
+
                 self.call_signatures
                     .insert((name.to_string(), args_types), ret.clone());
+
+                self.end_scope();
+
+                self.variables = variables_copy;
             }
             _ => {}
         }
@@ -278,7 +329,7 @@ impl Analyzer<'_> {
                 for arg in args {
                     self.analyze_expression(arg);
                     if let ExpressionKind::Id(id) = &arg.kind {
-                        args_types.push(self.type_table[&id.clone()].clone());
+                        args_types.push(self.get_type_by_name(id));
                     } else if let Some(arg_type) = &arg.r#type {
                         args_types.push(arg_type.clone());
                     }
@@ -293,13 +344,19 @@ impl Analyzer<'_> {
                         ErrorKind::UndefinedProcedure { name: name.clone() },
                         expr.line,
                         expr.col,
-                    )
+                    );
                 }
             }
             ExpressionKind::Lit(..) => {}
             ExpressionKind::Id(id) => {
-                if self.type_table.contains_key(&id.clone()) {
-                    expr.r#type = Some(self.type_table[&id.clone()].clone());
+                if self.contains_variable(id.clone()) {
+                    expr.r#type = Some(self.get_type_by_name(id));
+                } else {
+                    self.errors.add(
+                        ErrorKind::UndeclaredVariable { var: id.clone() },
+                        expr.line,
+                        expr.col,
+                    );
                 }
             }
             ExpressionKind::Array(values) => {
@@ -307,6 +364,42 @@ impl Analyzer<'_> {
                     self.analyze_expression(value)
                 }
             }
+        }
+    }
+
+    fn add_variable(&mut self, name: String, r#type: PrimitiveType) {
+        let len = self.num_vars_scope.len();
+        self.num_vars_scope[len - 1] += 1;
+        self.variables.push((name, r#type));
+    }
+
+    fn contains_variable(&self, name: String) -> bool {
+        let vars = self.variables.iter().rev();
+        for var in vars {
+            if var.0 == *name {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn get_type_by_name(&self, name: &String) -> PrimitiveType {
+        let vars = self.variables.iter().rev();
+        for var in vars {
+            if var.0 == *name {
+                return var.1.clone();
+            }
+        }
+        panic!("Undeclared variable '{name}' used");
+    }
+
+    fn start_scope(&mut self) {
+        self.num_vars_scope.push(0);
+    }
+
+    fn end_scope(&mut self) {
+        for _ in 0..self.num_vars_scope.pop().unwrap() {
+            self.variables.pop();
         }
     }
 }
